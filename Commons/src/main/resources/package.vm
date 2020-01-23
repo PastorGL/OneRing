@@ -1,0 +1,16 @@
+#set( $H = '#' )
+
+#foreach( $pkg in $pkgs )
+$H Package `$pkg.name`
+
+$pkg.descr
+
+Verb | Description | Examples
+--- | --- | ---
+#foreach( $op in $pkg.ops )
+[`${op.name}`](../operation/${op.name}.md) | $op.descr | [JSON](../operation/$op.name/example.json) [.ini](../operation/$op.name/example.ini)
+#end
+
+#end
+
+[Back to index](../index.md)

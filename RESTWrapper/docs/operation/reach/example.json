@@ -1,0 +1,66 @@
+{
+  "op" : [
+    {
+      "definitions" : [
+        {
+          "name" : "values.count.column",
+          "value" : "reach_values.count"
+        },
+        {
+          "name" : "values.value.column",
+          "value" : "reach_values.value"
+        }
+      ],
+      "dynamicDefs" : [ ],
+      "inputs" : {
+        "named" : [
+          {
+            "name" : "values",
+            "value" : "reach_values"
+          },
+          {
+            "name" : "population",
+            "value" : "reach_population"
+          }
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "reach"
+        ]
+      },
+      "name" : "reach",
+      "verb" : "reach"
+    }
+  ],
+  "ds" : [
+    {
+      "name" : "reach_values",
+      "input" : {
+        "columns" : [
+          "count",
+          "value"
+        ],
+        "delimiter" : ",",
+        "partCount" : "100500",
+        "path" : "proto://full/path/to/source_0/*.csv"
+      }
+    },
+    {
+      "name" : "reach_population"
+    },
+    {
+      "name" : "reach"
+    },
+    {
+      "name" : "_default",
+      "output" : {
+        "path" : "proto://full/path/to/output/directory"
+      }
+    }
+  ],
+  "tee" : [
+    "reach"
+  ],
+  "sink" : [ ]
+}

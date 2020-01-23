@@ -1,0 +1,67 @@
+{
+  "op" : [
+    {
+      "definitions" : [
+        {
+          "name" : "lat.column",
+          "value" : "h3_0.lat"
+        },
+        {
+          "name" : "lon.column",
+          "value" : "h3_0.lon"
+        },
+        {
+          "name" : "hash.level",
+          "value" : "9",
+          "useDefaults" : true
+        }
+      ],
+      "dynamicDefs" : [ ],
+      "inputs" : {
+        "positional" : [
+          "h3_0"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "h3"
+        ]
+      },
+      "name" : "h3",
+      "verb" : "h3"
+    }
+  ],
+  "ds" : [
+    {
+      "name" : "h3_0",
+      "input" : {
+        "columns" : [
+          "lat",
+          "lon"
+        ],
+        "delimiter" : ",",
+        "partCount" : "100500",
+        "path" : "proto://full/path/to/source_0/*.csv"
+      }
+    },
+    {
+      "name" : "h3",
+      "output" : {
+        "columns" : [
+          "_hash"
+        ],
+        "delimiter" : ","
+      }
+    },
+    {
+      "name" : "_default",
+      "output" : {
+        "path" : "proto://full/path/to/output/directory"
+      }
+    }
+  ],
+  "tee" : [
+    "h3"
+  ],
+  "sink" : [ ]
+}

@@ -1,0 +1,151 @@
+{
+  "op" : [
+    {
+      "definitions" : [
+        {
+          "name" : "radius.column",
+          "value" : "source_1.radius"
+        },
+        {
+          "name" : "lat.column",
+          "value" : "source_1.lat"
+        },
+        {
+          "name" : "lon.column",
+          "value" : "source_1.lon"
+        }
+      ],
+      "inputs" : {
+        "positional" : [
+          "source_1"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "proximityFilter_signals"
+        ]
+      },
+      "name" : "source_1",
+      "verb" : "pointCsvSource"
+    },
+    {
+      "definitions" : [
+        {
+          "name" : "radius.column",
+          "value" : "source_2.radius"
+        },
+        {
+          "name" : "lat.column",
+          "value" : "source_2.lat"
+        },
+        {
+          "name" : "lon.column",
+          "value" : "source_2.lon"
+        }
+      ],
+      "inputs" : {
+        "positional" : [
+          "source_2"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "proximityFilter_pois"
+        ]
+      },
+      "name" : "source_2",
+      "verb" : "pointCsvSource"
+    },
+    {
+      "inputs" : {
+        "named" : [
+          {
+            "name" : "signals",
+            "value" : "proximityFilter_signals"
+          },
+          {
+            "name" : "pois",
+            "value" : "proximityFilter_pois"
+          }
+        ]
+      },
+      "outputs" : {
+        "named" : [
+          {
+            "name" : "signals",
+            "value" : "signals"
+          }
+        ]
+      },
+      "name" : "proximityFilter",
+      "verb" : "proximityFilter"
+    },
+    {
+      "inputs" : {
+        "positional" : [
+          "signals"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "signals_output"
+        ]
+      },
+      "name" : "output_3",
+      "verb" : "pointCsvOutput"
+    }
+  ],
+  "ds" : [
+    {
+      "name" : "source_1",
+      "input" : {
+        "columns" : [
+          "lat",
+          "lon",
+          "radius"
+        ],
+        "partCount" : "100500",
+        "path" : "proto://full/path/to/source_1/*.csv"
+      }
+    },
+    {
+      "name" : "proximityFilter_signals"
+    },
+    {
+      "name" : "source_2",
+      "input" : {
+        "columns" : [
+          "lat",
+          "lon",
+          "radius"
+        ],
+        "partCount" : "100500",
+        "path" : "proto://full/path/to/source_2/*.csv"
+      }
+    },
+    {
+      "name" : "proximityFilter_pois"
+    },
+    {
+      "name" : "signals_output",
+      "output" : {
+        "columns" : [
+          "signals.lat",
+          "signals.lon",
+          "signals.radius"
+        ],
+        "delimiter" : ","
+      }
+    },
+    {
+      "name" : "_default",
+      "output" : {
+        "path" : "proto://full/path/to/output/directory"
+      }
+    }
+  ],
+  "tee" : [
+    "signals_output"
+  ],
+  "sink" : [ ]
+}

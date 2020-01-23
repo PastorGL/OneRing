@@ -1,0 +1,90 @@
+{
+  "op" : [
+    {
+      "definitions" : [
+        {
+          "name" : "key.columns",
+          "value" : "keyedMath_0_0.key"
+        }
+      ],
+      "inputs" : {
+        "positional" : [
+          "keyedMath_0_0"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "keyedMath_0"
+        ]
+      },
+      "name" : "source_1",
+      "verb" : "mapToPair"
+    },
+    {
+      "definitions" : [
+        {
+          "name" : "calc.column",
+          "value" : "keyedMath_0.calc",
+          "useDefaults" : false
+        },
+        {
+          "name" : "calc.function",
+          "value" : "<* One of the following: SUM POWERMEAN POWER_MEAN MEAN AVERAGE RMS ROOTMEAN ROOT_MEAN ROOTMEANSQUARE ROOT_MEAN_SQUARE MIN MAX MUL MULTIPLY *>"
+        },
+        {
+          "name" : "calc.const",
+          "useDefaults" : true
+        }
+      ],
+      "dynamicDefs" : [ ],
+      "inputs" : {
+        "positional" : [
+          "keyedMath_0"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "keyedMath"
+        ]
+      },
+      "name" : "keyedMath",
+      "verb" : "keyedMath"
+    }
+  ],
+  "ds" : [
+    {
+      "name" : "keyedMath_0_0",
+      "input" : {
+        "columns" : [
+          "key",
+          "_"
+        ],
+        "delimiter" : ",",
+        "partCount" : "100500",
+        "path" : "proto://full/path/to/source_0/*.csv"
+      }
+    },
+    {
+      "name" : "keyedMath_0",
+      "input" : {
+        "columns" : [
+          "calc"
+        ],
+        "delimiter" : ","
+      }
+    },
+    {
+      "name" : "keyedMath"
+    },
+    {
+      "name" : "_default",
+      "output" : {
+        "path" : "proto://full/path/to/output/directory"
+      }
+    }
+  ],
+  "tee" : [
+    "keyedMath"
+  ],
+  "sink" : [ ]
+}

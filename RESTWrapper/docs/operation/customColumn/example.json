@@ -1,0 +1,48 @@
+{
+  "op" : [
+    {
+      "definitions" : [
+        {
+          "name" : "custom.column.value",
+          "value" : "<* Value of type String *>"
+        },
+        {
+          "name" : "custom.column.index",
+          "value" : "-1",
+          "useDefaults" : true
+        }
+      ],
+      "dynamicDefs" : [ ],
+      "inputs" : {
+        "positional" : [
+          "customColumn_0"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "customColumn"
+        ]
+      },
+      "name" : "customColumn",
+      "verb" : "customColumn"
+    }
+  ],
+  "ds" : [
+    {
+      "name" : "customColumn_0"
+    },
+    {
+      "name" : "customColumn"
+    },
+    {
+      "name" : "_default",
+      "output" : {
+        "path" : "proto://full/path/to/output/directory"
+      }
+    }
+  ],
+  "tee" : [
+    "customColumn"
+  ],
+  "sink" : [ ]
+}

@@ -1,0 +1,72 @@
+{
+  "op" : [
+    {
+      "definitions" : [
+        {
+          "name" : "default.columns",
+          "useDefaults" : true
+        },
+        {
+          "name" : "count.col",
+          "value" : "<* Value of type String *>"
+        },
+        {
+          "name" : "value.col",
+          "value" : "<* Value of type String *>"
+        },
+        {
+          "name" : "payload.columns",
+          "value" : "<* Value of type String[] *>"
+        }
+      ],
+      "dynamicDefs" : [ ],
+      "inputs" : {
+        "positional" : [
+          "weightedSum_0"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "weightedSum"
+        ]
+      },
+      "name" : "weightedSum",
+      "verb" : "weightedSum"
+    }
+  ],
+  "ds" : [
+    {
+      "name" : "weightedSum_0",
+      "input" : {
+        "columns" : [
+          "<* A list of columns goes here *>"
+        ],
+        "delimiter" : ",",
+        "partCount" : "100500",
+        "path" : "proto://full/path/to/source_0/*.csv"
+      }
+    },
+    {
+      "name" : "weightedSum",
+      "output" : {
+        "columns" : [
+          "_total_value",
+          "_weighted_sum",
+          "_total_count",
+          "_payload_*"
+        ],
+        "delimiter" : ","
+      }
+    },
+    {
+      "name" : "_default",
+      "output" : {
+        "path" : "proto://full/path/to/output/directory"
+      }
+    }
+  ],
+  "tee" : [
+    "weightedSum"
+  ],
+  "sink" : [ ]
+}

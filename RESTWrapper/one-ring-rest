@@ -1,0 +1,30 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          One Ring REST microservice
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start One Ring REST daemon at boot time
+# Description:       Enable service provided by daemon.
+# /etc/init.d/one-ring-rest - startup script for One Ring REST
+### END INIT INFO
+
+
+# Ensure you enter the right user name that One Ring REST will run under
+USER="ubuntu"
+
+PORT="9998"
+IFACE="0.0.0.0"
+
+case $1 in
+
+  start)
+    start-stop-daemon --start -m --pidfile /var/run/one-ring-rest.pid -c $USER --exec /usr/bin/java -- -jar /opt/one-ring/one-ring-rest.jar --port $PORT --iface $IFACE 2>&1 > /dev/null &
+  ;;
+  stop)
+    start-stop-daemon --stop -s KILL --remove-pidfile --pidfile /var/run/one-ring-rest.pid
+  ;;
+esac
+
+exit 0

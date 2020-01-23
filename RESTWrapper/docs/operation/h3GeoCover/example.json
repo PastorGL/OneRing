@@ -1,0 +1,96 @@
+{
+  "op" : [
+    {
+      "definitions" : [
+        {
+          "name" : "radius.column",
+          "value" : "source_1.radius"
+        },
+        {
+          "name" : "lat.column",
+          "value" : "source_1.lat"
+        },
+        {
+          "name" : "lon.column",
+          "value" : "source_1.lon"
+        }
+      ],
+      "inputs" : {
+        "positional" : [
+          "source_1"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "h3GeoCover_0"
+        ]
+      },
+      "name" : "source_1",
+      "verb" : "pointCsvSource"
+    },
+    {
+      "definitions" : [
+        {
+          "name" : "hash.level",
+          "value" : "9",
+          "useDefaults" : true
+        }
+      ],
+      "dynamicDefs" : [ ],
+      "inputs" : {
+        "positional" : [
+          "h3GeoCover_0"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "h3GeoCover"
+        ]
+      },
+      "name" : "h3GeoCover",
+      "verb" : "h3GeoCover"
+    }
+  ],
+  "ds" : [
+    {
+      "name" : "source_1",
+      "input" : {
+        "columns" : [
+          "lat",
+          "lon",
+          "radius"
+        ],
+        "partCount" : "100500",
+        "path" : "proto://full/path/to/source_1/*.csv"
+      }
+    },
+    {
+      "name" : "h3GeoCover_0",
+      "input" : {
+        "columns" : [
+          "<* A list of columns goes here *>"
+        ],
+        "delimiter" : ","
+      }
+    },
+    {
+      "name" : "h3GeoCover",
+      "output" : {
+        "columns" : [
+          "_hash"
+        ],
+        "delimiter" : ","
+      }
+    },
+    {
+      "name" : "_default",
+      "output" : {
+        "path" : "proto://full/path/to/output/directory"
+      }
+    }
+  ],
+  "tee" : [
+    "h3GeoCover"
+  ],
+  "sink" : [ ]
+}

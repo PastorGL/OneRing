@@ -1,0 +1,103 @@
+{
+  "op" : [
+    {
+      "definitions" : [
+        {
+          "name" : "date.column",
+          "value" : "splitByDate_0.date",
+          "useDefaults" : false
+        },
+        {
+          "name" : "year.column",
+          "value" : "splitByDate_0.year",
+          "useDefaults" : false
+        },
+        {
+          "name" : "dow.column",
+          "value" : "splitByDate_0.dow",
+          "useDefaults" : false
+        },
+        {
+          "name" : "month.column",
+          "value" : "splitByDate_0.month",
+          "useDefaults" : false
+        },
+        {
+          "name" : "hour.column",
+          "value" : "splitByDate_0.hour",
+          "useDefaults" : false
+        },
+        {
+          "name" : "minute.column",
+          "value" : "splitByDate_0.minute",
+          "useDefaults" : false
+        },
+        {
+          "name" : "split.template",
+          "value" : "<* Value of type String *>"
+        }
+      ],
+      "dynamicDefs" : [ ],
+      "inputs" : {
+        "positional" : [
+          "splitByDate_0"
+        ]
+      },
+      "outputs" : {
+        "named" : [
+          {
+            "name" : "template",
+            "value" : "template"
+          },
+          {
+            "name" : "distinct_splits",
+            "value" : "distinct_splits"
+          }
+        ]
+      },
+      "name" : "splitByDate",
+      "verb" : "splitByDate"
+    }
+  ],
+  "ds" : [
+    {
+      "name" : "splitByDate_0",
+      "input" : {
+        "columns" : [
+          "date",
+          "year",
+          "dow",
+          "month",
+          "hour",
+          "minute"
+        ],
+        "delimiter" : ",",
+        "partCount" : "100500",
+        "path" : "proto://full/path/to/source_0/*.csv"
+      }
+    },
+    {
+      "name" : "template",
+      "output" : {
+        "columns" : [
+          "<* A list of columns goes here *>"
+        ],
+        "delimiter" : ","
+      }
+    },
+    {
+      "name" : "distinct_splits"
+    },
+    {
+      "name" : "_default",
+      "output" : {
+        "path" : "proto://full/path/to/output/directory"
+      }
+    }
+  ],
+  "tee" : [
+    "template",
+    "distinct_splits"
+  ],
+  "sink" : [ ]
+}

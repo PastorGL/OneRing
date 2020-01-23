@@ -1,0 +1,114 @@
+{
+  "op" : [
+    {
+      "definitions" : [
+        {
+          "name" : "date.column",
+          "value" : "filterByDate_0.date",
+          "useDefaults" : false
+        },
+        {
+          "name" : "year.column",
+          "value" : "filterByDate_0.year",
+          "useDefaults" : false
+        },
+        {
+          "name" : "dow.column",
+          "value" : "filterByDate_0.dow",
+          "useDefaults" : false
+        },
+        {
+          "name" : "month.column",
+          "value" : "filterByDate_0.month",
+          "useDefaults" : false
+        },
+        {
+          "name" : "hour.column",
+          "value" : "filterByDate_0.hour",
+          "useDefaults" : false
+        },
+        {
+          "name" : "minute.column",
+          "value" : "filterByDate_0.minute",
+          "useDefaults" : false
+        },
+        {
+          "name" : "start",
+          "useDefaults" : true
+        },
+        {
+          "name" : "end",
+          "useDefaults" : true
+        },
+        {
+          "name" : "date.value",
+          "useDefaults" : true
+        },
+        {
+          "name" : "year.value",
+          "useDefaults" : true
+        },
+        {
+          "name" : "dow.value",
+          "useDefaults" : true
+        },
+        {
+          "name" : "month.value",
+          "useDefaults" : true
+        },
+        {
+          "name" : "hhmm.start",
+          "useDefaults" : true
+        },
+        {
+          "name" : "hhmm.end",
+          "useDefaults" : true
+        }
+      ],
+      "dynamicDefs" : [ ],
+      "inputs" : {
+        "positional" : [
+          "filterByDate_0"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "filterByDate"
+        ]
+      },
+      "name" : "filterByDate",
+      "verb" : "filterByDate"
+    }
+  ],
+  "ds" : [
+    {
+      "name" : "filterByDate_0",
+      "input" : {
+        "columns" : [
+          "date",
+          "year",
+          "dow",
+          "month",
+          "hour",
+          "minute"
+        ],
+        "delimiter" : ",",
+        "partCount" : "100500",
+        "path" : "proto://full/path/to/source_0/*.csv"
+      }
+    },
+    {
+      "name" : "filterByDate"
+    },
+    {
+      "name" : "_default",
+      "output" : {
+        "path" : "proto://full/path/to/output/directory"
+      }
+    }
+  ],
+  "tee" : [
+    "filterByDate"
+  ],
+  "sink" : [ ]
+}

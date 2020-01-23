@@ -1,0 +1,98 @@
+{
+  "op" : [
+    {
+      "definitions" : [
+        {
+          "name" : "key.columns",
+          "value" : "joinByKey_0_0.key"
+        }
+      ],
+      "inputs" : {
+        "positional" : [
+          "joinByKey_0_0"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "joinByKey_0"
+        ]
+      },
+      "name" : "source_1",
+      "verb" : "mapToPair"
+    },
+    {
+      "definitions" : [
+        {
+          "name" : "join",
+          "value" : "INNER",
+          "useDefaults" : true
+        },
+        {
+          "name" : "default.left",
+          "value" : "",
+          "useDefaults" : true
+        },
+        {
+          "name" : "default.right",
+          "value" : "",
+          "useDefaults" : true
+        }
+      ],
+      "dynamicDefs" : [ ],
+      "inputs" : {
+        "positional" : [
+          "joinByKey_0"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "joinByKey"
+        ]
+      },
+      "name" : "joinByKey",
+      "verb" : "joinByKey"
+    }
+  ],
+  "ds" : [
+    {
+      "name" : "joinByKey_0_0",
+      "input" : {
+        "columns" : [
+          "key",
+          "_"
+        ],
+        "delimiter" : ",",
+        "partCount" : "100500",
+        "path" : "proto://full/path/to/source_0/*.csv"
+      }
+    },
+    {
+      "name" : "joinByKey_0",
+      "input" : {
+        "columns" : [
+          "<* A list of columns goes here *>"
+        ],
+        "delimiter" : ","
+      }
+    },
+    {
+      "name" : "joinByKey",
+      "output" : {
+        "columns" : [
+          "<* A list of columns goes here *>"
+        ],
+        "delimiter" : ","
+      }
+    },
+    {
+      "name" : "_default",
+      "output" : {
+        "path" : "proto://full/path/to/output/directory"
+      }
+    }
+  ],
+  "tee" : [
+    "joinByKey"
+  ],
+  "sink" : [ ]
+}

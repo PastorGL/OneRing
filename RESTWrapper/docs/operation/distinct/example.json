@@ -1,0 +1,82 @@
+{
+  "op" : [
+    {
+      "definitions" : [
+        {
+          "name" : "key.columns",
+          "value" : "distinct_0_0.key"
+        }
+      ],
+      "inputs" : {
+        "positional" : [
+          "distinct_0_0"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "distinct_0"
+        ]
+      },
+      "name" : "source_1",
+      "verb" : "mapToPair"
+    },
+    {
+      "definitions" : [
+        {
+          "name" : "unique.column",
+          "value" : "distinct_0.unique",
+          "useDefaults" : false
+        }
+      ],
+      "dynamicDefs" : [ ],
+      "inputs" : {
+        "positional" : [
+          "distinct_0"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "distinct"
+        ]
+      },
+      "name" : "distinct",
+      "verb" : "distinct"
+    }
+  ],
+  "ds" : [
+    {
+      "name" : "distinct_0_0",
+      "input" : {
+        "columns" : [
+          "key",
+          "_"
+        ],
+        "delimiter" : ",",
+        "partCount" : "100500",
+        "path" : "proto://full/path/to/source_0/*.csv"
+      }
+    },
+    {
+      "name" : "distinct_0",
+      "input" : {
+        "columns" : [
+          "unique"
+        ],
+        "delimiter" : ","
+      }
+    },
+    {
+      "name" : "distinct"
+    },
+    {
+      "name" : "_default",
+      "output" : {
+        "path" : "proto://full/path/to/output/directory"
+      }
+    }
+  ],
+  "tee" : [
+    "distinct"
+  ],
+  "sink" : [ ]
+}

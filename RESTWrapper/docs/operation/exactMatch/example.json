@@ -1,0 +1,55 @@
+{
+  "op" : [
+    {
+      "definitions" : [
+        {
+          "name" : "match.column",
+          "value" : "exactMatch_0.match"
+        },
+        {
+          "name" : "match.values",
+          "value" : "<* Value of type String[] *>"
+        }
+      ],
+      "dynamicDefs" : [ ],
+      "inputs" : {
+        "positional" : [
+          "exactMatch_0"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "exactMatch"
+        ]
+      },
+      "name" : "exactMatch",
+      "verb" : "exactMatch"
+    }
+  ],
+  "ds" : [
+    {
+      "name" : "exactMatch_0",
+      "input" : {
+        "columns" : [
+          "match"
+        ],
+        "delimiter" : ",",
+        "partCount" : "100500",
+        "path" : "proto://full/path/to/source_0/*.csv"
+      }
+    },
+    {
+      "name" : "exactMatch"
+    },
+    {
+      "name" : "_default",
+      "output" : {
+        "path" : "proto://full/path/to/output/directory"
+      }
+    }
+  ],
+  "tee" : [
+    "exactMatch"
+  ],
+  "sink" : [ ]
+}

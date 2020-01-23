@@ -1,0 +1,87 @@
+#set( $H = '#' )
+
+$H Operation `$op.verb` from [`$op.pkg`](../package/${op.pkg}.md)
+
+$op.descr
+
+Configuration examples: [JSON](../operation/$op.verb/example.json), [.ini](../operation/$op.verb/example.ini)
+
+#if( $op.positionalInputs != $null || $op.namedInputs.size() > 0 )
+$H$H Inputs
+
+    #if( $op.positionalInputs != $null )
+$H$H$H Positional
+
+Allowed types are #foreach( $type in $op.positionalInputs.type )`$type`#if( $foreach.hasNext ), #end#end
+
+        #if( $op.positionalMin != $null)
+There is a required minimum of **$op.positionalMin** positional inputs
+        #end
+    #end
+
+    #if( $op.namedInputs.size() > 0 )
+$H$H$H Named
+
+Name | Type | Description
+--- | --- | ---
+        #foreach( $input in $op.namedInputs )
+`$input.name` | #foreach( $type in $input.type )`$type`#if( $foreach.hasNext ), #end#end | $input.descr
+        #end
+    #end
+#end
+
+#if( $op.positionalOutputs != $null || $op.namedOutputs.size() > 0 )
+$H$H Outputs
+
+    #if( $op.positionalOutputs != $null )
+$H$H$H Positional
+
+Resulting types are #foreach( $type in $op.positionalOutputs.type )`$type`#if( $foreach.hasNext ), #end#end
+    #end
+
+    #if( $op.namedOutputs.size() > 0 )
+$H$H$H Named
+
+Name | Type | Description | Generated columns
+--- | --- | --- | ---
+        #foreach( $output in $op.namedOutputs )
+`$output.name` | #foreach( $type in $output.type )`$type`#if( $foreach.hasNext ), #end#end | $output.descr | #foreach( $gen in $output.generated )`$gen.name` — $gen.descr#if( $foreach.hasNext )<br>#end#end
+        #end
+    #end
+#end
+
+#if( $op.mandatoryParameters.size() > 0 || $op.optionalParameters.size() > 0 || $op.dynamicParameters.size() > 0 )
+$H$H Parameters
+
+    #if( $op.mandatoryParameters.size() > 0 )
+$H$H$H Mandatory
+
+Name | Type | Description | Allowed values
+--- | --- | --- | ---
+        #foreach( $param in $op.mandatoryParameters )
+`$param.name` | `$param.type` | $param.descr | #foreach( $value in $param.values ) `$value.name` — $value.descr#if( $foreach.hasNext )<br>#end#end
+        #end
+    #end
+
+    #if( $op.optionalParameters.size() > 0 )
+$H$H$H Optional
+
+Name | Type | Description | Allowed values | Default value
+--- | --- | --- | --- | ---
+        #foreach( $param in $op.optionalParameters )
+`$param.name` | `$param.type` | $param.descr | #foreach( $value in $param.values ) `$value.name` — $value.descr#if( $foreach.hasNext )<br>#end#end | #if( $param.defaults.name )`${param.defaults.name}`#else`null`#end — ${param.defaults.descr}
+        #end
+    #end
+
+    #if( $op.dynamicParameters.size() > 0 )
+$H$H$H Dynamic
+
+Name prefix | Type | Description | Allowed values
+--- | --- | --- | ---
+        #foreach( $param in $op.dynamicParameters )
+`$param.name` | `$param.type` | $param.descr | #foreach( $value in $param.values ) `$value.name` — $value.descr#if( $foreach.hasNext )<br>#end#end
+        #end
+    #end
+#end
+
+[Back to index](../index.md)

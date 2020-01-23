@@ -1,0 +1,132 @@
+{
+  "op" : [
+    {
+      "definitions" : [
+        {
+          "name" : "radius.column",
+          "value" : "source_1.radius"
+        },
+        {
+          "name" : "lat.column",
+          "value" : "source_1.lat"
+        },
+        {
+          "name" : "lon.column",
+          "value" : "source_1.lon"
+        }
+      ],
+      "inputs" : {
+        "positional" : [
+          "source_1"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "areaCovers_signals"
+        ]
+      },
+      "name" : "source_1",
+      "verb" : "pointCsvSource"
+    },
+    {
+      "inputs" : {
+        "positional" : [
+          "source_2"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "areaCovers_geometries"
+        ]
+      },
+      "name" : "source_2",
+      "verb" : "polygonJsonSource"
+    },
+    {
+      "inputs" : {
+        "named" : [
+          {
+            "name" : "signals",
+            "value" : "areaCovers_signals"
+          },
+          {
+            "name" : "geometries",
+            "value" : "areaCovers_geometries"
+          }
+        ]
+      },
+      "outputs" : {
+        "named" : [
+          {
+            "name" : "signals",
+            "value" : "signals"
+          }
+        ]
+      },
+      "name" : "areaCovers",
+      "verb" : "areaCovers"
+    },
+    {
+      "inputs" : {
+        "positional" : [
+          "signals"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "signals_output"
+        ]
+      },
+      "name" : "output_3",
+      "verb" : "pointCsvOutput"
+    }
+  ],
+  "ds" : [
+    {
+      "name" : "source_1",
+      "input" : {
+        "columns" : [
+          "lat",
+          "lon",
+          "radius"
+        ],
+        "partCount" : "100500",
+        "path" : "proto://full/path/to/source_1/*.csv"
+      }
+    },
+    {
+      "name" : "areaCovers_signals"
+    },
+    {
+      "name" : "source_2",
+      "input" : {
+        "partCount" : "100500",
+        "path" : "proto://full/path/to/source_2/*.json"
+      }
+    },
+    {
+      "name" : "areaCovers_geometries"
+    },
+    {
+      "name" : "signals_output",
+      "output" : {
+        "columns" : [
+          "signals.lat",
+          "signals.lon",
+          "signals.radius"
+        ],
+        "delimiter" : ","
+      }
+    },
+    {
+      "name" : "_default",
+      "output" : {
+        "path" : "proto://full/path/to/output/directory"
+      }
+    }
+  ],
+  "tee" : [
+    "signals_output"
+  ],
+  "sink" : [ ]
+}

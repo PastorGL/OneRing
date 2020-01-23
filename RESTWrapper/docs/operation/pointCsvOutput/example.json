@@ -1,0 +1,82 @@
+{
+  "op" : [
+    {
+      "definitions" : [
+        {
+          "name" : "radius.column",
+          "value" : "source_1.radius"
+        },
+        {
+          "name" : "lat.column",
+          "value" : "source_1.lat"
+        },
+        {
+          "name" : "lon.column",
+          "value" : "source_1.lon"
+        }
+      ],
+      "inputs" : {
+        "positional" : [
+          "source_1"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "pointCsvOutput_0"
+        ]
+      },
+      "name" : "source_1",
+      "verb" : "pointCsvSource"
+    },
+    {
+      "inputs" : {
+        "positional" : [
+          "pointCsvOutput_0"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "pointCsvOutput"
+        ]
+      },
+      "name" : "pointCsvOutput",
+      "verb" : "pointCsvOutput"
+    }
+  ],
+  "ds" : [
+    {
+      "name" : "source_1",
+      "input" : {
+        "columns" : [
+          "lat",
+          "lon",
+          "radius"
+        ],
+        "partCount" : "100500",
+        "path" : "proto://full/path/to/source_1/*.csv"
+      }
+    },
+    {
+      "name" : "pointCsvOutput_0"
+    },
+    {
+      "name" : "pointCsvOutput",
+      "output" : {
+        "columns" : [
+          "<* A list of columns goes here *>"
+        ],
+        "delimiter" : ","
+      }
+    },
+    {
+      "name" : "_default",
+      "output" : {
+        "path" : "proto://full/path/to/output/directory"
+      }
+    }
+  ],
+  "tee" : [
+    "pointCsvOutput"
+  ],
+  "sink" : [ ]
+}

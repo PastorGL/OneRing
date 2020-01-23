@@ -1,0 +1,88 @@
+{
+  "op" : [
+    {
+      "definitions" : [
+        {
+          "name" : "radius.default",
+          "useDefaults" : true
+        },
+        {
+          "name" : "radius.column",
+          "value" : "pointCsvSource_0.radius",
+          "useDefaults" : false
+        },
+        {
+          "name" : "lat.column",
+          "value" : "pointCsvSource_0.lat"
+        },
+        {
+          "name" : "lon.column",
+          "value" : "pointCsvSource_0.lon"
+        }
+      ],
+      "dynamicDefs" : [ ],
+      "inputs" : {
+        "positional" : [
+          "pointCsvSource_0"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "pointCsvSource"
+        ]
+      },
+      "name" : "pointCsvSource",
+      "verb" : "pointCsvSource"
+    },
+    {
+      "inputs" : {
+        "positional" : [
+          "pointCsvSource"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "pointCsvSource_output"
+        ]
+      },
+      "name" : "output_1",
+      "verb" : "pointCsvOutput"
+    }
+  ],
+  "ds" : [
+    {
+      "name" : "pointCsvSource_0",
+      "input" : {
+        "columns" : [
+          "radius",
+          "lat",
+          "lon"
+        ],
+        "delimiter" : ",",
+        "partCount" : "100500",
+        "path" : "proto://full/path/to/source_0/*.csv"
+      }
+    },
+    {
+      "name" : "pointCsvSource_output",
+      "output" : {
+        "columns" : [
+          "pointCsvSource.lat",
+          "pointCsvSource.lon",
+          "pointCsvSource.radius"
+        ],
+        "delimiter" : ","
+      }
+    },
+    {
+      "name" : "_default",
+      "output" : {
+        "path" : "proto://full/path/to/output/directory"
+      }
+    }
+  ],
+  "tee" : [
+    "pointCsvSource_output"
+  ],
+  "sink" : [ ]
+}

@@ -1,0 +1,67 @@
+{
+  "op" : [
+    {
+      "definitions" : [
+        {
+          "name" : "lat.column",
+          "value" : "japanMesh_0.lat"
+        },
+        {
+          "name" : "lon.column",
+          "value" : "japanMesh_0.lon"
+        },
+        {
+          "name" : "hash.level",
+          "value" : "6",
+          "useDefaults" : true
+        }
+      ],
+      "dynamicDefs" : [ ],
+      "inputs" : {
+        "positional" : [
+          "japanMesh_0"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "japanMesh"
+        ]
+      },
+      "name" : "japanMesh",
+      "verb" : "japanMesh"
+    }
+  ],
+  "ds" : [
+    {
+      "name" : "japanMesh_0",
+      "input" : {
+        "columns" : [
+          "lat",
+          "lon"
+        ],
+        "delimiter" : ",",
+        "partCount" : "100500",
+        "path" : "proto://full/path/to/source_0/*.csv"
+      }
+    },
+    {
+      "name" : "japanMesh",
+      "output" : {
+        "columns" : [
+          "_hash"
+        ],
+        "delimiter" : ","
+      }
+    },
+    {
+      "name" : "_default",
+      "output" : {
+        "path" : "proto://full/path/to/output/directory"
+      }
+    }
+  ],
+  "tee" : [
+    "japanMesh"
+  ],
+  "sink" : [ ]
+}

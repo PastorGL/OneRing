@@ -1,0 +1,63 @@
+{
+  "op" : [
+    {
+      "inputs" : {
+        "positional" : [
+          "source_1"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "polygonJsonOutput_0"
+        ]
+      },
+      "name" : "source_1",
+      "verb" : "polygonJsonSource"
+    },
+    {
+      "inputs" : {
+        "positional" : [
+          "polygonJsonOutput_0"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "polygonJsonOutput"
+        ]
+      },
+      "name" : "polygonJsonOutput",
+      "verb" : "polygonJsonOutput"
+    }
+  ],
+  "ds" : [
+    {
+      "name" : "source_1",
+      "input" : {
+        "partCount" : "100500",
+        "path" : "proto://full/path/to/source_1/*.json"
+      }
+    },
+    {
+      "name" : "polygonJsonOutput_0"
+    },
+    {
+      "name" : "polygonJsonOutput",
+      "output" : {
+        "columns" : [
+          "<* A list of columns goes here *>"
+        ],
+        "delimiter" : ","
+      }
+    },
+    {
+      "name" : "_default",
+      "output" : {
+        "path" : "proto://full/path/to/output/directory"
+      }
+    }
+  ],
+  "tee" : [
+    "polygonJsonOutput"
+  ],
+  "sink" : [ ]
+}

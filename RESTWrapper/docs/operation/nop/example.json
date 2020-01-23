@@ -1,0 +1,44 @@
+{
+  "op" : [
+    {
+      "inputs" : {
+        "positional" : [
+          "nop_0"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "nop"
+        ]
+      },
+      "name" : "nop",
+      "verb" : "nop"
+    }
+  ],
+  "ds" : [
+    {
+      "name" : "nop_0",
+      "input" : {
+        "columns" : [
+          "<* A list of columns goes here *>"
+        ],
+        "delimiter" : ",",
+        "partCount" : "100500",
+        "path" : "proto://full/path/to/source_0/*.csv"
+      }
+    },
+    {
+      "name" : "nop"
+    },
+    {
+      "name" : "_default",
+      "output" : {
+        "path" : "proto://full/path/to/output/directory"
+      }
+    }
+  ],
+  "tee" : [
+    "nop"
+  ],
+  "sink" : [ ]
+}

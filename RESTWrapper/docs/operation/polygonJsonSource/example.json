@@ -1,0 +1,56 @@
+{
+  "op" : [
+    {
+      "inputs" : {
+        "positional" : [
+          "polygonJsonSource_0"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "polygonJsonSource"
+        ]
+      },
+      "name" : "polygonJsonSource",
+      "verb" : "polygonJsonSource"
+    },
+    {
+      "inputs" : {
+        "positional" : [
+          "polygonJsonSource"
+        ]
+      },
+      "outputs" : {
+        "positional" : [
+          "polygonJsonSource_output"
+        ]
+      },
+      "name" : "output_1",
+      "verb" : "polygonJsonOutput"
+    }
+  ],
+  "ds" : [
+    {
+      "name" : "polygonJsonSource_0"
+    },
+    {
+      "name" : "polygonJsonSource_output",
+      "output" : {
+        "columns" : [
+          "<* A list of columns goes here *>"
+        ],
+        "delimiter" : ","
+      }
+    },
+    {
+      "name" : "_default",
+      "output" : {
+        "path" : "proto://full/path/to/output/directory"
+      }
+    }
+  ],
+  "tee" : [
+    "polygonJsonSource_output"
+  ],
+  "sink" : [ ]
+}
