@@ -2,7 +2,7 @@ There is a DSL named TDL3 that stands for One Ring Task Definition Language. (Th
 
 For the language object model, see [TaskDefinitionLanguage.java](./Commons/src/main/java/ash/nazg/config/tdl/TaskDefinitionLanguage.java), but the main form intended for human use isn't JSON but a simple non-sectioned .ini (or Java's .properties) file. We refer to this file as tasks.ini (or tasks.json).
 
-Let we explore its structure by an advanced example. (For non-advanced examples, search this repository tests resources, there are plenty of them.)
+Let we explore its structure by an advanced example. (For less advanced examples, search this repository resources for test configurations, there are plenty of them.)
 
 ```properties
 spark.meta.distcp.wrap=both
