@@ -1,0 +1,41 @@
+You need Apache Maven, version 3.5 or higher.
+
+Make sure you've cloned the repo with all submodules.
+```bash
+git clone --recursive https://github.com/PastorGL/OneRing.git
+```
+
+### One Ring CLI
+
+If you're planning to compute on an EMR cluster, just `cd` to OneRing directory and execute Maven in the default profile:
+```bash
+mvn clean package
+```
+
+The `./TaskWrapper/target/one-ring-cli.jar` is a fat executable JAR targeted for the environment of EMR version 5.23.0.
+
+If you're planning to build a local artifact with full Spark built-in, execute
+```bash
+mvn clean package -Plocal
+```
+Make sure the resulting JAR is about 100MB in size.
+
+It is not advised to skip tests in the build process, but if you're running Spark locally on your build machine, you could add `-DskipTests` to Maven command line, because they will interfere.
+
+After you've built your CLI artifact, look into [./RESTWrapper/docs](./RESTWrapper/docs/index.md) for the generated documentation of Packages and Operations (in Markdown format).
+
+You may now proceed to [how to configure](CONFIG.md) your Process pipeline.
+
+If you have developed and proved a number of Process templates, and want to fuse some of them together into a fewer number of larger Processes, you may call the `ash.nazg.composer.Composer` from the local version of CLI. It is documented [elsewhere](COMPOSE.md). 
+
+### One Ring Dist
+
+The `./DistWrapper/target/one-ring-dist.jar` is a fat executable JAR that generates Hadoop's `dist-cp` or EMR's `s3-dist-cp` script to copy the source data from the external S3 storage to cluster's internal HDFS, and the computation's result back.
+
+It is an optional component.
+
+### One Ring REST
+
+The `./RESTWrapper/target/one-ring-rest.jar` is a fat executable JAR that serves a REST-ish back-end for the not-yet-implemented (but much wanted) Process Editor. It also serves the docs via dedicated endpoint.
+
+Also an optional component.
