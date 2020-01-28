@@ -440,7 +440,7 @@ public class DocumentationGenerator {
             } else {
                 Description d = opPkg.getDeclaredAnnotation(Description.class);
 
-                TaskDocumentationLanguage.Package pkg = new TaskDocumentationLanguage.Package(SparkTask.registeredPackageName(opClass), d.value());
+                TaskDocumentationLanguage.Package pkg = new TaskDocumentationLanguage.Package(opClass.getPackage().getName(), d.value());
                 ops = pkg.ops;
 
                 pkgs.put(pkgName, pkg);
@@ -469,7 +469,7 @@ public class DocumentationGenerator {
             Operation.Info opInfo = oi.getValue();
             Class<? extends Operation> opClass = opInfo.operationClass;
 
-            String pkgName = SparkTask.registeredPackageName(opInfo.operationClass);
+            String pkgName = opInfo.operationClass.getPackage().getName();
             if (!pkgNames.contains(pkgName)) {
                 pkgNames.add(pkgName);
 
@@ -495,7 +495,7 @@ public class DocumentationGenerator {
         Description d = verb.getDeclaredAnnotation(Description.class);
         opDoc.descr = d.value();
 
-        opDoc.pkg = opInfo.pkg;
+        opDoc.pkg = opInfo.operationClass.getPackage().getName();
 
         Descriptions ds = Descriptions.inspectOperation(opInfo.operationClass);
 

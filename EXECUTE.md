@@ -102,10 +102,26 @@ Build steps are executed in the following order:
 1. `run-job.ps1`
 1. `remove-cluster.ps1`
 
-There is an ability to override any line of any .ini file from TC UI by supplying a custom build parameter with name formed as 'file.ini' + '.' + 'parameter.name', which gives you another level of build parametrization flexibility.
+Let we explain what each step does.
 
-It is possible to execute every PowerShell script in the interactive mode and manually copy-paste their output variables between steps. It may be helpful to familiarize yourself with that stuff before going fully automated.
+TC has an ability to define 'build configuration parameters' and an UI to set them at build execution time (along with corresponding REST method). We utilize this ability to define parameters for each Variable in our Process templates and ask the user for their values. Also we ask for any additional parameters specific for the environment, such as a preset for the cluster size.
+
+At the next step we select one of four presets from  `/preset` directory (S, M, L, XL .ini files), and read one, if it was selected on the previous step, and place its contents into build parameters.
+
+`set-params.ps1` has an ability to override any line of any existing .ini file from `/settings` subdirectory by replacing it with a custom build parameter with name formed as 'filename.ini' + '.' + 'parameter.name', which gives you another level of build parametrization flexibility. So works the preset, merged with any additional parameters supplied by user on the TC UI.
+
+At next step we create cluster by calling CloudFormation template augmented with all parameters gathered to this moment and `/settings/create.ini`.
+
+Then we encode Variables with Base64, just as we did in Local mode.
+
+At this moment everything is ready to run Process on the cluster. `run-job.ini` sets up all required environment (per-component .ini files from `/settings`), calls Livy REST on the cluster, and waits for the completion. If tasks.ini contains more than one Task, all of them will be ran in the order of definition. It own parameters are set by `/settings/run.ini`.
+
+Even if any of previous step fails, `remove-cluster.ps1` does the cleanup, controlled by `/settings/remove.ini`.
+
+All scripts that deal with the cluster also share parameters from `/settings/aws.ini` global file.
+
+It is possible to execute every PowerShell script in the interactive mode and manually copy-paste their output variables between steps via their command line parameters. It may be helpful to familiarize yourself with that stuff before going fully automated.
 
 We also usually go on the higher level of automation and enqueue TC builds with their REST API.
 
-Anyways, closely watch your CloudFormation, EMR and EC2 consoles for at least few first tries. There may be insufficient access rights, and a lot of other issues, but we assume you already are experienced with AWS.
+Anyways, closely watch your CloudFormation, EMR and EC2 consoles for at least few first tries. There may be insufficient access rights, and a lot of other issues, but we assume you already are experienced with AWS and EMR, if you are here.

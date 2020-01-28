@@ -49,6 +49,7 @@ public class TaskWrapperConfigBuilder extends WrapperConfigBuilder {
                 }
             }
         } catch (IOException ignored) {
+            // no variables
         }
         System.out.println("Collected overrides");
         overrides.forEach((key, value) -> System.out.println(key + "=" + value));

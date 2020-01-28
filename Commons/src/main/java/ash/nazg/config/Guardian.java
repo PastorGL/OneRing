@@ -1,11 +1,10 @@
-package ash.nazg.common.config.tdl;
+package ash.nazg.config;
 
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.Descriptions;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
 import ash.nazg.spark.SparkTask;
-import ash.nazg.config.tdl.Descriptions;
-import org.junit.Test;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -13,14 +12,11 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static ash.nazg.config.OperationConfig.COLUMN_SUFFIX;
-import static org.junit.Assert.fail;
 
-public class DescriptionGuardianTest {
-
-    @Test
-    public void guardDescriptions() {
-        System.out.println("This is a guardian test for built-in documentation descriptions in the One Ring Spark Modules.\n" +
-                "If it fails, check the code in the test's output, not the test itself.\n" +
+public class Guardian {
+    public static void main(String[] args) {
+        System.out.println("This is a Guardian of the metadata in the One Ring Spark Modules.\n" +
+                "If it fails, check the classes mentioned in the output, and fix the errors.\n" +
                 " ... stands for the name of registered packages " + String.join(", ", SparkTask.getRegisteredPackages()));
 
         Set<Class<? extends Enum<?>>> interestingEnums = new HashSet<>();
@@ -59,7 +55,7 @@ public class DescriptionGuardianTest {
             } catch (NullPointerException ignore) {
             }
             if (!described) {
-                errors.add(SparkTask.registeredPackageName(opClass, "Package ...") + " does not have a proper TDL @Description");
+                errors.add("Package " + opClass.getPackage().getName() + " does not have a proper TDL @Description");
             }
 
             for (Field field : ds.fields.values()) {
@@ -183,15 +179,16 @@ public class DescriptionGuardianTest {
 
         List<String> distinctErrors = errors.stream().distinct().collect(Collectors.toList());
         if (!distinctErrors.isEmpty()) {
-            distinctErrors.forEach(System.out::println);
+            distinctErrors.forEach(System.err::println);
 
-            fail("Congratulations! You have " + distinctErrors.size() + " ERROR(S). See the full list above this line");
+            System.err.println("Congratulations! You have " + distinctErrors.size() + " ERROR(S). See the full list above this line");
+            System.exit(-10);
         } else {
             System.out.println("Passed");
         }
     }
 
-    private String mangleCN(Class<?> clazz) {
+    private static String mangleCN(Class<?> clazz) {
         return clazz.isEnum()
                 ? SparkTask.registeredPackageClassName(clazz, "Enum ...")
                 : SparkTask.registeredPackageClassName(clazz, "Operation ...")
