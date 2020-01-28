@@ -24,7 +24,7 @@ public class PackageService {
         List<String> pkgs = new ArrayList<>();
 
         for (Operation.Info opInfo : ao.values()) {
-            String pkgName = opInfo.pkg;
+            String pkgName = opInfo.operationClass.getPackage().getName();
             if (!pkgs.contains(pkgName)) {
                 pkgs.add(pkgName);
             }
@@ -39,7 +39,7 @@ public class PackageService {
         List<String> ops = new ArrayList<>();
 
         for (Operation.Info opInfo : ao.values()) {
-            String pkgName = opInfo.pkg;
+            String pkgName = opInfo.getClass().getPackage().getName();
             if (pkgName.equals(name)) {
                 ops.add(opInfo.verb);
             }
@@ -54,7 +54,7 @@ public class PackageService {
         Map<String, Operation.Info> aop = new HashMap<>();
 
         for (Operation.Info opInfo : ao.values()) {
-            String pkgName = opInfo.pkg;
+            String pkgName = opInfo.getClass().getPackage().getName();
             if (pkgName.equals(name)) {
                 aop.put(opInfo.verb, opInfo);
             }

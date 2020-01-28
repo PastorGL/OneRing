@@ -1,11 +1,13 @@
 package ash.nazg.spark;
 
 import ash.nazg.config.InvalidConfigValueException;
+import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.config.OperationConfig;
 import ash.nazg.config.TaskConfig;
 import io.github.classgraph.ClassGraph;
 import io.github.classgraph.ClassInfoList;
+import io.github.classgraph.PackageInfo;
 import io.github.classgraph.ScanResult;
 import org.apache.spark.api.java.JavaSparkContext;
 
@@ -17,8 +19,15 @@ import java.util.*;
  * Abstract Spark task bound to Spark context
  */
 public class SparkTask {
-    private static final List<String> registeredPackages = new ArrayList<String>() {{
-        add("ash.nazg");
+    private static final Set<String> registeredPackages = new HashSet<String>() {{
+        try (ScanResult scanResult = new ClassGraph()
+                .enableAnnotationInfo()
+                .scan()) {
+
+            scanResult.getPackageInfo()
+                    .filter(pi -> pi.getAnnotationInfo(Description.class.getCanonicalName()) != null)
+                    .forEach(pi -> add(pi.getParent().getName()));
+        }
     }};
 
     private static Map<String, Operation.Info> availableOperations;
@@ -31,30 +40,8 @@ public class SparkTask {
         this.context = context;
     }
 
-    public static List<String> registerOperationPackage(String pkg) {
-        availableOperations = null;
-
-        registeredPackages.add(pkg);
-
+    public static Set<String> getRegisteredPackages() {
         return registeredPackages;
-    }
-
-    public static List<String> getRegisteredPackages() {
-        return registeredPackages;
-    }
-
-    public static String registeredPackageName(Class<? extends Operation> clazz) {
-        return registeredPackageName(clazz, "");
-    }
-
-    public static String registeredPackageName(Class<? extends Operation> clazz, String prefix) {
-        String pkgName = clazz.getPackage().getName();
-
-        Optional<String> foundPackage = registeredPackages.stream()
-                .filter(pkgName::startsWith)
-                .findFirst();
-
-        return foundPackage.map(s -> pkgName.replace(s + ".", prefix)).orElse(pkgName);
     }
 
     public static String registeredPackageClassName(Class<?> clazz, String prefix) {

@@ -1,16 +1,19 @@
 package ash.nazg.composer;
 
+import ash.nazg.composer.config.ComposeWrapperConfigBuilder;
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.PropertiesConfig;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import ash.nazg.config.WrapperConfig;
 import ash.nazg.config.tdl.PropertiesConverter;
 import ash.nazg.config.tdl.TaskDefinitionLanguage;
-import ash.nazg.composer.config.ComposeWrapperConfigBuilder;
+import ash.nazg.storage.Adapters;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.ParseException;
 
 import javax.ws.rs.core.MultivaluedHashMap;
+import java.io.File;
+import java.io.FileReader;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -30,6 +33,7 @@ public class Composer {
             configBuilder.addRequiredOption("C", "configs", true, "Config files path=alias pairs, separated by a comma");
             configBuilder.addOption("X", "tasks", true, "Task prefix(es), if needed. If each is different, specify all as a comma-separated list. If all are same, specify it only once");
             configBuilder.addOption("V", "variables", true, "name=value pairs of substitution variables for the Spark config, separated by a newline and encoded to Base64");
+            configBuilder.addOption("v", "variablesFile", true, "Path to variables file, name=value pairs per each line");
             configBuilder.addRequiredOption("M", "mapping", true, "Data stream mapping file");
             configBuilder.addRequiredOption("o", "output", true, "Full path to the composed output config file (for JSON format use .json extension)");
             configBuilder.addOption("F", "full", false, "Perform full compose (tee outputs only from the last config in the chain)");
@@ -61,15 +65,18 @@ public class Composer {
             }
 
             final Properties overrides = new Properties();
-            String variables = configBuilder.getOptionValue("variables");
-            if (variables != null) {
-                try {
+            try {
+                String variables = configBuilder.getOptionValue("variables");
+                if (variables != null) {
                     variables = new String(Base64.getDecoder().decode(variables));
 
                     overrides.load(new StringReader(variables));
-                } catch (Exception e) {
-                    throw new InvalidConfigValueException("Bad variables string encode");
+                } else {
+                    final String variablesFile = configBuilder.getOptionValue("variablesFile");
+                    overrides.load(new FileReader(variablesFile));
                 }
+            } catch (Exception ignored) {
+                // no variables
             }
 
             boolean hasUnresolved = false;

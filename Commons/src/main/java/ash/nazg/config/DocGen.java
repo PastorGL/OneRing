@@ -12,15 +12,13 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
 import java.io.*;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
+import java.util.TreeMap;
 
 public class DocGen {
     public static void main(String[] args) {
@@ -37,42 +35,6 @@ public class DocGen {
             Files.createDirectories(Paths.get(outputDirectory, "package"));
             Files.createDirectories(Paths.get(outputDirectory, "operation"));
 
-            if (args.length > 2) {
-                String[] jars = args[1].split(",");
-                String[] packages = Arrays.stream(args[2].split(","))
-                        .map(j -> j.replace('.', '/'))
-                        .toArray(String[]::new);
-
-                JarClassLoader jarLoader = new JarClassLoader(DocGen.class.getClassLoader());
-
-                for (String pathToJar : jars) {
-                    File jarFile = new File(pathToJar);
-                    jarLoader.addURL(jarFile.toURI().toURL());
-
-                    JarFile jar = new JarFile(jarFile);
-                    Enumeration<JarEntry> e = jar.entries();
-                    while (e.hasMoreElements()) {
-                        JarEntry je = e.nextElement();
-                        String jeName = je.getName();
-
-                        if (!je.isDirectory() && jeName.endsWith(".class")) {
-                            for (String pkg : packages) {
-                                if (jeName.startsWith(pkg)) {
-                                    String className = jeName
-                                            .substring(0, je.getName().length() - 6) // -6 because of .class
-                                            .replace('/', '.');
-                                    Class.forName(className, true, jarLoader);
-                                }
-                            }
-                        }
-                    }
-                }
-
-                for (String pkg : packages) {
-                    SparkTask.registerOperationPackage(pkg);
-                }
-            }
-
             Map<String, Operation.Info> ao = SparkTask.getAvailableOperations();
             final Map<String, Map<String, Operation.Info>> aop = new HashMap<>();
             ObjectMapper om = new ObjectMapper();
@@ -86,7 +48,7 @@ public class DocGen {
                 } catch (Exception ignore) {
                 }
 
-                String pkgName = SparkTask.registeredPackageName(opInfo.operationClass);
+                String pkgName = opInfo.operationClass.getPackage().getName();
                 aop.compute(pkgName, (k, v) -> {
                     Map<String, Operation.Info> aopp = (v == null)
                             ? new HashMap<>()
@@ -133,21 +95,6 @@ public class DocGen {
             e.printStackTrace();
 
             System.exit(-7);
-        }
-    }
-
-    private static class JarClassLoader extends URLClassLoader {
-        private JarClassLoader(ClassLoader parent) {
-            super(new URL[0], parent);
-        }
-
-        @Override
-        protected void addURL(URL url) {
-            try {
-                super.addURL(new URL(url.toExternalForm()));
-            } catch (MalformedURLException e) {
-                throw new RuntimeException(e);
-            }
         }
     }
 }

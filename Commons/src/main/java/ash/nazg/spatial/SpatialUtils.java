@@ -2,14 +2,10 @@ package ash.nazg.spatial;
 
 import com.uber.h3core.H3Core;
 import com.uber.h3core.LengthUnit;
-import net.sf.geographiclib.Constants;
 
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.List;
-
-import static java.lang.Math.*;
-import static net.sf.geographiclib.Constants.WGS84_a;
 
 public class SpatialUtils implements Serializable {
     private int recursion = 1;
