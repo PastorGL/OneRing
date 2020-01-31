@@ -34,4 +34,26 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>com.mycila</groupId>
+                <artifactId>license-maven-plugin</artifactId>
+                <version>3.0</version>
+                <configuration>
+                    <properties>
+                        <license.years>2020</license.years>
+                        <license.holder>Locomizer team and Contributors</license.holder>
+                        <license.ref>This project uses New BSD license with do no evil clause. For full text, check the LICENSE file in the root directory.
+                        </license.ref>
+                    </properties>
+                    <includes>
+                        <include>src/*/java/**/*.java</include>
+                        <include>src/*/scala/**/*.scala</include>
+                    </includes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
