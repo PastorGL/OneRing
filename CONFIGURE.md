@@ -514,4 +514,4 @@ Aerospike Adapter Parameters are:
 * `input.aerospike.host` and `output.aerospike.host` defaults to 'localhost'.
 * `input.aerospike.port` and `output.aerospike.port` defaults to '3000'.
 
-This concludes the configuration of One Ring CLI.
+This concludes the configuration of One Ring CLI for a single Process. After you've assembled a library of basic Processes, you'll may want to know [how to compose](COMPOSE.md) them into larger workflows.

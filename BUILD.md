@@ -24,7 +24,7 @@ It isn't recommended to skip tests in the build process, but if you're running S
 
 After you've built your CLI artifact, look into [./RESTWrapper/docs](./RESTWrapper/docs/index.md) for the automatically generated documentation of available Packages and Operations (in Markdown format).
 
-You may now proceed to [how to configure](CONFIG.md) your Process pipeline.
+You may now proceed to [how to configure](CONFIGURE.md) your Process pipeline.
 
 If you have developed and proved a number of Process Templates, and want to fuse some of them together into a fewer number of larger Processes, you may call the Composer utility from the local version of CLI. It is documented [in its own doc](COMPOSE.md).
 
