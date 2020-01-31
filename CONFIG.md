@@ -1,8 +1,8 @@
-There is a DSL named TDL3 that stands for One Ring Task Definition Language. (There also are TDL1 and TDL2, but they're discussed in other topics.)
+There is a domain specific language named TDL3 that stands for One Ring Task Definition Language. (There also are DSLs named TDL1 and TDL2, but they're discussed in other topics.)
 
-For the language object model, see [TaskDefinitionLanguage.java](./Commons/src/main/java/ash/nazg/config/tdl/TaskDefinitionLanguage.java), but the main form intended for human use isn't JSON but a simple non-sectioned .ini (or Java's .properties) file. We refer to this file as tasks.ini (or tasks.json).
+For the language's object model, see [TaskDefinitionLanguage.java](./Commons/src/main/java/ash/nazg/config/tdl/TaskDefinitionLanguage.java). Note that the main form intended for human use isn't JSON but a simple non-sectioned .ini (or Java's .properties) file. We refer to this file as tasks.ini, or just a config.
 
-Let we explore its structure by an advanced example. (For less advanced examples, search this repository resources for test configurations, there are plenty of them.)
+Let we explore its structure by an advanced example. (For less advanced examples, search this repository's resources for test configurations, there are plenty of them.)
 
 ```properties
 spark.meta.distcp.wrap=both
@@ -258,24 +258,25 @@ spark.meta.task.tee.output=timezoned,tracks_non_pedestrian,pedestrian,aqua2,coun
 spark.meta.ds.output.path={OUTPUT_PATH}
 ```
 
-The good practice is to write keys in paragraphs grouped for each Operation, preceded by its input and output DataStream.
+A recommended practice is to write keys in paragraphs grouped for each Operation, preceded by its Input DataStreams and succeeded by Output DataStreams groups of keys.
 
 ### Namespace Layers
 
-As you see, each key begins with a prefix `spark.meta.`. One Ring can read its configuration from Spark context, and each Spark property must stark with `spark.` prefix. We add `meta.` (by convention; this can be any unique token of your choice) to distinguish our own properties from Spark's. A single tasks.ini may also contain a number of tasks if properly prefixed (name them `spark.process_name.`, `spark.another_process.` or so).
+As you could see, each key begins with a prefix `spark.meta.`. One Ring can (and first tries to) read its configuration directly from Spark context, not only a config file, and each Spark property must start with a `spark.` prefix. We add another prefix `meta.` (by convention; this can be any unique token of your choice) to distinguish our own properties from Spark's. Also a single tasks.ini may contain a number of Processes if properly prefixed, just start their keys with `spark.process1_name.`, `spark.another_process.` and so on.
 
-If you run One Ring in local mode, you can supply properties via .ini file, and omit all prefixes. Let assume that we've stripped them in the mind and now look directly into namespaces of keys.
+If you run One Ring in Local mode, you can supply properties via .ini file, and omit all prefixes. Let assume that we've stripped all Spark's prefixes in mind and now look directly into namespaces of keys.
 
 The config is layered into several namespaces, and all parameter names must be unique in the corresponding namespace. These layers are distinguished, again, by some prefix.
 
-First namespace layer is One Ring DistWrapper's `distcp.` which instructs it to generate a script file for the `dist-cp` utility calls.
+### Foreign Layers
 
+First namespace layer is One Ring DistWrapper's `distcp.` which instructs that utility to generate a script file for the `dist-cp` calls:
 ```properties
 distcp.wrap=both
 distcp.exe=s3-dist-cp
 ```
 
-It is [documented](DISTCP.md) in its own doc. CLI itself ignores all foreign layers.
+It is [documented in its own doc](DISTCP.md). CLI itself ignores all foreign layers.
 
 ### Variables
 
@@ -285,19 +286,19 @@ If a key or a value contains a token of the form `{ALL_CAPS}`, it'll be treated 
 ds.input.part_count.signals={PARTS}
 ```
 
-If the Variable's value wasn't supplied, no replacement will be made, unless the variable doesn't include a default value for itself in the form of `{ALL_CAPS:any default value}`. Default values may not contain the '}' symbol, but there are no other restrictions.
+If the Variable's value wasn't supplied, no replacement will be made, unless the variable doesn't include a default value for itself in the form of `{ALL_CAPS:any default value}`. Default values may not contain the '}' symbol.
 
 ```properties
 ds.input.part_count.signals={PARTS:50}
 ```
 
-However, if a Variable after a replacement forms a reference to another Variable, it will not be processed recursively. We do not like to build a Turing-complete machine out of tasks.ini.
+There are a few other restrictions to default values. First, each Variable occurrence has a different default and does not carry one over entire config, so you should set them each time you use that Variable. Second, if a Variable after a replacement forms a reference to another Variable, it will not be processed recursively. We do not like to build a Turing-complete machine out of tasks.ini.
 
-It is notable that Variables may be encountered at any side of `=` in the tasks.ini lines, and there is no restriction to number of them in a single line. You also can supply them with different defaults for each occurrence, if you desire.
+It is notable that Variables may be encountered at any side of `=` in the tasks.ini lines, and there is no limit of them for a single line and/or config file.
 
 ### CLI Task of the Process
 
-Next layer is `task.` and it contains properties that configure the CLI itself for the current Process' as a Spark job, or a CLI Task. 
+Next layer is `task.`, and it contains properties that configure the CLI itself for the current Process' as a Spark job, or a CLI Task. 
 
 ```properties
 task.operations=range_filter,accuracy_filter,h3,timezone,center_mass_1,track_type,type_other,track_type_filter,remove_point_type,iron_glitch,slow_motion,center_mass_2,aqua2,map_by_user,map_tracks_non_pedestrian,map_pedestrian,map_aqua2,count_by_user,count_tracks_non_pedestrian,count_pedestrian,count_aqua2
@@ -307,20 +308,19 @@ task.input.sink=signals
 task.tee.output=timezoned,tracks_non_pedestrian,pedestrian,aqua2,count_by_user,count_tracks_non_pedestrian,count_pedestrian,count_aqua2
 ```
 
-`task.operations` is a comma-separated list of Operation names to execute in the specified order. Any number of them, but not less than one. Names must be unique.
+`task.operations` (required) is a comma-separated list of Operation names to execute in the specified order. Any number of them, but not less than one. Names must be unique.
 
-`task.input.sink` is an input sink. Any referred here DataStreams are considered as coming from the external sources, and will be created by Storage Adapters of CLI for the consumption of Operations.
+`task.input.sink` (required too) is an input sink. Any DataStream referred here is considered as one sourced from outside storage, and will be created by Storage Adapters of CLI (discussed later) for the consumption of Operations.
 
-`task.tee.output` is a T-connector. Any referred here DataStreams can be consumed by Operations as usual, but also are diverted by Storage Adapters of CLI into the result storage.
+`task.tee.output` (also required) is a T-connector. Any DataStream referred here can be consumed by Operations as usual, but also will be diverted by Storage Adapters of CLI into the outside storage as well.
 
 ### Operation Instances
 
-Operations share the layer `op.`, and have quite a number of sub-layers.
+Operations share the layer `op.`, and it has quite a number of sub-layers.
 
-Operation of certain name is a Java class, but we don't like to call Operations by fully-qualified class names, and ask them how they would like to be called.
+Operation of a certain name is a certain Java class, but we don't like to call Operations by fully-qualified class names, and ask them nicely how they would like to be called by a short name.
 
 So, you must specify such short names for each of your Operations in the chain, for example:
-
 ```properties
 op.operation.range_filter=rangeFilter
 op.operation.accuracy_filter=accuracyFilter
@@ -334,16 +334,15 @@ op.operation.count_pedestrian=countByKey
 op.operation.count_aqua2=countByKey
 ``` 
 
-You see that you may have any number of calls of the same Operation class in your Process, they'll be initialized as independently named instances.
+You see that you may have any number of calls of the same Operation class in your Process, they'll be all initialized as independent instances with different reference names.
 
 ### Operation Inputs and Outputs
 
-Now we go down to Operations' sub-layers.
+Now we go down to Operations' namespace `op.` sub-layers.
 
-First is `op.input.` that defines which named DataStreams an Operation is about to consume, and `op.inputs.` for positional DataStreams, if an Operation can process an arbitary number or wildcard DataStreams.
+First is `op.input.` that defines which DataStreams an Operation is about to consume as named. They names are assigned by the Operation itself internally. Also, an Operation could decide to process an arbitrary number (or even wildcard) DataStreams, positioned in the order specified by `op.inputs.` layer.
 
 Examples from the config are:
-
 ```properties
 op.inputs.range_filter=signals
 op.input.accuracy_filter.signals=range_accurate_signals
@@ -354,10 +353,9 @@ op.input.track_type.signals=if_step1
 op.inputs.type_other=tracks
 ```
 
-Notice that the keys end with just a name of an Operation in the case of positional inputs, or 'name of an Operation' + '.' + 'its internal name of input' for named ones.
+Note that the keys end with just a name of an Operation in the case of positional Inputs, or 'name of an Operation' + '.' + 'its internal name of input' for named ones. These layers are mutually exclusive for a given Operation.
 
-Same is true for the `op.output.` and `op.outputs.` layers that describe which DataStreams emits this Operation. Examples:
-
+All the same goes for the `op.output.` and `op.outputs.` layers that describe DataStreams an Operation is about to produce. Examples:
 ```properties
 op.outputs.range_filter=range_accurate_signals
 op.output.accuracy_filter.signals=accurate_signals
@@ -370,27 +368,25 @@ op.output.track_type_filter.signals=pedestrian_typed
 ```
 
 A wildcard DataStream reference is defined like:
-
 ```properties
 op.inputs.union=prefix*
 ```
 
-It'll match all DataStreams with said prefix and will be automatically converted into a list with no particular order.
+It'll match all DataStreams with said prefix available at the point of execution, and will be automatically converted into a list with no particular order.
 
 ### Parameters of Operations
 
-Next sub-layer is for Operation Parameters, `op.definition.`. Parameters have names, that takes the rest of `op.definition.` keys. And the first prefix of parameter name is name of the Operation it is belonging to.
+Next sub-layer is for Operation Parameter Definitions, `op.definition.`. Parameters names take the rest of `op.definition.` keys. And the first prefix of Parameter name is the name of the Operation it is belonging to.
 
-Each Parameter definition is supplied to CLI by the Operation itself, and they are strongly typed. So they can have any `Number` descendant, `String`, `enum`s, `String[]` (as a comma-separated list), and `Boolean` values.
+Each Parameter Definition is supplied to CLI by the Operation itself via TDL2 interface (Task Description Language, [discussed here](EXTEND.md)), and they are strongly typed. So they can have a value of any `Number` descendant, `String`, `enum`s, `String[]` (as a comma-separated list), and `Boolean` types.
 
 Some Parameters may be defined as optional, and in that case they have a default value.
 
 Some Parameters may be dynamic, in that case they have a fixed prefix and variable ending.
 
-Finally, there is a variety of Parameters that refer specifically to columns of input DataStreams, their names all end in `.column` or `.columns` by the convention, and values must point to a valid column or list of columns, or to one of values generated by the Operation. By convention, generated column names start with an underscore.
+Finally, there is a variety of Parameters that refer specifically to columns of input DataStreams. Their names must end in `.column` or `.columns` by the convention, and values must refer to a valid column or list of columns, or to one of columns generated by the Operation. By convention, generated column names start with an underscore.
 
 Look for some examples:
-
 ```properties
 op.definition.range_filter.filtering.column=signals.accuracy
 op.definition.range_filter.filtering.range=[0 50]
@@ -406,11 +402,11 @@ op.definition.map_pedestrian.key.columns=pedestrian.userid,pedestrian.dow,pedest
 op.definition.map_aqua2.key.columns=aqua2.userid,aqua2.dow,aqua2.hour
 ```
 
-Here `filering.column` of Operation names `range_filter` points to column `accuracy` from the DataStream `signals`, as well as `source.timestamp.column` of `timezone` is a reference to `AG.timestamp`. And `map_pedestrian`'s `key.columns` refers to list of `pedestrian` columns.
+Parameter `filering.column` of an Operation named `range_filter` points to the column `accuracy` from the DataStream `signals`, as well as `source.timestamp.column` of `timezone` is a reference to `AG` column `timestamp`. And `map_pedestrian`'s `key.columns` refers to list of `pedestrian` columns.
 
-`hash.level` of `h3` is of type `Byte`, `type_other`'s `match.values` is `String[]`, and `track_type_filter`'s `upper.boundary.stop` is `Double`.
+Parameter `hash.level` of `h3` is of type `Byte`, `type_other`'s `match.values` is `String[]`, and `track_type_filter`'s `upper.boundary.stop` is `Double`.
 
-To set an optional Parameter to default value, you may omit that key altogether, or, if you like completeness, comment it out:
+To set an optional Parameter to its default value, you may omit that key altogether, or, if you like completeness, comment it out:
 ```properties
 #op.definition.another_h3.hash.level=9
 ```
@@ -422,12 +418,12 @@ For the exhaustive table of each Operation Parameters, look for the docs inside 
 Next layer is the `ds.` configuration namespace of DataStreams, and its rules are quite different.
 
 First off, DataStreams are always typed. There are types of:
-* `Plain` (RDD consisting of just opaque Hadoop `Text`)
-* `CSV` (column-based `Text` RDD with strong column references)
+* `CSV` (column-based `Text` RDD with freely defined, but strongly referenced columns)
 * `Fixed` (`CSV`, but column order and format is considered fixed)
-* `Point` (object-based, contains point coordinates with metadata)
-* `Polygon` (object-based, contains polygon outlines with metadata)
+* `Point` (object-based, contains Point coordinates with metadata)
+* `Polygon` (object-based, contains Polygon outlines with metadata)
 * `KeyValue` (PairRDD with an opaque key and column-based value like `CSV`)
+* `Plain` (RDD is generated by CLI as just opaque Hadoop `Text`, or it can be a custom-typed RDD handled by Operation)
 
 Each DataStream can be configured as input for a number of Operations, and as an output of only one of them.
 
@@ -442,26 +438,26 @@ ds.input.path.signals=s3d://{BUCKET_NAME}/key/name/with/{a,the}/mask*.spec.?
 
 Notice the usage of glob expressions. '{a,the}' token won't be processed as a Variable, but it is expanded to list of 'a' and 'the' directories inside '/key/name/with' directory by Adapter.
 
-Same true for `ds.output.path.` keys, that must be specified for all DataStreams listed under the `task.tee.output` key. Let divert DataStream 'scores' to local filesystem by default:
+Same true for `ds.output.path.` keys, that must be specified for all DataStreams listed under the `task.tee.output` key. Let divert DataStream 'scores' to Local filesystem:
 ```properties
 ds.output.path.scores={OUTPUT_PATH:file:/tmp/testing}/scores
 ```
 
-But you may cheat. There are all-input and all-output default keys:
+But you may cheat here. There are all-input and all-output default keys:
 ```properties
 ds.input.path=jdbc:SELECT * FROM scheme.
 ds.output.path=aero:output/
 ```
 
-In that case, for each DataStream that doesn't have its own path, it'll be added to the end of corresponding default key without any separator. We don't recommend usage of these cheat codes in the production environment.
+In that case, for each DataStream that doesn't have its own path, its name will be added to the end of corresponding cheat key value without a separator. We don't recommend usage of these cheat keys in the production environment.
 
 `ds.input.columns.` and `ds.output.columns.` layers define columns for column-based DataStreams or metadata properties for object-based ones. Column names must be unique for that particular DataStream.
 
-Output columns must always refer to valid columns of inputs passed to the Operation that emits that DataStream, or its generated columns (whose names start with an underscore).
+Output columns must always refer to valid columns of inputs passed to the Operation that emits said DataStream, or its generated columns (which names start with an underscore).
 
-Input columns list just assigns new column names for all consuming Operations. It may contain a single underscore instead of some column name to make that column anonymous. Anyways, if a column is 'anonymous', it still may be referenced by its number starting from '_1_'.
+Input columns list just assigns new column names for all consuming Operations. It may contain a single underscore instead of some column name to make that column anonymous. Anyways, if a column is 'anonymous', it still may be referenced by its number starting from `_1_`.
 
-There is an exhaustive example of all these rules:
+There is an exhaustive example of all column definition rules:
 ```properties
 ds.input.columns.signals=userid,lat,lon,accuracy,idtype,timestamp
 
@@ -483,14 +479,15 @@ ds.input.columns.pedestrian=userid,lat,lon,_,_,timestamp,_,_,_,_,_,_,_,_
 
 In `CSV` varieties of DataStreams, columns are separated by a separator character, so there are `ds.input.separator.` and `ds.output.separator.` layers, along with cheat keys `ds.input.separator` and `ds.output.separator` that set them globally. The super global default value of column separator is the tabulation (TAB, 0x09) character.
 
-Final layers control the partitioning of DataStreams underlying RDDs, namely, `ds.input.part_count.` and `ds.output.part_count.` layers. These are quite important because the only super global default value for the part counts is always 1 (one) part, and no cheats are allowed. You must always set them for at least Task initial imput DataStreams, and may tune the partitioning in the middle of the Process according to the further flow of the Task.
+The final `ds.` layers control the partitioning of DataStream underlying RDDs, namely, `ds.input.part_count.` and `ds.output.part_count.`. These are quite important because the only super global default value for the part count is always 1 (one) part, and no cheats are allowed. You must always set them for at least initial input DataStreams from `task.input.sink` list, and may tune the partitioning in the middle of the Process according to the further flow of the Task.
 
-If both `part_count.`'s are specifies for some intermediate DataStream, it will be repartitioned first to the output one (immediately after the Operation that generated it), and then to input one (before feeding it to the first consuming Operation). Keep that in the mind.
+If both `part_count.` are specifies for some intermediate DataStream, it will be repartitioned first to the output one (immediately after the Operation that generated it), and then to input one (before feeding it to the first consuming Operation). Please keep that in mind.
 
 ### Storage Adapters
 
-There are the following Storage Adapters implemented in the CLI:
+Input DataStreams of an entire Process come from the outside world, and output DataStreams are stored somewhere outside. CLI does this job via its Storage Adapters. 
 
+There are following Storage Adapters currently implemented:
 * Hadoop (fallback, uses all protocols available in your Spark environment, i.e. 'file:', 's3:')
 * HDFS (same Hadoop, but just for 'hdfs:' protocol)
 * S3 Direct (any S3-compatible storage with a protocol of 's3d:')
@@ -507,14 +504,14 @@ S3 Direct uses standard Amazon S3 client provider and has only the Parameter for
 * `output.content.type` with a default of 'text/csv' 
 
 JDBC Adapter Parameters are:
-* `input.jdbc.driver` and `output.jdbc.driver` for fully qualified class names of driver, available in the classpath. No default
-* `input.jdbc.url` and `output.jdbc.url` for connection URLs. No default
-* `input.jdbc.user` and `output.jdbc.user` with no default
-* `input.jdbc.password` and `output.jdbc.password` with no default
-* `output.jdbc.batch.size` for output batch size, default is '500'
+* `input.jdbc.driver` and `output.jdbc.driver` for fully qualified class names of driver, available in the classpath. No default.
+* `input.jdbc.url` and `output.jdbc.url` for connection URLs. No default.
+* `input.jdbc.user` and `output.jdbc.user` with no default.
+* `input.jdbc.password` and `output.jdbc.password` with no default.
+* `output.jdbc.batch.size` for output batch size, default is '500'.
 
 Aerospike Adapter Parameters are:
-* `input.aerospike.host` and `output.aerospike.host` defaults to 'localhost'
-* `input.aerospike.port` and `output.aerospike.port` defaults to '3000'
+* `input.aerospike.host` and `output.aerospike.host` defaults to 'localhost'.
+* `input.aerospike.port` and `output.aerospike.port` defaults to '3000'.
 
-This concludes the configuration of One Ring.
+This concludes the configuration of One Ring CLI.
