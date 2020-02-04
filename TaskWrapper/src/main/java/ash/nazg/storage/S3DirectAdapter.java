@@ -4,6 +4,8 @@
  */
 package ash.nazg.storage;
 
+import ash.nazg.config.tdl.Description;
+
 import java.util.regex.Pattern;
 
 public abstract class S3DirectAdapter implements StorageAdapter {
@@ -11,6 +13,7 @@ public abstract class S3DirectAdapter implements StorageAdapter {
 
     protected char delimiter;
 
+    @Description("S3 Direct adapter for any S3-compatible storage")
     public Pattern proto() {
         return PATTERN;
     }

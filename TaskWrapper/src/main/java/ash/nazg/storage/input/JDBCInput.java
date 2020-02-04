@@ -6,6 +6,7 @@ package ash.nazg.storage.input;
 
 import ash.nazg.config.DataStreamsConfig;
 import ash.nazg.config.InvalidConfigValueException;
+import ash.nazg.config.tdl.Description;
 import ash.nazg.storage.JDBCAdapter;
 import ash.nazg.config.WrapperConfig;
 import ash.nazg.storage.InputAdapter;
@@ -38,6 +39,8 @@ public class JDBCInput extends JDBCAdapter implements InputAdapter {
     private int partCount;
 
     @Override
+    @Description("JDBC Input from an SQL SELECT query against a configured database." +
+            " Must use numeric boundaries for each part")
     public Pattern proto() {
         return PATTERN;
     }

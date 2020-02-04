@@ -6,6 +6,7 @@ package ash.nazg.storage.input;
 
 import ash.nazg.config.DataStreamsConfig;
 import ash.nazg.config.InvalidConfigValueException;
+import ash.nazg.config.tdl.Description;
 import ash.nazg.storage.AerospikeAdapter;
 import ash.nazg.config.WrapperConfig;
 import ash.nazg.storage.InputAdapter;
@@ -42,6 +43,7 @@ public class AerospikeInput extends AerospikeAdapter implements InputAdapter {
     }
 
     @Override
+    @Description("Aerospike Input which uses AQLSelectEx SELECT query syntax against a collection")
     public Pattern proto() {
         return PATTERN;
     }

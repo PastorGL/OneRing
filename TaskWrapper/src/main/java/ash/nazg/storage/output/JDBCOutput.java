@@ -5,6 +5,7 @@
 package ash.nazg.storage.output;
 
 import ash.nazg.config.DataStreamsConfig;
+import ash.nazg.config.tdl.Description;
 import com.google.common.collect.Iterators;
 import ash.nazg.config.WrapperConfig;
 import ash.nazg.storage.JDBCAdapter;
@@ -30,6 +31,8 @@ public class JDBCOutput extends JDBCAdapter implements OutputAdapter {
     private int batchSize;
 
     @Override
+    @Description("JDBC Output which performs batch INSERT VALUES of columns (in order of incidence)" +
+            " into a table in the configured database")
     public Pattern proto() {
         return PATTERN;
     }

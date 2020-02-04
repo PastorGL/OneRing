@@ -6,7 +6,7 @@ package ash.nazg.cli;
 
 import ash.nazg.cli.config.TaskWrapperConfig;
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.spark.SparkTask;
+import ash.nazg.spark.Operations;
 import ash.nazg.spark.WrapperBase;
 import ash.nazg.storage.Adapters;
 import ash.nazg.storage.OutputAdapter;
@@ -44,8 +44,8 @@ public class TaskWrapper extends WrapperBase {
         outputDir = config.getCpFromDir();
         wrapperStorePath = config.getWrapperStorePath();
 
-        SparkTask sparkTask = new SparkTask(context);
-        sparkTask.setTaskConfig(config);
+        Operations operations = new Operations(context);
+        operations.setTaskConfig(config);
 
         for (String sink : config.getInputSink()) {
             String path = config.inputPath(sink);
@@ -69,7 +69,7 @@ public class TaskWrapper extends WrapperBase {
             result.put(sink, inputAdapter.load(path));
         }
 
-        processTaskChain(sparkTask, result);
+        processTaskChain(operations, result);
 
         Set<String> tees = config.getTeeOutput();
 

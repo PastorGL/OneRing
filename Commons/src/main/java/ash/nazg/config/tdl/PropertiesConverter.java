@@ -9,7 +9,7 @@ import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.OperationConfig;
 import ash.nazg.config.PropertiesConfig;
 import ash.nazg.spark.Operation;
-import ash.nazg.spark.SparkTask;
+import ash.nazg.spark.Operations;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import ash.nazg.config.WrapperConfig;
 
@@ -38,7 +38,7 @@ public class PropertiesConverter {
 
         Map<String, Boolean> dsColBased = new HashMap<>();
 
-        Map<String, Operation.Info> ao = SparkTask.getAvailableOperations();
+        Map<String, Operation.Info> ao = Operations.getAvailableOperations();
 
         Properties allOpProperties = taskConfig.getProperties();
         for (Map.Entry<String, String> operation : taskConfig.getOperations().entrySet()) {

@@ -1,0 +1,9 @@
+#set( $H = '#' )
+
+$H $adapter.kind Storage Adapter `$adapter.name` from [`$adapter.pkg`](../package/${adapter.pkg}.md)
+
+Protocol: `$adapter.proto`
+
+$adapter.descr
+
+[Back to index](../index.md)

@@ -6,6 +6,7 @@ package ash.nazg.storage.output;
 
 import ash.nazg.config.DataStreamsConfig;
 import ash.nazg.config.InvalidConfigValueException;
+import ash.nazg.config.tdl.Description;
 import ash.nazg.storage.AerospikeAdapter;
 import com.aerospike.client.AerospikeClient;
 import com.aerospike.client.Bin;
@@ -34,6 +35,7 @@ public class AerospikeOutput extends AerospikeAdapter implements OutputAdapter {
     private String[] cols;
 
     @Override
+    @Description("Aerospike Output which outputs columns under their names into a designated collection")
     public Pattern proto() {
         return PATTERN;
     }

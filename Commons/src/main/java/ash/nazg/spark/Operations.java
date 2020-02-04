@@ -5,13 +5,12 @@
 package ash.nazg.spark;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.config.OperationConfig;
+import ash.nazg.config.Packages;
 import ash.nazg.config.TaskConfig;
+import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import io.github.classgraph.ClassGraph;
 import io.github.classgraph.ClassInfoList;
-import io.github.classgraph.PackageInfo;
 import io.github.classgraph.ScanResult;
 import org.apache.spark.api.java.JavaSparkContext;
 
@@ -19,43 +18,15 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
 import java.util.*;
 
-/**
- * Abstract Spark task bound to Spark context
- */
-public class SparkTask {
-    private static final Set<String> registeredPackages = new HashSet<String>() {{
-        try (ScanResult scanResult = new ClassGraph()
-                .enableAnnotationInfo()
-                .scan()) {
-
-            scanResult.getPackageInfo()
-                    .filter(pi -> pi.getAnnotationInfo(Description.class.getCanonicalName()) != null)
-                    .forEach(pi -> add(pi.getParent().getName()));
-        }
-    }};
-
+public class Operations {
     private static Map<String, Operation.Info> availableOperations;
 
     protected TaskConfig taskConfig;
     protected JavaSparkContext context;
     protected List<Operation> opChain = new LinkedList<>();
 
-    public SparkTask(JavaSparkContext context) {
+    public Operations(JavaSparkContext context) {
         this.context = context;
-    }
-
-    public static Set<String> getRegisteredPackages() {
-        return registeredPackages;
-    }
-
-    public static String registeredPackageClassName(Class<?> clazz, String prefix) {
-        String pkgName = clazz.getPackage().getName();
-
-        Optional<String> foundPackage = registeredPackages.stream()
-                .filter(pkgName::startsWith)
-                .findFirst();
-
-        return foundPackage.map(s -> clazz.getName().replace(s + ".", prefix)).orElse(clazz.getName());
     }
 
     public static Map<String, Operation.Info> getAvailableOperations() {
@@ -64,7 +35,7 @@ public class SparkTask {
 
             try (ScanResult scanResult = new ClassGraph()
                     .enableClassInfo()
-                    .whitelistPackages(registeredPackages.toArray(new String[0]))
+                    .whitelistPackages(Packages.getRegisteredPackages().keySet().toArray(new String[0]))
                     .scan()) {
 
                 ClassInfoList operationClasses = scanResult.getSubclasses(Operation.class.getTypeName());
@@ -91,6 +62,18 @@ public class SparkTask {
         }
 
         return availableOperations;
+    }
+
+    public static Map<String, Operation.Info> getAvailableOperations(String pkgName) {
+        Map<String, Operation.Info> ret = new HashMap<>();
+
+        for (Map.Entry<String, Operation.Info> e : getAvailableOperations().entrySet()) {
+            if (e.getValue().operationClass.getPackage().getName().equals(pkgName)) {
+                ret.put(e.getKey(), e.getValue());
+            }
+        }
+
+        return ret;
     }
 
     public List<Operation> instantiateOperations() throws InvalidConfigValueException {
@@ -134,10 +117,6 @@ public class SparkTask {
         opChain.forEach(operation -> operation.setContext(context));
 
         return opChain;
-    }
-
-    public TaskConfig getTaskConfig() {
-        return taskConfig;
     }
 
     public void setTaskConfig(TaskConfig taskConfig) {

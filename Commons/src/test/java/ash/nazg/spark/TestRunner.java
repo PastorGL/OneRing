@@ -28,7 +28,7 @@ public class TestRunner extends WrapperBase implements AutoCloseable {
             .set("spark.network.timeout", "10000")
             .set("spark.ui.enabled", "false");
 
-    private final SparkTask testTask;
+    private final Operations testTask;
 
     public TestRunner(String path) {
         super(new WrapperConfig());
@@ -51,7 +51,7 @@ public class TestRunner extends WrapperBase implements AutoCloseable {
 
             wrapperConfig.setProperties(source);
 
-            testTask = new SparkTask(context);
+            testTask = new Operations(context);
             testTask.setTaskConfig(wrapperConfig);
         } catch (IOException e) {
             throw new RuntimeException(e);

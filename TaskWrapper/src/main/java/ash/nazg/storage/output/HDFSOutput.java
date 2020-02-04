@@ -4,6 +4,7 @@
  */
 package ash.nazg.storage.output;
 
+import ash.nazg.config.tdl.Description;
 import ash.nazg.storage.HDFSAdapter;
 
 import java.util.regex.Pattern;
@@ -11,6 +12,7 @@ import java.util.regex.Pattern;
 @SuppressWarnings("unused")
 public class HDFSOutput extends HadoopOutput {
     @Override
+    @Description("Dedicated HDFS Output with higher priority than Hadoop Output")
     public Pattern proto() {
         return HDFSAdapter.PATTERN;
     }

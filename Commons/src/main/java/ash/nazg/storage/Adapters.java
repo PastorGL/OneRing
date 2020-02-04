@@ -4,13 +4,15 @@
  */
 package ash.nazg.storage;
 
-import ash.nazg.spark.SparkTask;
+import ash.nazg.config.Packages;
 import io.github.classgraph.ClassGraph;
 import io.github.classgraph.ClassInfoList;
 import io.github.classgraph.ScanResult;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 public class Adapters {
@@ -24,7 +26,7 @@ public class Adapters {
     static {
         try (ScanResult scanResult = new ClassGraph()
                 .enableClassInfo()
-                .whitelistPackages(SparkTask.getRegisteredPackages().toArray(new String[0]))
+                .whitelistPackages(Packages.getRegisteredPackages().keySet().toArray(new String[0]))
                 .scan()) {
 
             ClassInfoList iaClasses = scanResult.getClassesImplementing(InputAdapter.class.getTypeName());
@@ -55,7 +57,7 @@ public class Adapters {
 
         try (ScanResult scanResult = new ClassGraph()
                 .enableClassInfo()
-                .whitelistPackages(SparkTask.getRegisteredPackages().toArray(new String[0]))
+                .whitelistPackages(Packages.getRegisteredPackages().keySet().toArray(new String[0]))
                 .scan()) {
 
             ClassInfoList oaClasses = scanResult.getClassesImplementing(OutputAdapter.class.getTypeName());
@@ -85,7 +87,24 @@ public class Adapters {
         }
     }
 
-    public static InputAdapter input(String path) {
+    static public Map<String, StorageAdapter> getAvailableStorageAdapters(String pkgName) {
+        Map<String, StorageAdapter> ret = new HashMap<>();
+
+        INPUT_ADAPTERS.forEach(e -> {
+            if (e.getClass().getPackage().getName().equals(pkgName)) {
+                ret.put(e.getClass().getSimpleName(), e);
+            }
+        });
+        OUTPUT_ADAPTERS.forEach(e -> {
+            if (e.getClass().getPackage().getName().equals(pkgName)) {
+                ret.put(e.getClass().getSimpleName(), e);
+            }
+        });
+
+        return ret;
+    }
+
+    static public InputAdapter input(String path) {
         for (InputAdapter ia : INPUT_ADAPTERS) {
             if (ia.proto().matcher(path).matches()) {
                 return ia;

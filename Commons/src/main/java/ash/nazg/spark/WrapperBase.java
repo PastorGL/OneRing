@@ -21,8 +21,8 @@ public abstract class WrapperBase {
         this.wrapperConfig = wrapperConfig;
     }
 
-    protected void processTaskChain(SparkTask sparkTask, Map<String, JavaRDDLike> rdds) throws Exception {
-        for (Operation op : sparkTask.instantiateOperations()) {
+    protected void processTaskChain(Operations operations, Map<String, JavaRDDLike> rdds) throws Exception {
+        for (Operation op : operations.instantiateOperations()) {
             for (String in : rdds.keySet()) {
                 JavaRDDLike rdd = rdds.get(in);
                 int inputParts = wrapperConfig.inputParts(in);

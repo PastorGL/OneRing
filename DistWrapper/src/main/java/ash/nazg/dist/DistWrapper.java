@@ -7,7 +7,7 @@ package ash.nazg.dist;
 import ash.nazg.cli.TaskWrapper;
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.dist.config.DistWrapperConfig;
-import ash.nazg.spark.SparkTask;
+import ash.nazg.spark.Operations;
 import ash.nazg.storage.Adapters;
 import ash.nazg.cli.config.CpDirection;
 import scala.Tuple2;
@@ -54,7 +54,7 @@ public class DistWrapper extends TaskWrapper {
             deleteOnSuccess = taskWrapperConfig.getDistCpMove();
 
             if (distDirection.to && wrapDistCp.to) {
-                SparkTask taskHandler = new SparkTask(null);
+                Operations taskHandler = new Operations(null);
                 taskHandler.setTaskConfig(wrapperConfig);
 
                 for (String sink : wrapperConfig.getInputSink()) {

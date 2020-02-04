@@ -10,6 +10,7 @@ import java.util.List;
 public class TaskDocumentationLanguage {
     public static class Package extends Pair {
         public List<Pair> ops = new ArrayList<>();
+        public List<Pair> adapters = new ArrayList<>();
 
         public Package(String name, String descr) {
             super(name, descr);
@@ -17,6 +18,9 @@ public class TaskDocumentationLanguage {
 
         public List<Pair> getOps() {
             return ops;
+        }
+        public List<Pair> getAdapters() {
+            return adapters;
         }
     }
 
@@ -143,6 +147,35 @@ public class TaskDocumentationLanguage {
 
         public List<Pair> getGenerated() {
             return generated;
+        }
+    }
+
+    public static class Adapter extends Pair {
+        public String proto;
+
+        public String pkg;
+
+        public String kind;
+
+        public Adapter(String kind, String name, String descr) {
+            super(name, descr);
+            this.kind = kind;
+        }
+
+        public String getKind() {
+            return kind;
+        }
+
+        public String getProto() {
+            return proto;
+        }
+
+        public String getDescr() {
+            return descr;
+        }
+
+        public String getPkg() {
+            return pkg;
         }
     }
 }

@@ -8,7 +8,7 @@ import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.Descriptions;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
-import ash.nazg.spark.SparkTask;
+import ash.nazg.spark.Operations;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -21,11 +21,11 @@ public class Guardian {
     public static void main(String[] args) {
         System.out.println("This is a Guardian of the metadata in the One Ring Spark Modules.\n" +
                 "If it fails, check the classes mentioned in the output, and fix the errors.\n" +
-                " ... stands for the name of registered packages " + String.join(", ", SparkTask.getRegisteredPackages()));
+                " ... stands for the name of registered packages " + String.join(", ", Packages.getRegisteredPackages().keySet()));
 
         Set<Class<? extends Enum<?>>> interestingEnums = new HashSet<>();
 
-        Map<String, Operation.Info> ao = SparkTask.getAvailableOperations();
+        Map<String, Operation.Info> ao = Operations.getAvailableOperations();
 
         final List<String> errors = new ArrayList<>();
 
@@ -53,15 +53,6 @@ public class Guardian {
             Descriptions ds = Descriptions.inspectOperation(opClass);
 
             boolean described = false;
-            try {
-                Description d = ds.opPackage.getDeclaredAnnotation(Description.class);
-                described = !d.value().isEmpty();
-            } catch (NullPointerException ignore) {
-            }
-            if (!described) {
-                errors.add("Package " + opClass.getPackage().getName() + " does not have a proper TDL @Description");
-            }
-
             for (Field field : ds.fields.values()) {
                 try {
                     Description d = field.getDeclaredAnnotation(Description.class);
@@ -192,10 +183,20 @@ public class Guardian {
         }
     }
 
+    private static String registeredPackageClassName(Class<?> clazz, String prefix) {
+        String pkgName = clazz.getPackage().getName();
+
+        Optional<String> foundPackage = Packages.getRegisteredPackages().keySet().stream()
+                .filter(pkgName::startsWith)
+                .findFirst();
+
+        return foundPackage.map(s -> clazz.getName().replace(s + ".", prefix)).orElse(clazz.getName());
+    }
+
     private static String mangleCN(Class<?> clazz) {
         return clazz.isEnum()
-                ? SparkTask.registeredPackageClassName(clazz, "Enum ...")
-                : SparkTask.registeredPackageClassName(clazz, "Operation ...")
+                ? registeredPackageClassName(clazz, "Enum ...")
+                : registeredPackageClassName(clazz, "Operation ...")
                 ;
     }
 }

@@ -4,6 +4,8 @@
  */
 package ash.nazg.storage;
 
+import ash.nazg.config.tdl.Description;
+
 import java.util.regex.Pattern;
 
 public abstract class HadoopAdapter implements StorageAdapter {
@@ -12,6 +14,7 @@ public abstract class HadoopAdapter implements StorageAdapter {
         return true;
     }
 
+    @Description("Default Storage that utilizes Hadoop filesystems")
     public Pattern proto() {
         return Adapters.PATH_PATTERN;
     }

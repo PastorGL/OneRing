@@ -5,13 +5,17 @@
 package ash.nazg.config.tdl;
 
 import ash.nazg.commons.operations.MapToPairOperation;
+import ash.nazg.config.Packages;
 import ash.nazg.spark.Operation;
-import ash.nazg.spark.SparkTask;
+import ash.nazg.spark.Operations;
 import ash.nazg.spatial.config.ConfigurationParameters;
+import ash.nazg.spatial.operations.PointCSVOutputOperation;
 import ash.nazg.spatial.operations.PointCSVSourceOperation;
 import ash.nazg.spatial.operations.PolygonJSONOutputOperation;
 import ash.nazg.spatial.operations.PolygonJSONSourceOperation;
-import ash.nazg.spatial.operations.PointCSVOutputOperation;
+import ash.nazg.storage.Adapters;
+import ash.nazg.storage.InputAdapter;
+import ash.nazg.storage.StorageAdapter;
 import org.apache.velocity.Template;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.Velocity;
@@ -427,60 +431,40 @@ public class DocumentationGenerator {
         }
     }
 
-    public static void packageDoc(Map<String, Operation.Info> ao, Writer writer) throws Exception {
-        Map<String, TaskDocumentationLanguage.Package> pkgs = new HashMap<>();
+    public static void packageDoc(String pkgName, Writer writer) throws Exception {
+        String descr = Packages.getRegisteredPackages().get(pkgName);
 
-        for (Map.Entry<String, Operation.Info> oi : ao.entrySet()) {
-            Operation.Info opInfo = oi.getValue();
-            Class<? extends Operation> opClass = opInfo.operationClass;
+        TaskDocumentationLanguage.Package pkg = new TaskDocumentationLanguage.Package(pkgName, descr);
 
-            Package opPkg = opClass.getPackage();
+        List<TaskDocumentationLanguage.Pair> ops = pkg.ops;
+        List<TaskDocumentationLanguage.Pair> adapters = pkg.adapters;
 
-            List<TaskDocumentationLanguage.Pair> ops;
-
-            String pkgName = opPkg.getName();
-            if (pkgs.containsKey(pkgName)) {
-                ops = pkgs.get(pkgName).ops;
-            } else {
-                Description d = opPkg.getDeclaredAnnotation(Description.class);
-
-                TaskDocumentationLanguage.Package pkg = new TaskDocumentationLanguage.Package(opClass.getPackage().getName(), d.value());
-                ops = pkg.ops;
-
-                pkgs.put(pkgName, pkg);
-            }
-
-            Method verb = opInfo.operationClass.getDeclaredMethod("verb");
+        for (Map.Entry<String, Operation.Info> oi : Operations.getAvailableOperations(pkgName).entrySet()) {
+            Method verb = oi.getValue().operationClass.getDeclaredMethod("verb");
             Description d = verb.getDeclaredAnnotation(Description.class);
 
-            String descr = d.value();
+            ops.add(new TaskDocumentationLanguage.Pair(oi.getKey(), d.value()));
+        }
 
-            ops.add(new TaskDocumentationLanguage.Pair(oi.getKey(), descr));
+        for (Map.Entry<String, StorageAdapter> ai : Adapters.getAvailableStorageAdapters(pkgName).entrySet()) {
+            Method proto = ai.getValue().getClass().getMethod("proto");
+            Description d = proto.getDeclaredAnnotation(Description.class);
+
+            adapters.add(new TaskDocumentationLanguage.Pair(ai.getKey(), d.value()));
         }
 
         VelocityContext ic = new VelocityContext();
-        ic.put("pkgs", pkgs.values());
+        ic.put("pkg", pkg);
 
         Template index = Velocity.getTemplate("package.vm", UTF_8.name());
         index.merge(ic, writer);
     }
 
-    public static void indexDoc(Map<String, Operation.Info> ao, FileWriter writer) {
-        Set<String> pkgNames = new HashSet<>();
+    public static void indexDoc(Map<String, String> packages, FileWriter writer) {
         List<TaskDocumentationLanguage.Pair> pkgs = new ArrayList<>();
 
-        for (Map.Entry<String, Operation.Info> oi : ao.entrySet()) {
-            Operation.Info opInfo = oi.getValue();
-            Class<? extends Operation> opClass = opInfo.operationClass;
-
-            String pkgName = opInfo.operationClass.getPackage().getName();
-            if (!pkgNames.contains(pkgName)) {
-                pkgNames.add(pkgName);
-
-                Package opPkg = opClass.getPackage();
-                Description d = opPkg.getDeclaredAnnotation(Description.class);
-                pkgs.add(new TaskDocumentationLanguage.Pair(pkgName, d.value()));
-            }
+        for (Map.Entry<String, String> pkg : packages.entrySet()) {
+            pkgs.add(new TaskDocumentationLanguage.Pair(pkg.getKey(), pkg.getValue()));
         }
 
         VelocityContext ic = new VelocityContext();
@@ -632,6 +616,27 @@ public class DocumentationGenerator {
         vc.put("op", opDoc);
 
         Template operation = Velocity.getTemplate("operation.vm", UTF_8.name());
+        operation.merge(vc, writer);
+    }
+
+    public static void adapterDoc(StorageAdapter adapter, FileWriter writer) throws Exception {
+        Class<? extends StorageAdapter> adapterClass = adapter.getClass();
+
+        Method proto = adapterClass.getMethod("proto");
+        Description d = proto.getDeclaredAnnotation(Description.class);
+
+        String kind = (adapter.isFallback() ? "Fallback " : "") + ((adapter instanceof InputAdapter) ? "Input" : "Output");
+
+        TaskDocumentationLanguage.Adapter adapterDoc = new TaskDocumentationLanguage.Adapter(kind, adapterClass.getSimpleName(), d.value());
+
+        adapterDoc.proto = adapter.proto().toString();
+
+        adapterDoc.pkg = adapterClass.getPackage().getName();
+
+        VelocityContext vc = new VelocityContext();
+        vc.put("adapter", adapterDoc);
+
+        Template operation = Velocity.getTemplate("adapter.vm", UTF_8.name());
         operation.merge(vc, writer);
     }
 
