@@ -16,6 +16,7 @@ public class OperationConfig extends PropertiesConfig {
     public static final String OP_OUTPUT_PREFIX = "op.output.";
     public static final String OP_DEFINITION_PREFIX = "op.definition.";
     public static final String COLUMN_SUFFIX = ".column";
+    public static final String COLUMNS_SUFFIX = ".columns";
 
     public final String name;
 
@@ -182,21 +183,31 @@ public class OperationConfig extends PropertiesConfig {
         }
 
         for (String def : defs.keySet()) {
-            if ((columnBasedInputs.size() > 0) && def.endsWith(COLUMN_SUFFIX)) {
-                String d = (String) defs.get(def);
-                if (d != null) {
-                    String[] column = d.split("\\.", 2);
+            if (columnBasedInputs.size() > 0) {
+                String[] cols = new String[0];
+                Object d = defs.get(def);
+                if (def.endsWith(COLUMN_SUFFIX) && (d != null)) {
+                    cols = new String[]{(String) d};
+                }
+                if (def.endsWith(COLUMNS_SUFFIX)) {
+                    cols = (String[]) d;
+                }
+                if (cols != null) {
+                    for (String col : cols) {
+                        String[] column = col.split("\\.", 2);
 
-                    String[] raw = dsc.inputColumnsRaw.get(column[0]);
-                    if (raw == null) {
-                        throw new InvalidConfigValueException("Property '" + def + "' of operation '" + opName + "' refers to columns of input '" + column[0] + "' but these weren't defined");
-                    }
-                    if (!Arrays.asList(raw).contains(column[1])) {
-                        throw new InvalidConfigValueException("Property '" + def + "' of operation '" + opName + "' refers to inexistent column '" + column[1] + "' of input '" + column[0] + "'");
+                        String[] raw = dsc.inputColumnsRaw.get(column[0]);
+                        if (raw == null) {
+                            throw new InvalidConfigValueException("Property '" + def + "' of operation '" + opName + "' refers to columns of input '" + column[0] + "' but these weren't defined");
+                        }
+                        if (!column[1].endsWith("*") && !Arrays.asList(raw).contains(column[1])) {
+                            throw new InvalidConfigValueException("Property '" + def + "' of operation '" + opName + "' refers to inexistent column '" + column[1] + "' of input '" + column[0] + "'");
+                        }
                     }
                 }
             }
         }
+
     }
 
     public static class TypedMap<K, V> extends HashMap<K, V> {

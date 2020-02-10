@@ -4,14 +4,10 @@
  */
 package ash.nazg.config.tdl;
 
-import ash.nazg.config.DataStreamsConfig;
-import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.OperationConfig;
-import ash.nazg.config.PropertiesConfig;
+import ash.nazg.config.*;
 import ash.nazg.spark.Operation;
 import ash.nazg.spark.Operations;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import ash.nazg.config.WrapperConfig;
 
 import java.util.*;
 import java.util.function.Function;
@@ -493,10 +489,22 @@ public class PropertiesConverter {
                         if (op.definitions != null) {
                             op.definitions = Arrays.stream(op.definitions)
                                     .peek(def -> {
-                                        if (def.name.endsWith(OperationConfig.COLUMN_SUFFIX) && ((def.useDefaults == null) || !def.useDefaults)) {
-                                            String[] c = def.value.split("\\.", 2);
+                                        if ((def.useDefaults == null) || !def.useDefaults) {
+                                            if (def.name.endsWith(OperationConfig.COLUMN_SUFFIX)) {
+                                                String[] c = def.value.split("\\.", 2);
 
-                                            def.value = replacer.apply(c[0]) + "." + c[1];
+                                                def.value = replacer.apply(c[0]) + "." + c[1];
+                                            }
+                                            if (def.name.endsWith(OperationConfig.COLUMNS_SUFFIX)) {
+                                                String[] cols = def.value.split(COMMA);
+                                                String[] repl = new String[cols.length];
+                                                for (int j = 0; j < cols.length; j++) {
+                                                    String col = cols[j];
+                                                    String[] c = col.split("\\.", 2);
+                                                    repl[j] = replacer.apply(c[0]) + "." + c[1];
+                                                }
+                                                def.value = String.join(COMMA, repl);
+                                            }
                                         }
                                     })
                                     .toArray(TaskDefinitionLanguage.Definition[]::new);
