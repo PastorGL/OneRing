@@ -5,6 +5,12 @@
 package ash.nazg.rest.service;
 
 import ash.nazg.config.tdl.TaskDefinitionLanguage;
+import com.amazonaws.auth.profile.ProfileCredentialsProvider;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.s3.model.PutObjectRequest;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.xml.sax.InputSource;
 
 import javax.inject.Inject;
@@ -12,11 +18,15 @@ import javax.inject.Singleton;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
+import java.util.Date;
 import java.util.Properties;
+import java.util.Random;
 
 @Singleton
 public class TCRunnerService extends Runner {
@@ -24,6 +34,7 @@ public class TCRunnerService extends Runner {
             "<buildType id=\"{BUILD_TYPE}\"/>" +
             "<properties>" +
             "<property name=\"PARAMS\" value=\"{PARAMS}\"/>" +
+            "<property name=\"TASKS_JSON_PATH\" value=\"{TASKS_JSON_PATH}\"/>" +
             "</properties>" +
             "</build>";
 
@@ -32,12 +43,18 @@ public class TCRunnerService extends Runner {
     private final String tcPassword;
     private final String tcBuildType;
 
+    private final String awsProfile;
+    private final String s3Bucket;
+
     @Inject
     public TCRunnerService(Properties props) {
         this.tcInstance = props.getProperty("tc.instance");
         this.tcUser = props.getProperty("tc.user");
         this.tcPassword = props.getProperty("tc.password");
         this.tcBuildType = props.getProperty("tc.buildType");
+
+        this.awsProfile = props.getProperty("aws.profile", "default");
+        this.s3Bucket = props.getProperty("s3.bucket");
     }
 
     @Override
@@ -80,9 +97,25 @@ public class TCRunnerService extends Runner {
         File tempDir = makeTempDir();
 
         try {
+            String taskKey = "tasks/" + tcBuildType + "-" + new Date().getTime() + "-" + new Random().nextLong();
+
+            ProfileCredentialsProvider credentialsProvider = new ProfileCredentialsProvider(awsProfile);
+            AmazonS3 s3 = AmazonS3ClientBuilder.standard()
+                    .withCredentials(credentialsProvider)
+                    .build();
+
+            byte[] bytes = new ObjectMapper().writeValueAsBytes(task);
+            ObjectMetadata om = new ObjectMetadata();
+            om.setContentType("application/json");
+            om.setContentLength(bytes.length);
+            s3.putObject(new PutObjectRequest(s3Bucket,
+                    taskKey,
+                    new ByteArrayInputStream(bytes), om));
+
             // consider all build properties as XML-safe, no need to encode
             String props = TC_BUILD_XML.replace("{BUILD_TYPE}", tcBuildType)
-                    .replace("{PARAMS}", params);
+                    .replace("{PARAMS}", params)
+                    .replace("{TASKS_JSON_PATH}", "s3://" + s3Bucket + "/" + taskKey);
 
             Files.write(
                     new File(tempDir, "request.xml").toPath(),
@@ -90,8 +123,7 @@ public class TCRunnerService extends Runner {
                     StandardOpenOption.WRITE, StandardOpenOption.CREATE_NEW
             );
 
-            executeAndWait(
-                    tempDir, "Can't trigger TC build", "curl",
+            executeAndWait(tempDir, "Can't trigger TC build", "curl",
                     "-u", tcUser + ":" + tcPassword,
                     tcInstance + "/httpAuth/app/rest/buildQueue",
                     "-H", "Content-Type:application/xml",
@@ -105,6 +137,18 @@ public class TCRunnerService extends Runner {
             return xpath.evaluate("//build/@href", inputSource);
         } finally {
             removeTempDir(tempDir);
+        }
+    }
+
+    //Java 8 standard HTTP support is an utter unreliable nonsense. So we call curl instead.
+    //TODO: Migrate to new HTTPClient when Java 11 or newer becomes target
+    @Deprecated
+    private static void executeAndWait(File tempDir, String errorMessage, String... command) throws IOException, InterruptedException {
+        ProcessBuilder pb = new ProcessBuilder(command);
+        pb.directory(tempDir);
+        Process p = pb.start();
+        if (p.waitFor() > 0) {
+            throw new InterruptedException(errorMessage);
         }
     }
 }

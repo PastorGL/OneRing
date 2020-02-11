@@ -24,13 +24,4 @@ public abstract class Runner {
     protected static File makeTempDir() throws IOException {
         return Files.createTempDirectory("one-ring-rest").toFile();
     }
-
-    protected static void executeAndWait(File tempDir, String errorMessage, String... command) throws IOException, InterruptedException {
-        ProcessBuilder pb = new ProcessBuilder(command);
-        pb.directory(tempDir);
-        Process p = pb.start();
-        if (p.waitFor() > 0) {
-            throw new InterruptedException(errorMessage);
-        }
-    }
 }
