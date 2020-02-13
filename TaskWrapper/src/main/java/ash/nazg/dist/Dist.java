@@ -4,25 +4,25 @@
  */
 package ash.nazg.dist;
 
-import ash.nazg.cli.config.TaskWrapperConfig;
-import ash.nazg.dist.config.DistWrapperConfig;
-import ash.nazg.dist.config.DistWrapperConfigBuilder;
+import ash.nazg.cli.config.TaskWrapperConfigBuilder;
+import ash.nazg.config.WrapperConfig;
 
-public class Main {
+public class Dist {
     public static void main(String[] args) {
-        DistWrapperConfigBuilder configBuilder = new DistWrapperConfigBuilder();
+        TaskWrapperConfigBuilder configBuilder = new TaskWrapperConfigBuilder();
 
         try {
             configBuilder.addRequiredOption("c", "config", true, "Config file");
             configBuilder.addOption("d", "direction", true, "Copy direction. Can be 'from', 'to', or 'nop' to just validate the config file and exit");
             configBuilder.addOption("o", "output", true, "Path to output distcp.ini");
+            configBuilder.addOption("S", "wrapperStorePath", true, "Path to DistWrapper interface file");
 
             configBuilder.setCommandLine(args);
 
-            DistWrapperConfig config = configBuilder.build();
-            configBuilder.overrideFromCommandLine(DistWrapperConfig.DISTCP_INI_PATH, "o");
-            configBuilder.overrideFromCommandLine(DistWrapperConfig.DISTCP_DIRECTION, "d");
-            configBuilder.overrideFromCommandLine(TaskWrapperConfig.META_DISTCP_STORE_PATH, "S");
+            WrapperConfig config = configBuilder.build(null);
+            configBuilder.overrideFromCommandLine("distcp.ini", "o");
+            configBuilder.overrideFromCommandLine("distcp.wrap", "d");
+            configBuilder.overrideFromCommandLine("distcp.store", "S");
 
             new DistWrapper(config)
                     .go();

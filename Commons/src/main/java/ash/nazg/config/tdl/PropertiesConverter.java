@@ -268,6 +268,10 @@ public class PropertiesConverter {
         task.tees = tees.toArray(new String[0]);
         task.prefix = taskConfig.getPrefix();
 
+        task.distcp = taskConfig.getLayerProperties(DISTCP_PREFIX);
+        task.input = taskConfig.getLayerProperties(INPUT_PREFIX);
+        task.output = taskConfig.getLayerProperties(OUTPUT_PREFIX);
+
         return task;
     }
 
@@ -386,6 +390,16 @@ public class PropertiesConverter {
         properties.put(TASK_INPUT_SINK, String.join(PropertiesConfig.COMMA, task.sink));
         properties.put(TASK_TEE_OUTPUT, String.join(PropertiesConfig.COMMA, task.tees));
 
+        if (task.distcp != null) {
+            task.distcp.forEach((k, v) -> properties.put(DISTCP_PREFIX + k, v));
+        }
+        if (task.input != null) {
+            task.input.forEach((k, v) -> properties.put(INPUT_PREFIX + k, v));
+        }
+        if (task.output != null) {
+            task.output.forEach((k, v) -> properties.put(OUTPUT_PREFIX + k, v));
+        }
+
         if (task.prefix != null) {
             Properties prefixed = new Properties();
             properties.forEach((k, v) -> prefixed.put(task.prefix + "." + k, v));
@@ -404,6 +418,10 @@ public class PropertiesConverter {
         TaskDefinitionLanguage.Task lastTask = null;
         int i = 0, last = tasks.size() - 1;
 
+        composed.distcp = new Properties();
+        composed.input = new Properties();
+        composed.output = new Properties();
+
         for (Map.Entry<String, TaskDefinitionLanguage.Task> e : tasks.entrySet()) {
             String alias = e.getKey();
             TaskDefinitionLanguage.Task task = e.getValue();
@@ -418,6 +436,16 @@ public class PropertiesConverter {
 
                 return alias + "_" + s;
             };
+
+            if (task.distcp != null) {
+                composed.distcp.putAll(task.distcp);
+            }
+            if (task.input != null) {
+                composed.input.putAll(task.input);
+            }
+            if (task.output != null) {
+                composed.output.putAll(task.output);
+            }
 
             task.sink = Arrays.stream(task.sink)
                     .map(replacer)

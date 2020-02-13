@@ -4,14 +4,15 @@
  */
 package ash.nazg.cli.config;
 
+import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.PropertiesConfig;
+import ash.nazg.config.WrapperConfig;
 import ash.nazg.storage.Adapters;
 import org.apache.commons.cli.Options;
 import org.apache.spark.api.java.JavaSparkContext;
 
 import java.io.File;
 import java.io.FileReader;
-import java.io.IOException;
 import java.io.StringReader;
 import java.util.Base64;
 import java.util.Properties;
@@ -21,16 +22,19 @@ public class TaskWrapperConfigBuilder extends WrapperConfigBuilder {
         options = new Options()
                 .addOption("x", "task", true, "Task prefix in the config file")
                 .addOption("V", "variables", true, "name=value pairs of substitution variables for the Spark config encoded as Base64")
-                .addOption("v", "variablesFile", true, "Path to variables file, name=value pairs per each line")
-                .addOption("S", "wrapperStorePath", true, "Path to DistWrapper interface file");
+                .addOption("v", "variablesFile", true, "Path to variables file, name=value pairs per each line");
     }
 
-    public TaskWrapperConfig build(JavaSparkContext context) {
+    public WrapperConfig build(JavaSparkContext context) {
         String prefix = getOptionValue("task");
-        System.out.println("Task prefix");
-        System.out.println(prefix);
+        if (prefix != null) {
+            System.out.println("Task prefix");
+            System.out.println(prefix);
+        } else {
+            System.out.println("Non-prefixed task");
+        }
 
-        wrapperConfig = new TaskWrapperConfig();
+        wrapperConfig = new WrapperConfig();
         wrapperConfig.setPrefix(prefix);
 
         Properties overrides = new Properties();
@@ -52,19 +56,24 @@ public class TaskWrapperConfigBuilder extends WrapperConfigBuilder {
                     overrides.load(new FileReader(variablesFile));
                 }
             }
-        } catch (IOException ignored) {
-            // no variables
+
+            System.out.println("Collected overrides");
+            overrides.forEach((key, value) -> System.out.println(key + "=" + value));
+            wrapperConfig.setOverrides(overrides);
+        } catch (Exception ignored) {
+            System.out.println("No overrides collected");
         }
-        System.out.println("Collected overrides");
-        overrides.forEach((key, value) -> System.out.println(key + "=" + value));
-        wrapperConfig.setOverrides(overrides);
 
         Properties ini = loadConfig(getOptionValue("config"), context, prefix);
+        if (ini.isEmpty()) {
+            throw new InvalidConfigValueException("Configuration source is empty and Spark context doesn't have expected task properties");
+        }
+
         System.out.println("Collected properties");
         ini.forEach((key, value) -> System.out.println(key + "=" + value));
         wrapperConfig.setProperties(ini);
 
-        return (TaskWrapperConfig) wrapperConfig;
+        return wrapperConfig;
     }
 
     /**

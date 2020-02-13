@@ -4,8 +4,8 @@
  */
 package ash.nazg.cli;
 
-import ash.nazg.cli.config.TaskWrapperConfig;
 import ash.nazg.cli.config.TaskWrapperConfigBuilder;
+import ash.nazg.config.WrapperConfig;
 import ash.nazg.spark.WrapperBase;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.ParseException;
@@ -31,6 +31,7 @@ public class Main {
             configBuilder.addOption("o", "output", true, "Output path");
             configBuilder.addOption("l", "local", false, "Run in local[*] mode");
             configBuilder.addOption("m", "memory", true, "Driver memory for local mode (no effect otherwise)");
+            configBuilder.addOption("S", "wrapperStorePath", true, "Path to DistWrapper interface file");
 
             configBuilder.setCommandLine(args);
 
@@ -52,9 +53,9 @@ public class Main {
             context = new JavaSparkContext(sparkConf);
             context.hadoopConfiguration().set(FileInputFormat.INPUT_DIR_RECURSIVE, Boolean.TRUE.toString());
 
-            TaskWrapperConfig config = configBuilder.build(context);
+            WrapperConfig config = configBuilder.build(context);
             configBuilder.overrideFromCommandLine(DS_OUTPUT_PATH, "o");
-            configBuilder.overrideFromCommandLine(TaskWrapperConfig.META_DISTCP_STORE_PATH, "S");
+            configBuilder.overrideFromCommandLine("distcp.store", "S");
 
             new TaskWrapper(context, config)
                     .go();

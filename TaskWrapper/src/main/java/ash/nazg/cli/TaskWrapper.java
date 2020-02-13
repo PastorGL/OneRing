@@ -4,15 +4,15 @@
  */
 package ash.nazg.cli;
 
-import ash.nazg.cli.config.TaskWrapperConfig;
 import ash.nazg.config.InvalidConfigValueException;
+import ash.nazg.config.WrapperConfig;
+import ash.nazg.dist.CpDirection;
+import ash.nazg.dist.DistUtils;
 import ash.nazg.spark.Operations;
 import ash.nazg.spark.WrapperBase;
 import ash.nazg.storage.Adapters;
-import ash.nazg.storage.OutputAdapter;
-import ash.nazg.dist.DistUtils;
-import ash.nazg.cli.config.CpDirection;
 import ash.nazg.storage.InputAdapter;
+import ash.nazg.storage.OutputAdapter;
 import org.apache.spark.api.java.JavaRDDLike;
 import org.apache.spark.api.java.JavaSparkContext;
 import scala.Tuple2;
@@ -29,26 +29,24 @@ public class TaskWrapper extends WrapperBase {
     protected JavaSparkContext context;
     protected Map<String, JavaRDDLike> result;
 
-    public TaskWrapper(JavaSparkContext context, TaskWrapperConfig wrapperConfig) {
+    public TaskWrapper(JavaSparkContext context, WrapperConfig wrapperConfig) {
         super(wrapperConfig);
 
         this.context = context;
         result = new HashMap<>();
+
+        wrapDistCp = CpDirection.parse(wrapperConfig.getDistCpProperty("wrap", "none"));
+        inputDir = wrapperConfig.getDistCpProperty("dir.to", "/input");
+        outputDir = wrapperConfig.getDistCpProperty("dir.from", "/output");
+        wrapperStorePath = wrapperConfig.getDistCpProperty("store", null);
     }
 
     public void go() throws Exception {
-        final TaskWrapperConfig config = (TaskWrapperConfig) wrapperConfig;
-
-        wrapDistCp = config.getCpDirection();
-        inputDir = config.getCpToDir();
-        outputDir = config.getCpFromDir();
-        wrapperStorePath = config.getWrapperStorePath();
-
         Operations operations = new Operations(context);
-        operations.setTaskConfig(config);
+        operations.setTaskConfig(wrapperConfig);
 
-        for (String sink : config.getInputSink()) {
-            String path = config.inputPath(sink);
+        for (String sink : wrapperConfig.getInputSink()) {
+            String path = wrapperConfig.inputPath(sink);
 
             if (wrapDistCp.to) {
                 Map<String, Tuple2<String, String>> splits = DistUtils.globCSVtoRegexMap(path);
@@ -65,13 +63,13 @@ public class TaskWrapper extends WrapperBase {
 
             InputAdapter inputAdapter = Adapters.input(path);
             inputAdapter.setContext(context);
-            inputAdapter.setProperties(sink, config);
+            inputAdapter.setProperties(sink, wrapperConfig);
             result.put(sink, inputAdapter.load(path));
         }
 
         processTaskChain(operations, result);
 
-        Set<String> tees = config.getTeeOutput();
+        Set<String> tees = wrapperConfig.getTeeOutput();
 
         Set<String> rddNames = result.keySet();
         Set<String> teeNames = new HashSet<>();
@@ -101,7 +99,7 @@ public class TaskWrapper extends WrapperBase {
             JavaRDDLike rdd = result.get(teeName);
 
             if (rdd != null) {
-                String path = config.outputPath(teeName);
+                String path = wrapperConfig.outputPath(teeName);
 
                 if (Adapters.PATH_PATTERN.matcher(path).matches()) {
                     if (wrapDistCp.from) {
@@ -116,14 +114,14 @@ public class TaskWrapper extends WrapperBase {
                 }
 
                 OutputAdapter outputAdapter = Adapters.output(path);
-                outputAdapter.setProperties(teeName, config);
+                outputAdapter.setProperties(teeName, wrapperConfig);
                 outputAdapter.save(path, rdd);
             }
         }
 
         if (wrapDistCp.from && (wrapperStorePath != null)) {
             OutputAdapter outputList = Adapters.output(wrapperStorePath);
-            outputList.setProperties("_default", config);
+            outputList.setProperties("_default", wrapperConfig);
             outputList.save(wrapperStorePath + "/outputs", context.parallelize(paths, 1));
         }
     }

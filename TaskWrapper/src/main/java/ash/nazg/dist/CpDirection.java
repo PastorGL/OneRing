@@ -2,7 +2,7 @@
  * Copyright (C) 2020 Locomizer team and Contributors
  * This project uses New BSD license with do no evil clause. For full text, check the LICENSE file in the root directory.
  */
-package ash.nazg.cli.config;
+package ash.nazg.dist;
 
 public enum CpDirection {
     NOP(false, false),
@@ -22,17 +22,17 @@ public enum CpDirection {
 
     public static CpDirection parse(Object v) {
         switch (String.valueOf(v).toLowerCase()) {
-            case "from" : {
+            case "from": {
                 return ONLY_FROM_HDFS;
             }
-            case "to" : {
+            case "to": {
                 return ONLY_TO_HDFS;
             }
-            case "true" :
-            case "both" : {
+            case "true":
+            case "both": {
                 return BOTH_DIRECTIONS;
             }
-            default : {
+            default: {
                 return NOP;
             }
         }

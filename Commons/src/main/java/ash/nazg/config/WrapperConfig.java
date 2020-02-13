@@ -4,6 +4,8 @@
  */
 package ash.nazg.config;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 
 public class WrapperConfig extends TaskConfig {
@@ -13,8 +15,15 @@ public class WrapperConfig extends TaskConfig {
     public static final String DS_INPUT_PART_COUNT_PREFIX = "ds.input.part_count.";
     public static final String DS_OUTPUT_PART_COUNT_PREFIX = "ds.output.part_count.";
 
-    public static final String OUTPUT_PREFIX = "output.";
+    public static final String DISTCP_PREFIX = "distcp.";
     public static final String INPUT_PREFIX = "input.";
+    public static final String OUTPUT_PREFIX = "output.";
+
+    private Map<String, Properties> knownLayers = new HashMap<String, Properties>() {{
+        put(OUTPUT_PREFIX, null);
+        put(INPUT_PREFIX, null);
+        put(DISTCP_PREFIX, null);
+    }};
 
     @Override
     public void setOverrides(Properties overrides) {
@@ -36,7 +45,34 @@ public class WrapperConfig extends TaskConfig {
     }
 
     public String getInputProperty(String key, String fallback) {
-        return getProperty(INPUT_PREFIX + key, fallback);
+        return getKnownLayerProperty(INPUT_PREFIX, key, fallback);
+    }
+
+    private String getKnownLayerProperty(String layerPrefix, String key, String fallback) {
+        Properties layerProperties = getLayerProperties(layerPrefix);
+
+        return layerProperties.getProperty(key, fallback);
+    }
+
+    public Properties getLayerProperties(String layerPrefix) {
+        if (!knownLayers.containsKey(layerPrefix)) {
+            return null;
+        }
+
+        Properties layerProperties = knownLayers.get(layerPrefix);
+        if (layerProperties == null) {
+            layerProperties = new Properties();
+
+            int length = layerPrefix.length();
+            for (Map.Entry<Object, Object> e : getProperties().entrySet()) {
+                String prop = (String) e.getKey();
+                if (prop.startsWith(layerPrefix)) {
+                    layerProperties.setProperty(prop.substring(length), (String) e.getValue());
+                }
+            }
+        }
+
+        return layerProperties;
     }
 
     private String getDsOutputPath() throws InvalidConfigValueException {
@@ -71,7 +107,7 @@ public class WrapperConfig extends TaskConfig {
     }
 
     public String getOutputProperty(String key, String fallback) {
-        return getProperty(OUTPUT_PREFIX + key, fallback);
+        return getKnownLayerProperty(OUTPUT_PREFIX, key, fallback);
     }
 
     public String getDsInputPartCount(String input) {
@@ -80,5 +116,9 @@ public class WrapperConfig extends TaskConfig {
 
     public String getDsOutputPartCount(String output) {
         return getProperty(DS_OUTPUT_PART_COUNT_PREFIX + output, "-1");
+    }
+
+    public String getDistCpProperty(String key, String fallback) {
+        return getKnownLayerProperty(DISTCP_PREFIX, key, fallback);
     }
 }

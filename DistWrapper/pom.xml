@@ -97,7 +97,7 @@
                                     <transformers>
                                         <transformer
                                                 implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                            <mainClass>ash.nazg.dist.Main</mainClass>
+                                            <mainClass>ash.nazg.dist.Dist</mainClass>
                                         </transformer>
                                     </transformers>
                                 </configuration>

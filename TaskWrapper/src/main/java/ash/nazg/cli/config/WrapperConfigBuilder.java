@@ -6,9 +6,9 @@ package ash.nazg.cli.config;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.PropertiesConfig;
-import ash.nazg.storage.Adapters;
 import ash.nazg.config.WrapperConfig;
 import ash.nazg.config.tdl.PropertiesConverter;
+import ash.nazg.storage.Adapters;
 import org.apache.commons.cli.*;
 import org.apache.spark.api.java.JavaSparkContext;
 import scala.Tuple2;
@@ -116,10 +116,6 @@ public abstract class WrapperConfigBuilder {
                         .collect(Collectors.toMap(t -> t[0], t -> t[1]))
                 );
             }
-        }
-
-        if (ini.isEmpty()) {
-            throw new InvalidConfigValueException("Configuration source '" + source + "' is empty and Spark context doesn't have properties for a task '" + prefix + "'");
         }
 
         return ini;

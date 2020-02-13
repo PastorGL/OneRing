@@ -6,10 +6,9 @@ package ash.nazg.dist;
 
 import ash.nazg.cli.TaskWrapper;
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.dist.config.DistWrapperConfig;
+import ash.nazg.config.WrapperConfig;
 import ash.nazg.spark.Operations;
 import ash.nazg.storage.Adapters;
-import ash.nazg.cli.config.CpDirection;
 import scala.Tuple2;
 
 import java.nio.file.Files;
@@ -18,9 +17,9 @@ import java.util.*;
 
 public class DistWrapper extends TaskWrapper {
     private String exeDistCp;
-    private boolean deleteOnSuccess;
+    private boolean deleteOnSuccess = false;
 
-    public DistWrapper(DistWrapperConfig wrapperConfig) {
+    public DistWrapper(WrapperConfig wrapperConfig) {
         super(null, wrapperConfig);
     }
 
@@ -39,19 +38,18 @@ public class DistWrapper extends TaskWrapper {
 
     @Override
     public void go() throws Exception {
-        DistWrapperConfig taskWrapperConfig = (DistWrapperConfig) wrapperConfig;
-
         final List<String> lines = new ArrayList<>();
-        wrapDistCp = taskWrapperConfig.getCpDirection();
-        CpDirection distDirection = taskWrapperConfig.getDistDirection();
-        inputDir = taskWrapperConfig.getCpToDir();
-        outputDir = taskWrapperConfig.getCpFromDir();
-        wrapperStorePath = taskWrapperConfig.getWrapperStorePath();
+        CpDirection distDirection = CpDirection.parse(wrapperConfig.getDistCpProperty("wrap", "nop"));
+        if (distDirection == CpDirection.BOTH_DIRECTIONS) {
+            throw new InvalidConfigValueException("DistWrapper's copy direction can't be 'both' because it's ambiguous");
+        }
 
         if (distDirection.any && wrapDistCp.any) {
-            exeDistCp = taskWrapperConfig.getDistCpExe();
+            exeDistCp = wrapperConfig.getDistCpProperty("exe", "s3-dist-cp");
 
-            deleteOnSuccess = taskWrapperConfig.getDistCpMove();
+            if (distDirection == CpDirection.ONLY_FROM_HDFS) {
+                deleteOnSuccess = Boolean.parseBoolean(wrapperConfig.getDistCpProperty("move", "true"));
+            }
 
             if (distDirection.to && wrapDistCp.to) {
                 Operations taskHandler = new Operations(null);
@@ -79,10 +77,10 @@ public class DistWrapper extends TaskWrapper {
                         lines.add(distCpCmd(path, wrapperConfig.outputPath(name), ".*/(" + name + ".*?)/part.*"));
                     }
                 } else {
-                    Set<String> teeOutput = taskWrapperConfig.getTeeOutput();
+                    Set<String> teeOutput = wrapperConfig.getTeeOutput();
 
                     for (String name : teeOutput) {
-                        String path = taskWrapperConfig.outputPath(name);
+                        String path = wrapperConfig.outputPath(name);
 
                         if (Adapters.PATH_PATTERN.matcher(path).matches()) {
                             lines.add(distCpCmd("hdfs://" + outputDir + "/" + name, path, ".*/(" + name + ".*?)/part.*"));
@@ -93,7 +91,7 @@ public class DistWrapper extends TaskWrapper {
                 }
             }
 
-            Files.write(Paths.get(taskWrapperConfig.getDistCpIni()), lines);
+            Files.write(Paths.get(wrapperConfig.getDistCpProperty("ini", null)), lines);
         }
     }
 }

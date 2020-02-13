@@ -4,9 +4,8 @@
  */
 package ash.nazg.spark;
 
-import ash.nazg.config.WrapperConfig;
 import ash.nazg.cli.TaskWrapper;
-import ash.nazg.cli.config.TaskWrapperConfig;
+import ash.nazg.config.WrapperConfig;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDDLike;
@@ -28,7 +27,7 @@ public class TestTaskWrapper extends TaskWrapper implements AutoCloseable {
             .set("spark.ui.enabled", "false");
 
     public TestTaskWrapper(boolean replpath, String path) {
-        super(new JavaSparkContext(sparkConf), new TaskWrapperConfig());
+        super(new JavaSparkContext(sparkConf), new WrapperConfig());
         context.hadoopConfiguration().set(FileInputFormat.INPUT_DIR_RECURSIVE, Boolean.TRUE.toString());
 
         try (InputStream input = getClass().getResourceAsStream(path)) {

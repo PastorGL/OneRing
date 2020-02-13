@@ -9,6 +9,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import org.hibernate.validator.constraints.NotEmpty;
 
 import javax.validation.Valid;
+import java.util.Properties;
 
 public class TaskDefinitionLanguage {
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -33,6 +34,18 @@ public class TaskDefinitionLanguage {
 
         @JsonProperty(value = "prefix")
         public String prefix;
+
+        @JsonProperty(value = "distcp")
+        @JsonInclude(JsonInclude.Include.NON_EMPTY)
+        public Properties distcp;
+
+        @JsonProperty(value = "input")
+        @JsonInclude(JsonInclude.Include.NON_EMPTY)
+        public Properties input;
+
+        @JsonProperty(value = "output")
+        @JsonInclude(JsonInclude.Include.NON_EMPTY)
+        public Properties output;
     }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)

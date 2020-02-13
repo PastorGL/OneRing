@@ -7,7 +7,7 @@ package ash.nazg.rest.service;
 import ash.nazg.config.tdl.PropertiesConverter;
 import ash.nazg.config.tdl.TaskDefinitionLanguage;
 import ash.nazg.cli.TaskWrapper;
-import ash.nazg.cli.config.TaskWrapperConfig;
+import ash.nazg.config.WrapperConfig;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -60,7 +60,7 @@ public class LocalRunnerService extends Runner {
                                                         .set("spark.driver.memory", props.getProperty("local.driver.memory"));
                                             }
 
-                                            TaskWrapperConfig config = new LocalRunnerConfigBuilder()
+                                            WrapperConfig config = new LocalRunnerConfigBuilder()
                                                     .build(current);
                                             context = new JavaSparkContext(sparkConf);
                                             context.hadoopConfiguration().set(FileInputFormat.INPUT_DIR_RECURSIVE, Boolean.TRUE.toString());
@@ -114,7 +114,7 @@ public class LocalRunnerService extends Runner {
     }
 
     private static class LocalRunnerConfigBuilder {
-        private TaskWrapperConfig build(QueueEntry entry) {
+        private WrapperConfig build(QueueEntry entry) {
             Properties overrides = new Properties();
 
             if (entry.variables != null) {
@@ -128,7 +128,7 @@ public class LocalRunnerService extends Runner {
 
             Properties props = PropertiesConverter.toProperties(entry.task);
 
-            TaskWrapperConfig wrapperConfig = new TaskWrapperConfig();
+            WrapperConfig wrapperConfig = new WrapperConfig();
             wrapperConfig.setPrefix(entry.task.prefix);
             wrapperConfig.setOverrides(overrides);
             wrapperConfig.setProperties(props);
