@@ -45,7 +45,7 @@ public class TaskEndpoint {
     @Path("validate.ini")
     @Consumes(MediaType.TEXT_PLAIN)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response validateTask(@QueryParam("prefix") String prefix, @QueryParam("variables") String variables, @NotEmpty String properties) throws IOException {
+    public Response validateTask(@QueryParam("prefix") String prefix, @NotEmpty String properties) throws IOException {
         Properties props = new Properties();
         props.load(new StringReader(properties));
 

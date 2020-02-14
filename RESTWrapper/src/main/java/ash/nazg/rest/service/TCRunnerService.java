@@ -97,7 +97,7 @@ public class TCRunnerService extends Runner {
         File tempDir = makeTempDir();
 
         try {
-            String taskKey = "tasks/" + tcBuildType + "-" + new Date().getTime() + "-" + new Random().nextLong();
+            String taskKey = "tasks/" + tcBuildType + "-" + new Date().getTime() + "-" + new Random().nextLong() + ".json";
 
             ProfileCredentialsProvider credentialsProvider = new ProfileCredentialsProvider(awsProfile);
             AmazonS3 s3 = AmazonS3ClientBuilder.standard()
