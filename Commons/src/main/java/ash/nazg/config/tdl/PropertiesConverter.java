@@ -447,122 +447,131 @@ public class PropertiesConverter {
                 composed.output.putAll(task.output);
             }
 
-            task.sink = Arrays.stream(task.sink)
-                    .map(replacer)
-                    .toArray(String[]::new);
+            if (task.sink != null) {
+                task.sink = Arrays.stream(task.sink)
+                        .map(replacer)
+                        .toArray(String[]::new);
+            }
 
-            task.tees = Arrays.stream(task.tees)
-                    .map(replacer)
-                    .toArray(String[]::new);
+            if (task.tees != null) {
+                task.tees = Arrays.stream(task.tees)
+                        .map(replacer)
+                        .toArray(String[]::new);
 
-            final int _i = i;
-            final TaskDefinitionLanguage.DataStream _default = Arrays.stream(task.dataStreams)
-                    .filter(ds -> ds.name.equals(DEFAULT_DS))
-                    .peek(ds -> {
-                        if (_i == last) {
-                            dataStreams.put(DEFAULT_DS, ds);
-                        }
-                    })
-                    .findFirst().get();
+                allTees.addAll(Arrays.asList(task.tees));
+            }
 
-            task.dataStreams = Arrays.stream(task.dataStreams)
-                    .filter(ds -> !ds.name.equals(DEFAULT_DS))
-                    .peek(ds -> {
-                        ds.name = replacer.apply(ds.name);
-
-                        if (ds.input != null) {
-                            ds.input.delimiter = (ds.input.delimiter != null) ? ds.input.delimiter : _default.input.delimiter;
-                        }
-                        if (ds.output != null) {
-                            ds.output.delimiter = (ds.output.delimiter != null) ? ds.output.delimiter : _default.output.delimiter;
-
-                            if (ds.output.columns != null) {
-                                List<String> columns = new ArrayList<>();
-                                for (String column : ds.output.columns) {
-                                    String[] c = column.split("\\.", 2);
-
-                                    if (c.length > 1) {
-                                        columns.add(replacer.apply(c[0]) + "." + c[1]);
-                                    } else {
-                                        columns.add(column);
-                                    }
-                                }
-                                ds.output.columns = columns.toArray(new String[0]);
+            if (task.dataStreams != null) {
+                final int _i = i;
+                final TaskDefinitionLanguage.DataStream _default = Arrays.stream(task.dataStreams)
+                        .filter(ds -> ds.name.equals(DEFAULT_DS))
+                        .peek(ds -> {
+                            if (_i == last) {
+                                dataStreams.put(DEFAULT_DS, ds);
                             }
+                        })
+                        .findFirst().get();
 
-                            if (Arrays.asList(task.tees).contains(ds.name) && (_default.output.path != null)) {
-                                ds.output.path = (ds.output.path != null) ? ds.output.path : _default.output.path + "/" + ds.name;
+                task.dataStreams = Arrays.stream(task.dataStreams)
+                        .filter(ds -> !ds.name.equals(DEFAULT_DS))
+                        .peek(ds -> {
+                            ds.name = replacer.apply(ds.name);
+
+                            if (ds.input != null) {
+                                ds.input.delimiter = (ds.input.delimiter != null) ? ds.input.delimiter : _default.input.delimiter;
                             }
-                        }
+                            if (ds.output != null) {
+                                ds.output.delimiter = (ds.output.delimiter != null) ? ds.output.delimiter : _default.output.delimiter;
 
-                        TaskDefinitionLanguage.DataStream existing = dataStreams.get(ds.name);
+                                if (ds.output.columns != null) {
+                                    List<String> columns = new ArrayList<>();
+                                    for (String column : ds.output.columns) {
+                                        String[] c = column.split("\\.", 2);
 
-                        if (existing != null) {
-                            if ((existing.input == null) && (ds.input != null)) {
-                                existing.input = ds.input;
-                            }
-                            if ((existing.output == null) && (ds.output != null)) {
-                                existing.output = ds.output;
-                            }
-                        } else {
-                            dataStreams.put(ds.name, ds);
-                        }
-                    })
-                    .toArray(TaskDefinitionLanguage.DataStream[]::new);
-
-            task.operations = Arrays.stream(task.operations)
-                    .peek(op -> {
-                        op.name = alias + "_" + op.name;
-
-                        if (op.definitions != null) {
-                            op.definitions = Arrays.stream(op.definitions)
-                                    .peek(def -> {
-                                        if ((def.useDefaults == null) || !def.useDefaults) {
-                                            if (def.name.endsWith(OperationConfig.COLUMN_SUFFIX)) {
-                                                String[] c = def.value.split("\\.", 2);
-
-                                                def.value = replacer.apply(c[0]) + "." + c[1];
-                                            }
-                                            if (def.name.endsWith(OperationConfig.COLUMNS_SUFFIX)) {
-                                                String[] cols = def.value.split(COMMA);
-                                                String[] repl = new String[cols.length];
-                                                for (int j = 0; j < cols.length; j++) {
-                                                    String col = cols[j];
-                                                    String[] c = col.split("\\.", 2);
-                                                    repl[j] = replacer.apply(c[0]) + "." + c[1];
-                                                }
-                                                def.value = String.join(COMMA, repl);
-                                            }
+                                        if (c.length > 1) {
+                                            columns.add(replacer.apply(c[0]) + "." + c[1]);
+                                        } else {
+                                            columns.add(column);
                                         }
-                                    })
-                                    .toArray(TaskDefinitionLanguage.Definition[]::new);
-                        }
+                                    }
+                                    ds.output.columns = columns.toArray(new String[0]);
+                                }
 
-                        if (op.inputs.positionalNames != null) {
-                            op.inputs.positionalNames = Arrays.stream(op.inputs.positionalNames)
-                                    .map(replacer)
-                                    .toArray(String[]::new);
-                        }
-                        if (op.inputs.named != null) {
-                            op.inputs.named = Arrays.stream(op.inputs.named)
-                                    .peek(in -> in.value = replacer.apply(in.value))
-                                    .toArray(TaskDefinitionLanguage.NamedStream[]::new);
-                        }
-                        if (op.outputs.positionalNames != null) {
-                            op.outputs.positionalNames = Arrays.stream(op.outputs.positionalNames)
-                                    .map(replacer)
-                                    .toArray(String[]::new);
-                        }
-                        if (op.outputs.named != null) {
-                            op.outputs.named = Arrays.stream(op.outputs.named)
-                                    .peek(out -> out.value = replacer.apply(out.value))
-                                    .toArray(TaskDefinitionLanguage.NamedStream[]::new);
-                        }
-                    })
-                    .toArray(TaskDefinitionLanguage.Operation[]::new);
+                                if (Arrays.asList(task.tees).contains(ds.name) && (_default.output.path != null)) {
+                                    ds.output.path = (ds.output.path != null) ? ds.output.path : _default.output.path + "/" + ds.name;
+                                }
+                            }
 
-            allTees.addAll(Arrays.asList(task.tees));
-            operations.addAll(Arrays.asList(task.operations));
+                            TaskDefinitionLanguage.DataStream existing = dataStreams.get(ds.name);
+
+                            if (existing != null) {
+                                if ((existing.input == null) && (ds.input != null)) {
+                                    existing.input = ds.input;
+                                }
+                                if ((existing.output == null) && (ds.output != null)) {
+                                    existing.output = ds.output;
+                                }
+                            } else {
+                                dataStreams.put(ds.name, ds);
+                            }
+                        })
+                        .toArray(TaskDefinitionLanguage.DataStream[]::new);
+            }
+
+            if (task.operations != null) {
+                task.operations = Arrays.stream(task.operations)
+                        .peek(op -> {
+                            op.name = alias + "_" + op.name;
+
+                            if (op.definitions != null) {
+                                op.definitions = Arrays.stream(op.definitions)
+                                        .peek(def -> {
+                                            if ((def.useDefaults == null) || !def.useDefaults) {
+                                                if (def.name.endsWith(OperationConfig.COLUMN_SUFFIX)) {
+                                                    String[] c = def.value.split("\\.", 2);
+
+                                                    def.value = replacer.apply(c[0]) + "." + c[1];
+                                                }
+                                                if (def.name.endsWith(OperationConfig.COLUMNS_SUFFIX)) {
+                                                    String[] cols = def.value.split(COMMA);
+                                                    String[] repl = new String[cols.length];
+                                                    for (int j = 0; j < cols.length; j++) {
+                                                        String col = cols[j];
+                                                        String[] c = col.split("\\.", 2);
+                                                        repl[j] = replacer.apply(c[0]) + "." + c[1];
+                                                    }
+                                                    def.value = String.join(COMMA, repl);
+                                                }
+                                            }
+                                        })
+                                        .toArray(TaskDefinitionLanguage.Definition[]::new);
+                            }
+
+                            if (op.inputs.positionalNames != null) {
+                                op.inputs.positionalNames = Arrays.stream(op.inputs.positionalNames)
+                                        .map(replacer)
+                                        .toArray(String[]::new);
+                            }
+                            if (op.inputs.named != null) {
+                                op.inputs.named = Arrays.stream(op.inputs.named)
+                                        .peek(in -> in.value = replacer.apply(in.value))
+                                        .toArray(TaskDefinitionLanguage.NamedStream[]::new);
+                            }
+                            if (op.outputs.positionalNames != null) {
+                                op.outputs.positionalNames = Arrays.stream(op.outputs.positionalNames)
+                                        .map(replacer)
+                                        .toArray(String[]::new);
+                            }
+                            if (op.outputs.named != null) {
+                                op.outputs.named = Arrays.stream(op.outputs.named)
+                                        .peek(out -> out.value = replacer.apply(out.value))
+                                        .toArray(TaskDefinitionLanguage.NamedStream[]::new);
+                            }
+                        })
+                        .toArray(TaskDefinitionLanguage.Operation[]::new);
+
+                operations.addAll(Arrays.asList(task.operations));
+            }
 
             if (i == last) {
                 lastTask = task;

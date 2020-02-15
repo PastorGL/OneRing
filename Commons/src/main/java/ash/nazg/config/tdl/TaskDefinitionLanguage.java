@@ -15,21 +15,21 @@ public class TaskDefinitionLanguage {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class Task {
         @JsonProperty(required = true, value = "op")
-        @NotEmpty
+        @JsonInclude(JsonInclude.Include.NON_EMPTY)
         @Valid
         public Operation[] operations;
 
         @JsonProperty(required = true, value = "ds")
-        @NotEmpty
+        @JsonInclude(JsonInclude.Include.NON_EMPTY)
         @Valid
         public DataStream[] dataStreams;
 
         @JsonProperty(required = true, value = "tee")
-        @NotEmpty
+        @JsonInclude(JsonInclude.Include.NON_EMPTY)
         public String[] tees;
 
         @JsonProperty(required = true, value = "sink")
-        @NotEmpty
+        @JsonInclude(JsonInclude.Include.NON_EMPTY)
         public String[] sink;
 
         @JsonProperty(value = "prefix")
