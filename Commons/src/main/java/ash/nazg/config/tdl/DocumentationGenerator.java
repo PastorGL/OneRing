@@ -580,7 +580,10 @@ public class DocumentationGenerator {
             if (descr.outputs.positional.generatedColumns != null) {
                 Arrays.stream(descr.outputs.positional.generatedColumns)
                         .forEach(gen -> {
-                            output.generated.add(new TaskDocumentationLanguage.Pair(gen, String.valueOf(ds.generated.get(gen))));
+                            Field fG = ds.fields.get(ds.generated.get(gen));
+                            Description deG = fG.getDeclaredAnnotation(Description.class);
+
+                            output.generated.add(new TaskDocumentationLanguage.Pair(gen, deG.value()));
                         });
             }
 

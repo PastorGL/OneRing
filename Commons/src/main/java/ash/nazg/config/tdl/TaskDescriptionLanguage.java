@@ -295,11 +295,18 @@ public class TaskDescriptionLanguage {
             this.defaults = (defaults != null) ? String.valueOf(defaults) : null;
         }
 
-        public Definition(String name, Class type) {
+        public Definition(String name, Class<?> type) {
             super(type);
             this.name = name;
             this.optional = false;
             this.defaults = null;
+        }
+
+        public Definition(String name, Class<String[]> type, String[] defaults) {
+            super(type);
+            this.name = name;
+            this.optional = true;
+            this.defaults = (defaults != null) ? String.join(",", defaults) : null;
         }
 
         public Definition(String name, String[] defaults) {
