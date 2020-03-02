@@ -242,7 +242,7 @@ public class ParametricScoreOperation extends Operation {
                 .mapToPair(t -> new Tuple2<>(t._1._1, new Tuple2<>(t._1._2, t._2)))
                 .combineByKey(
                         v -> {
-                            Map<Double, Text> r = new TreeMap<>();
+                            Map<Double, Text> r = new HashMap<>();
                             r.put(v._2, v._1);
                             return r;
                         },
@@ -251,11 +251,9 @@ public class ParametricScoreOperation extends Operation {
                             return t;
                         },
                         (t1, t2) -> {
-                            Map<Double, Text> r = new TreeMap<>(Comparator.reverseOrder());
-                            r.putAll(t1);
-                            r.putAll(t2);
+                            t1.putAll(t2);
 
-                            return r.entrySet().stream().limit(_top).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                            return t1;
                         }
                 )
                 .mapPartitions(it -> {

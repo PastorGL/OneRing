@@ -338,7 +338,7 @@ public class TaskDescriptionLanguage {
         @JsonProperty(required = true, value = "prefix")
         public final String prefix;
 
-        public DynamicDef(String prefix, Class type) {
+        public DynamicDef(String prefix, Class<?> type) {
             super(type);
             this.prefix = prefix;
         }
