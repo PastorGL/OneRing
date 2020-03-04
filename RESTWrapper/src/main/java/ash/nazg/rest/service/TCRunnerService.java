@@ -4,6 +4,7 @@
  */
 package ash.nazg.rest.service;
 
+import ash.nazg.config.tdl.TDLObjectMapper;
 import ash.nazg.config.tdl.TaskDefinitionLanguage;
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.s3.AmazonS3;
@@ -104,7 +105,7 @@ public class TCRunnerService extends Runner {
                     .withCredentials(credentialsProvider)
                     .build();
 
-            byte[] bytes = new ObjectMapper().writeValueAsBytes(task);
+            byte[] bytes = new TDLObjectMapper().writeValueAsBytes(task);
             ObjectMetadata om = new ObjectMetadata();
             om.setContentType("application/json");
             om.setContentLength(bytes.length);

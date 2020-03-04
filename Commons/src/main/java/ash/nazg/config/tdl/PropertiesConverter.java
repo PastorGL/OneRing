@@ -17,14 +17,6 @@ import static ash.nazg.config.WrapperConfig.*;
 public class PropertiesConverter {
     public static final String DEFAULT_DS = "_default";
 
-    static public TaskDefinitionLanguage.Task toTask(String prefix, Properties properties) throws Exception {
-        WrapperConfig taskConfig = new WrapperConfig();
-        taskConfig.setPrefix(prefix);
-        taskConfig.setProperties(properties);
-
-        return toTask(taskConfig);
-    }
-
     static public TaskDefinitionLanguage.Task toTask(WrapperConfig taskConfig) throws Exception {
         List<TaskDefinitionLanguage.Operation> opDefs = new ArrayList<>();
         Map<String, TaskDefinitionLanguage.DataStream> dsDefs = new HashMap<>();
@@ -279,19 +271,6 @@ public class PropertiesConverter {
         return value.getClass() == String[].class
                 ? String.join(",", (String[]) value)
                 : String.valueOf(value);
-    }
-
-    static public String toJSON(String prefix, Properties properties) throws Exception {
-        ObjectMapper om = new ObjectMapper();
-
-        return om.writeValueAsString(toTask(prefix, properties));
-    }
-
-    static public Properties toProperties(String json) throws Exception {
-        ObjectMapper om = new ObjectMapper();
-        TaskDefinitionLanguage.Task task = om.readValue(json, TaskDefinitionLanguage.Task.class);
-
-        return toProperties(task);
     }
 
     static public Properties toProperties(TaskDefinitionLanguage.Task task) {

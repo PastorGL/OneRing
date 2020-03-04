@@ -6,6 +6,7 @@ package ash.nazg.config;
 
 import ash.nazg.config.tdl.DocumentationGenerator;
 import ash.nazg.config.tdl.PropertiesConverter;
+import ash.nazg.config.tdl.TDLObjectMapper;
 import ash.nazg.config.tdl.TaskDefinitionLanguage;
 import ash.nazg.spark.Operations;
 import ash.nazg.storage.Adapters;
@@ -44,7 +45,7 @@ public class DocGen {
             for (Map.Entry<String, String> pkg : pkgs.entrySet()) {
                 String pkgName = pkg.getKey();
 
-                ObjectMapper om = new ObjectMapper();
+                ObjectMapper om = new TDLObjectMapper();
                 om.configure(SerializationFeature.INDENT_OUTPUT, true);
                 DefaultPrettyPrinter pp = new DefaultPrettyPrinter();
                 pp.indentArraysWith(DefaultIndenter.SYSTEM_LINEFEED_INSTANCE);

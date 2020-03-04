@@ -8,6 +8,8 @@ import ash.nazg.config.tdl.TaskDefinitionLanguage;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import java.util.ArrayList;
+import java.util.List;
 
 @Singleton
 public class RunService {
@@ -20,12 +22,22 @@ public class RunService {
         this.tcRunner = tcRunner;
     }
 
-    public String defineLocal(TaskDefinitionLanguage.Task task, String params) throws Exception {
-        return "local:" + localRunner.define(task, params);
+    public List<String> defineLocal(List<TaskDefinitionLanguage.Task> tasks, String params) {
+        List<String> taskIds = new ArrayList<>();
+        for (TaskDefinitionLanguage.Task task : tasks) {
+            taskIds.add("local:" + localRunner.define(task, params));
+        }
+
+        return taskIds;
     }
 
-    public String defineTC(TaskDefinitionLanguage.Task task, String params) throws Exception {
-        return "tc:" + tcRunner.define(task, params);
+    public List<String> defineTC(List<TaskDefinitionLanguage.Task> tasks, String params) throws Exception {
+        List<String> taskIds = new ArrayList<>();
+        for (TaskDefinitionLanguage.Task task : tasks) {
+            taskIds.add("local:" + tcRunner.define(task, params));
+        }
+
+        return taskIds;
     }
 
     public TaskStatus status(String taskId) throws Exception {

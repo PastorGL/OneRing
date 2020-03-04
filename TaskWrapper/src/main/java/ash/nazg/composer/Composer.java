@@ -9,14 +9,12 @@ import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.PropertiesConfig;
 import ash.nazg.config.WrapperConfig;
 import ash.nazg.config.tdl.PropertiesConverter;
+import ash.nazg.config.tdl.TDLObjectMapper;
 import ash.nazg.config.tdl.TaskDefinitionLanguage;
-import ash.nazg.storage.Adapters;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.ParseException;
 
 import javax.ws.rs.core.MultivaluedHashMap;
-import java.io.File;
 import java.io.FileReader;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
@@ -152,7 +150,7 @@ public class Composer {
             String outputFile = configBuilder.getOptionValue("output");
             Path outputPath = Paths.get(outputFile);
             if (outputFile.endsWith(".json")) {
-                Files.write(outputPath, Collections.singleton(new ObjectMapper().writeValueAsString(composed)));
+                Files.write(outputPath, Collections.singleton(new TDLObjectMapper().writeValueAsString(composed)));
             } else {
                 Files.write(outputPath, PropertiesConverter.toProperties(composed).entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).collect(Collectors.toList()));
             }

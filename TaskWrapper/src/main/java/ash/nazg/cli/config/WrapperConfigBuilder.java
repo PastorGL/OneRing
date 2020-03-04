@@ -8,6 +8,8 @@ import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.PropertiesConfig;
 import ash.nazg.config.WrapperConfig;
 import ash.nazg.config.tdl.PropertiesConverter;
+import ash.nazg.config.tdl.TDLObjectMapper;
+import ash.nazg.config.tdl.TaskDefinitionLanguage;
 import ash.nazg.storage.Adapters;
 import org.apache.commons.cli.*;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -85,9 +87,10 @@ public abstract class WrapperConfigBuilder {
         }
 
         if (source != null) {
-            List<String> l;
+            List<String> lines;
+
             if (Adapters.PATH_PATTERN.matcher(source).matches() && (context != null)) {
-                l = context.wholeTextFiles(new File(source).getParent())
+                lines = context.wholeTextFiles(new File(source).getParent())
                         .filter(t -> t._1.equals(source))
                         .flatMap(t -> {
                             String[] s = t._2.split("\\R+");
@@ -96,7 +99,7 @@ public abstract class WrapperConfigBuilder {
                         .collect();
             } else {
                 try {
-                    l = Files.readAllLines(Paths.get(source));
+                    lines = Files.readAllLines(Paths.get(source));
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -105,12 +108,26 @@ public abstract class WrapperConfigBuilder {
             boolean convert = source.endsWith(".json");
             if (convert) {
                 try {
-                    ini.putAll(PropertiesConverter.toProperties(String.join("", l)));
-                } catch (Exception e) {
-                    throw new InvalidConfigValueException("Invalid JSON config", e);
+                    TaskDefinitionLanguage.Task[] tasks = new TDLObjectMapper().readValue(String.join("", lines), TaskDefinitionLanguage.Task[].class);
+
+                    if ((prefix == null) && (tasks.length > 1)) {
+                        throw new InvalidConfigValueException("Prefix for a multiple-task JSON config must be provided");
+                    }
+
+                    for (TaskDefinitionLanguage.Task task : tasks) {
+                        if ((prefix == null) || prefix.equals(task.prefix)) {
+                            ini.putAll(PropertiesConverter.toProperties(task));
+                        }
+                    }
+
+                    if (ini.size() == 0) {
+                        throw new InvalidConfigValueException("No properties from an JSON config were read. Check the prefix");
+                    }
+                } catch (IOException e) {
+                    throw new InvalidConfigValueException("Invalid or malformed JSON config", e);
                 }
             } else {
-                ini.putAll(l.stream()
+                ini.putAll(lines.stream()
                         .filter(t -> (prefix != null) ? t.startsWith(prefix) : !t.isEmpty())
                         .map(t -> t.split("=", 2))
                         .collect(Collectors.toMap(t -> t[0], t -> t[1]))

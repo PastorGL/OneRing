@@ -22,9 +22,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
+import static ash.nazg.cli.TaskWrapper.APP_NAME;
 import static io.github.pastorgl.rest.init.GlobalConfig.PROPERTY_SERVER_INTERFACE;
 import static io.github.pastorgl.rest.init.GlobalConfig.PROPERTY_SERVER_PORT;
-import static ash.nazg.cli.TaskWrapper.APP_NAME;
 
 public class Main {
     public static void main(String... args) throws Exception {
