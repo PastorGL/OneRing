@@ -269,7 +269,7 @@ public class SplitByDateOperation extends Operation {
                 }
             }
 
-            JavaRDD output = cachedInput.filter(new FilterByDateFunction(uDef));
+            JavaRDD output = cachedInput.mapPartitions(new FilterByDateFunction(uDef));
             outs.put(outputName, output);
         }
 

@@ -7,6 +7,7 @@ package ash.nazg.datetime;
 import ash.nazg.spark.TestRunner;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
+import org.apache.hadoop.io.Text;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -19,7 +20,7 @@ public class FilterByDateOperationTest {
     public void filterByDateTest() throws Exception {
         try (TestRunner underTest = new TestRunner("/test.filterByDate.properties")) {
 
-            List<String> result = underTest.go().get("filtered").collect();
+            List<Text> result = underTest.go().get("filtered").collect();
 
             assertTrue(0 < result.size());
             assertTrue(underTest.go().get("ts_data").count() > result.size());
@@ -28,8 +29,8 @@ public class FilterByDateOperationTest {
 
             List<String> months = Arrays.asList("2", "4", "6", "8", "12");
 
-            for (String t : result) {
-                String[] ll = parser.parseLine(t);
+            for (Text t : result) {
+                String[] ll = parser.parseLine(String.valueOf(t));
 
                 assertNotEquals("2017", ll[9]);
                 assertFalse(months.contains(ll[8]));
@@ -43,7 +44,7 @@ public class FilterByDateOperationTest {
     public void filterByTimeOfDayTest() throws Exception {
         try (TestRunner underTest = new TestRunner("/test.filterByDate.properties")) {
 
-            List<String> result = underTest.go().get("tod").collect();
+            List<Text> result = underTest.go().get("tod").collect();
 
             assertTrue(0 < result.size());
             assertTrue(underTest.go().get("ts_data").count() > result.size());
@@ -52,8 +53,8 @@ public class FilterByDateOperationTest {
 
             List<String> hours = Arrays.asList("8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19");
 
-            for (String t : result) {
-                String[] ll = parser.parseLine(t);
+            for (Text t : result) {
+                String[] ll = parser.parseLine(String.valueOf(t));
 
                 assertFalse(hours.contains(ll[10]));
             }

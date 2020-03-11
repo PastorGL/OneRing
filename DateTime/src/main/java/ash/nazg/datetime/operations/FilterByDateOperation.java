@@ -5,12 +5,12 @@
 package ash.nazg.datetime.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
+import ash.nazg.config.OperationConfig;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.datetime.functions.FilterByDateDefinition;
-import ash.nazg.spark.Operation;
 import ash.nazg.datetime.functions.FilterByDateFunction;
-import ash.nazg.config.OperationConfig;
+import ash.nazg.spark.Operation;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 
@@ -272,7 +272,8 @@ public class FilterByDateOperation extends Operation {
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         @SuppressWarnings("unchecked")
-        JavaRDD output = ((JavaRDD) input.get(inputName)).filter(new FilterByDateFunction(def));
+        JavaRDD output = input.get(inputName)
+                .mapPartitions(new FilterByDateFunction(def));
 
         return Collections.singletonMap(outputName, output);
     }

@@ -7,6 +7,7 @@ package ash.nazg.datetime;
 import ash.nazg.spark.TestRunner;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
+import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaRDDLike;
 import org.junit.Test;
 
@@ -44,12 +45,12 @@ public class SplitByDateOperationTest {
                     String ye = m.group(1);
                     String mo = m.group(2);
 
-                    List<String> result = ret.get(ks).collect();
+                    List<Text> result = ret.get(ks).collect();
 
                     assertNotEquals(0, result.size());
 
-                    for (String t : result) {
-                        String[] ll = parser.parseLine(t);
+                    for (Text t : result) {
+                        String[] ll = parser.parseLine(String.valueOf(t));
 
                         assertEquals(ye, ll[9]);
                         assertEquals(mo, ll[8]);
