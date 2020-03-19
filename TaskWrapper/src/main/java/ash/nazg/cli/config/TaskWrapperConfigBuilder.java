@@ -11,7 +11,6 @@ import ash.nazg.storage.Adapters;
 import org.apache.commons.cli.Options;
 import org.apache.spark.api.java.JavaSparkContext;
 
-import java.io.File;
 import java.io.FileReader;
 import java.io.StringReader;
 import java.util.Base64;
@@ -47,7 +46,7 @@ public class TaskWrapperConfigBuilder extends WrapperConfigBuilder {
             } else {
                 final String variablesFile = getOptionValue("variablesFile");
                 if (Adapters.PATH_PATTERN.matcher(variablesFile).matches() && (context != null)) {
-                    variables = context.wholeTextFiles(new File(variablesFile).getParent())
+                    variables = context.wholeTextFiles(variablesFile.substring(0, variablesFile.lastIndexOf('/')))
                             .filter(t -> t._1.equals(variablesFile))
                             .map(t -> t._2)
                             .first();

@@ -15,7 +15,6 @@ import org.apache.commons.cli.*;
 import org.apache.spark.api.java.JavaSparkContext;
 import scala.Tuple2;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -88,9 +87,8 @@ public abstract class WrapperConfigBuilder {
 
         if (source != null) {
             List<String> lines;
-
             if (Adapters.PATH_PATTERN.matcher(source).matches() && (context != null)) {
-                lines = context.wholeTextFiles(new File(source).getParent())
+                lines = context.wholeTextFiles(source.substring(0, source.lastIndexOf('/')))
                         .filter(t -> t._1.equals(source))
                         .flatMap(t -> {
                             String[] s = t._2.split("\\R+");
