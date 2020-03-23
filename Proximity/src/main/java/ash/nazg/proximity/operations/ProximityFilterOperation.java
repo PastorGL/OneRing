@@ -4,10 +4,10 @@
  */
 package ash.nazg.proximity.operations;
 
-import ash.nazg.config.tdl.Description;
-import ash.nazg.spark.Operation;
 import ash.nazg.config.OperationConfig;
+import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.spark.Operation;
 import ash.nazg.spatial.SpatialUtils;
 import net.sf.geographiclib.Geodesic;
 import org.apache.hadoop.io.DoubleWritable;
@@ -34,7 +34,8 @@ public class ProximityFilterOperation extends Operation {
     private String inputSignalsName;
     private String inputPoisName;
 
-    private String outputName;
+    private String outputSignalsName;
+    private String outputEvictedName;
 
     @Override
     @Description("Takes a Point RDD and POI Point RDD and generates a Point RDD consisting" +
@@ -70,6 +71,10 @@ public class ProximityFilterOperation extends Operation {
                                         new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Point},
                                         false
                                 ),
+                                new TaskDescriptionLanguage.NamedStream(RDD_OUTPUT_EVICTED,
+                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Point},
+                                        false
+                                ),
                         }
                 )
         );
@@ -82,7 +87,8 @@ public class ProximityFilterOperation extends Operation {
         inputSignalsName = describedProps.namedInputs.get(RDD_INPUT_SIGNALS);
         inputPoisName = describedProps.namedInputs.get(RDD_INPUT_POIS);
 
-        outputName = describedProps.namedOutputs.get(RDD_OUTPUT_SIGNALS);
+        outputSignalsName = describedProps.namedOutputs.get(RDD_OUTPUT_SIGNALS);
+        outputEvictedName = describedProps.namedOutputs.get(RDD_OUTPUT_EVICTED);
     }
 
     @Override
@@ -148,21 +154,21 @@ public class ProximityFilterOperation extends Operation {
         final GeometryFactory geometryFactory = new GeometryFactory();
 
         // Filter signals by hash coverage
-        JavaRDD<Point> signals = inputSignals
-                .mapPartitions(it -> {
+        JavaPairRDD<Boolean, Point> signals = inputSignals
+                .mapPartitionsToPair(it -> {
                     HashMap<Long, Iterable<Tuple2<MapWritable, Double>>> pois = broadcastHashedPois.getValue();
 
-                    List<Point> result = new ArrayList<>();
+                    List<Tuple2<Boolean, Point>> result = new ArrayList<>();
 
                     Text latAttr = new Text("_center_lat");
                     Text lonAttr = new Text("_center_lon");
-                    Text radiusAttr = new Text("_radius");
                     Text distanceAttr = new Text("_distance");
 
                     while (it.hasNext()) {
-                        Point o = it.next();
+                        Point signal = it.next();
+                        boolean added = false;
 
-                        MapWritable signalProperties = (MapWritable) o.getUserData();
+                        MapWritable signalProperties = (MapWritable) signal.getUserData();
 
                         double signalLat = ((DoubleWritable) signalProperties.get(latAttr)).get();
                         double signalLon = ((DoubleWritable) signalProperties.get(lonAttr)).get();
@@ -194,16 +200,29 @@ public class ProximityFilterOperation extends Operation {
 
                                         Point point = geometryFactory.createPoint(new Coordinate(signalLon, signalLat));
                                         point.setUserData(properties);
-                                        result.add(point);
+                                        result.add(new Tuple2<>(true, point));
+                                        added = true;
                                     }
                                 }
                             }
+                        }
+
+                        if (!added) {
+                            result.add(new Tuple2<>(false, signal));
                         }
                     }
 
                     return result.iterator();
                 });
 
-        return Collections.singletonMap(outputName, signals);
+        if (outputEvictedName != null) {
+            Map<String, JavaRDDLike> ret = new HashMap<>();
+            ret.put(outputSignalsName, signals.filter(t -> t._1).values());
+            ret.put(outputEvictedName, signals.filter(t -> !t._1).values());
+
+            return Collections.unmodifiableMap(ret);
+        } else {
+            return Collections.singletonMap(outputSignalsName, signals.filter(t -> t._1).values());
+        }
     }
 }

@@ -39,6 +39,9 @@ public class AreaCoversTest {
 
             assertEquals(718, resultRDD.count());
 
+            resultRDD = (JavaRDD) ret.get("evicted");
+
+            assertEquals(4, resultRDD.count());
         }
     }
 }

@@ -4,11 +4,11 @@
  */
 package ash.nazg.proximity.operations;
 
+import ash.nazg.config.OperationConfig;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
 import ash.nazg.spatial.SpatialUtils;
-import ash.nazg.config.OperationConfig;
 import net.sf.geographiclib.Geodesic;
 import org.apache.hadoop.io.DoubleWritable;
 import org.apache.hadoop.io.MapWritable;
@@ -36,7 +36,8 @@ public class AreaCoversOperation extends Operation {
     private String inputGeometriesName;
     private String inputSignalsName;
 
-    private String outputName;
+    private String outputSignalsName;
+    private String outputEvictedName;
 
     @Override
     @Description("Takes a Point RDD and Polygon RDD and generates a Point RDD consisting" +
@@ -71,6 +72,10 @@ public class AreaCoversOperation extends Operation {
                                         new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Point},
                                         false
                                 ),
+                                new TaskDescriptionLanguage.NamedStream(RDD_OUTPUT_EVICTED,
+                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Point},
+                                        false
+                                ),
                         }
                 )
         );
@@ -83,7 +88,8 @@ public class AreaCoversOperation extends Operation {
         inputGeometriesName = describedProps.namedInputs.get(RDD_INPUT_GEOMETRIES);
         inputSignalsName = describedProps.namedInputs.get(RDD_INPUT_SIGNALS);
 
-        outputName = describedProps.namedOutputs.get(RDD_OUTPUT_SIGNALS);
+        outputSignalsName = describedProps.namedOutputs.get(RDD_OUTPUT_SIGNALS);
+        outputEvictedName = describedProps.namedOutputs.get(RDD_OUTPUT_EVICTED);
     }
 
     @Override
@@ -151,17 +157,18 @@ public class AreaCoversOperation extends Operation {
         final GeometryFactory geometryFactory = new GeometryFactory();
 
         // Filter signals by hash coverage
-        JavaRDD<Point> signals = inputSignals
-                .mapPartitions(it -> {
+        JavaPairRDD<Boolean, Point> signals = inputSignals
+                .mapPartitionsToPair(it -> {
                     HashMap<Long, Iterable<Polygon>> geometries = broadcastHashedGeometries.getValue();
 
-                    List<Point> result = new ArrayList<>();
+                    List<Tuple2<Boolean, Point>> result = new ArrayList<>();
 
                     Text latAttr = new Text("_center_lat");
                     Text lonAttr = new Text("_center_lon");
 
                     while (it.hasNext()) {
                         Point signal = it.next();
+                        boolean added = false;
 
                         MapWritable signalProperties = (MapWritable) signal.getUserData();
 
@@ -186,17 +193,30 @@ public class AreaCoversOperation extends Operation {
 
                                         Point point = geometryFactory.createPoint(new Coordinate(signalLon, signalLat));
                                         point.setUserData(properties);
-                                        result.add(point);
+                                        result.add(new Tuple2<>(true, point));
+                                        added = true;
                                     }
                                 }
                             }
+                        }
+
+                        if (!added) {
+                            result.add(new Tuple2<>(false, signal));
                         }
                     }
 
                     return result.iterator();
                 });
 
-        return Collections.singletonMap(outputName, signals);
+        if (outputEvictedName != null) {
+            Map<String, JavaRDDLike> ret = new HashMap<>();
+            ret.put(outputSignalsName, signals.filter(t -> t._1).values());
+            ret.put(outputEvictedName, signals.filter(t -> !t._1).values());
+
+            return Collections.unmodifiableMap(ret);
+        } else {
+            return Collections.singletonMap(outputSignalsName, signals.filter(t -> t._1).values());
+        }
     }
 
     public static class EnvelopeComparator implements Comparator<Envelope>, Serializable {

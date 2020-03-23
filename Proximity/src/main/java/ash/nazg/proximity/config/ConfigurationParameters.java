@@ -14,6 +14,8 @@ public final class ConfigurationParameters {
     @Description("Source POI Point RDD with _radius attribute set")
     public static final String RDD_INPUT_POIS = "pois";
 
-    @Description("Output Point RDD")
+    @Description("Output Point RDD with target signals")
     public static final String RDD_OUTPUT_SIGNALS = "signals";
+    @Description("Optional output Point RDD with evicted signals")
+    public static final String RDD_OUTPUT_EVICTED = "signals_evicted";
 }

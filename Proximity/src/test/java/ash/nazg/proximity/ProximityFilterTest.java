@@ -6,10 +6,12 @@ package ash.nazg.proximity;
 
 import ash.nazg.commons.TextUtil;
 import ash.nazg.spark.TestRunner;
+import net.sf.geographiclib.Geodesic;
 import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 import org.junit.Test;
+import org.locationtech.jts.geom.Point;
 
 import java.util.List;
 import java.util.Map;
@@ -30,13 +32,23 @@ public class ProximityFilterTest {
             assertEquals(44, resultRDD.count());
 
             List<Text> sample = resultRDD.collect();
-
             for (Text s : sample) {
                 double dist = new Double(String.valueOf(TextUtil.column(s, ",", 5)));
                 assertTrue(dist <= 30000.D);
             }
 
+            JavaRDD<Point> evicted = (JavaRDD<Point>) ret.get("evicted");
+
+            assertTrue(2761 - 44 >= evicted.count());
+
+            List<Point> evs = evicted.sample(false, 0.01).collect();
+            List<Point> prox = ret.get("geometries").collect();
+            for (Point e : evs) {
+                for (Point x : prox) {
+                    double dist = Geodesic.WGS84.Inverse(e.getY(), e.getX(), x.getY(), x.getX()).s12;
+                    assertTrue(dist > 30000.D);
+                }
+            }
         }
     }
-
 }
