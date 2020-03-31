@@ -70,8 +70,8 @@ public class ListMatchFilterOperation extends MatchFilterOperation {
     }
 
     @Override
-    public void setConfig(OperationConfig propertiesConfig) throws InvalidConfigValueException {
-        super.setConfig(propertiesConfig);
+    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
+        super.configure(properties, variables);
 
         inputName = describedProps.namedInputs.get(RDD_INPUT_SOURCE);
         inputDelimiter = dataStreamsProps.inputDelimiter(inputName);

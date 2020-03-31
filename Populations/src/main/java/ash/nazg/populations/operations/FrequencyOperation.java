@@ -57,8 +57,8 @@ public class FrequencyOperation extends PopulationIndicatorOperation {
     }
 
     @Override
-    public void setConfig(OperationConfig propertiesConfig) throws InvalidConfigValueException {
-        super.setConfig(propertiesConfig);
+    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
+        super.configure(properties, variables);
 
         inputValuesName = describedProps.inputs.get(0);
         inputValuesDelimiter = dataStreamsProps.inputDelimiter(inputValuesName);

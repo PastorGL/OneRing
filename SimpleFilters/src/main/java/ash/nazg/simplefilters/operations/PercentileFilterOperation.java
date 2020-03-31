@@ -18,6 +18,7 @@ import scala.Tuple2;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.Properties;
 
 @SuppressWarnings("unused")
 public class PercentileFilterOperation extends Operation {
@@ -75,8 +76,8 @@ public class PercentileFilterOperation extends Operation {
     }
 
     @Override
-    public void setConfig(OperationConfig propertiesConfig) throws InvalidConfigValueException {
-        super.setConfig(propertiesConfig);
+    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
+        super.configure(properties, variables);
 
         inputName = describedProps.inputs.get(0);
         inputDelimiter = dataStreamsProps.inputDelimiter(inputName);

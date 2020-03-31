@@ -4,32 +4,20 @@
  */
 package ash.nazg.spark;
 
-import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.OperationConfig;
 import ash.nazg.config.Packages;
-import ash.nazg.config.TaskConfig;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import io.github.classgraph.ClassGraph;
 import io.github.classgraph.ClassInfoList;
 import io.github.classgraph.ScanResult;
-import org.apache.spark.api.java.JavaSparkContext;
 
-import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class Operations {
-    private static Map<String, Operation.Info> availableOperations;
+    private static Map<String, OpInfo> availableOperations;
 
-    protected TaskConfig taskConfig;
-    protected JavaSparkContext context;
-    protected List<Operation> opChain = new LinkedList<>();
-
-    public Operations(JavaSparkContext context) {
-        this.context = context;
-    }
-
-    public static Map<String, Operation.Info> getAvailableOperations() {
+    public static Map<String, OpInfo> getAvailableOperations() {
         if (availableOperations == null) {
             availableOperations = new HashMap<>();
 
@@ -44,8 +32,8 @@ public class Operations {
                 for (Class<?> opClass : operationClassRefs) {
                     try {
                         if (!Modifier.isAbstract(opClass.getModifiers())) {
-                            Map.Entry<String, Operation.Info> opInfo = ((Operation) opClass.newInstance()).info();
-                            availableOperations.put(opInfo.getKey(), opInfo.getValue());
+                            Operation opInfo = (Operation) opClass.newInstance();
+                            availableOperations.put(opInfo.verb(), opInfo);
                         }
                     } catch (Exception e) {
                         System.err.println("Cannot instantiate Operation class '" + opClass.getTypeName() + "'");
@@ -64,62 +52,15 @@ public class Operations {
         return availableOperations;
     }
 
-    public static Map<String, Operation.Info> getAvailableOperations(String pkgName) {
-        Map<String, Operation.Info> ret = new HashMap<>();
+    public static Map<String, OpInfo> getAvailableOperations(String pkgName) {
+        Map<String, OpInfo> ret = new HashMap<>();
 
-        for (Map.Entry<String, Operation.Info> e : getAvailableOperations().entrySet()) {
-            if (e.getValue().operationClass.getPackage().getName().equals(pkgName)) {
+        for (Map.Entry<String, OpInfo> e : getAvailableOperations().entrySet()) {
+            if (e.getValue().getClass().getPackage().getName().equals(pkgName)) {
                 ret.put(e.getKey(), e.getValue());
             }
         }
 
         return ret;
-    }
-
-    public List<Operation> instantiateOperations() throws InvalidConfigValueException {
-        if (opChain.isEmpty()) {
-            Map<String, Operation.Info> ao = getAvailableOperations();
-
-            for (Map.Entry<String, String> operation : taskConfig.getOperations().entrySet()) {
-                String verb = operation.getValue();
-                String name = operation.getKey();
-
-                if (!ao.containsKey(verb)) {
-                    throw new InvalidConfigValueException("Operation '" + name + "' has unknown verb '" + verb + "'");
-                }
-
-                Operation chainedOp;
-                try {
-                    Operation.Info opInfo = ao.get(verb);
-
-                    Constructor<? extends OperationConfig> configClass = opInfo.configClass.getConstructor(Properties.class, TaskDescriptionLanguage.Operation.class, String.class);
-                    OperationConfig config = configClass.newInstance(taskConfig.getProperties(), opInfo.description, name);
-
-                    chainedOp = opInfo.operationClass.newInstance();
-                    chainedOp.setName(name);
-                    chainedOp.setConfig(config);
-                } catch (Exception e) {
-                    Throwable cause = e.getCause();
-                    if (cause instanceof InvalidConfigValueException) {
-                        throw (InvalidConfigValueException) cause;
-                    }
-
-                    throw new InvalidConfigValueException("Cannot instantiate operation '" + verb + "' named '" + name + "' with an exception", e);
-                }
-                opChain.add(chainedOp);
-            }
-        }
-
-        if (opChain.isEmpty()) {
-            throw new InvalidConfigValueException("Operation chain not configured for the task");
-        }
-
-        opChain.forEach(operation -> operation.setContext(context));
-
-        return opChain;
-    }
-
-    public void setTaskConfig(TaskConfig taskConfig) {
-        this.taskConfig = taskConfig;
     }
 }

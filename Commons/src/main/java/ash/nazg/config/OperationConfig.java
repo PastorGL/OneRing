@@ -28,12 +28,16 @@ public class OperationConfig extends PropertiesConfig {
 
     public final TypedMap<String, Object> defs = new TypedMap<>();
 
-    public final DataStreamsConfig dsc;
+    private TaskDescriptionLanguage.Operation opDesc;
 
-    public OperationConfig(Properties sourceConfig, TaskDescriptionLanguage.Operation opDesc, String opName) throws InvalidConfigValueException {
+    public OperationConfig(TaskDescriptionLanguage.Operation opDesc, String name) {
+        this.name = name;
+        this.opDesc = opDesc;
+    }
+
+    public DataStreamsConfig configure(Properties sourceConfig, Properties overrides) throws InvalidConfigValueException {
+        setOverrides(overrides);
         setProperties(sourceConfig);
-
-        name = opName;
 
         Set<String> allInputs = new HashSet<>(), columnBasedInputs = new HashSet<>();
         Set<String> allOutputs = new HashSet<>(), columnBasedOutputs = new HashSet<>();
@@ -114,7 +118,7 @@ public class OperationConfig extends PropertiesConfig {
             }
         }
 
-        dsc = new DataStreamsConfig(sourceConfig, allInputs, columnBasedInputs, allOutputs, columnBasedOutputs, generatedColumns);
+        DataStreamsConfig dsc = new DataStreamsConfig(sourceConfig, allInputs, columnBasedInputs, allOutputs, columnBasedOutputs, generatedColumns);
 
         if (opDesc.definitions != null) {
             for (TaskDescriptionLanguage.DefBase defDesc : opDesc.definitions) {
@@ -165,7 +169,7 @@ public class OperationConfig extends PropertiesConfig {
                             Constructor c = clazz.getConstructor(String.class);
                             defs.put(name, c.newInstance(prop));
                         } catch (Exception e) {
-                            throw new InvalidConfigValueException("Bad value '" + prop + "' for '" + clazz.getSimpleName() + "' property '" + name + "' of operation '" + opName + "'");
+                            throw new InvalidConfigValueException("Bad value '" + prop + "' for '" + clazz.getSimpleName() + "' property '" + name + "' of operation '" + name + "'");
                         }
                     } else if (String.class == clazz) {
                         defs.put(name, prop);
@@ -176,7 +180,7 @@ public class OperationConfig extends PropertiesConfig {
                     } else if (String[].class == clazz) {
                         defs.put(name, Arrays.stream(prop.split(COMMA)).map(String::trim).toArray(String[]::new));
                     } else {
-                        throw new InvalidConfigValueException("Unknown type of property '" + name + "' of operation '" + opName + "'");
+                        throw new InvalidConfigValueException("Unknown type of property '" + name + "' of operation '" + name + "'");
                     }
                 }
             }
@@ -198,16 +202,17 @@ public class OperationConfig extends PropertiesConfig {
 
                         String[] raw = dsc.inputColumnsRaw.get(column[0]);
                         if (raw == null) {
-                            throw new InvalidConfigValueException("Property '" + def + "' of operation '" + opName + "' refers to columns of input '" + column[0] + "' but these weren't defined");
+                            throw new InvalidConfigValueException("Property '" + def + "' of operation '" + name + "' refers to columns of input '" + column[0] + "' but these weren't defined");
                         }
                         if (!column[1].endsWith("*") && !Arrays.asList(raw).contains(column[1])) {
-                            throw new InvalidConfigValueException("Property '" + def + "' of operation '" + opName + "' refers to inexistent column '" + column[1] + "' of input '" + column[0] + "'");
+                            throw new InvalidConfigValueException("Property '" + def + "' of operation '" + name + "' refers to inexistent column '" + column[1] + "' of input '" + column[0] + "'");
                         }
                     }
                 }
             }
         }
 
+        return dsc;
     }
 
     public static class TypedMap<K, V> extends HashMap<K, V> {

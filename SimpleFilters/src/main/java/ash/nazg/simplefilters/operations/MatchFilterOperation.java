@@ -12,10 +12,7 @@ import com.opencsv.CSVParserBuilder;
 import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.broadcast.Broadcast;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 
 public abstract class MatchFilterOperation extends Operation {
     protected String inputName;
@@ -24,8 +21,8 @@ public abstract class MatchFilterOperation extends Operation {
     protected String outputName;
 
     @Override
-    public void setConfig(OperationConfig config) throws InvalidConfigValueException {
-        super.setConfig(config);
+    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
+        super.configure(properties, variables);
 
         outputName = describedProps.outputs.get(0);
     }

@@ -8,7 +8,6 @@ import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.WrapperConfig;
 import ash.nazg.dist.CpDirection;
 import ash.nazg.dist.DistUtils;
-import ash.nazg.spark.Operations;
 import ash.nazg.spark.WrapperBase;
 import ash.nazg.storage.Adapters;
 import ash.nazg.storage.InputAdapter;
@@ -26,13 +25,11 @@ public class TaskWrapper extends WrapperBase {
     protected String outputDir;
     protected String wrapperStorePath;
 
-    protected JavaSparkContext context;
     protected Map<String, JavaRDDLike> result;
 
     public TaskWrapper(JavaSparkContext context, WrapperConfig wrapperConfig) {
-        super(wrapperConfig);
+        super(context, wrapperConfig);
 
-        this.context = context;
         result = new HashMap<>();
 
         wrapDistCp = CpDirection.parse(wrapperConfig.getDistCpProperty("wrap", "none"));
@@ -42,9 +39,6 @@ public class TaskWrapper extends WrapperBase {
     }
 
     public void go() throws Exception {
-        Operations operations = new Operations(context);
-        operations.setTaskConfig(wrapperConfig);
-
         for (String sink : wrapperConfig.getInputSink()) {
             String path = wrapperConfig.inputPath(sink);
 
@@ -67,7 +61,7 @@ public class TaskWrapper extends WrapperBase {
             result.put(sink, inputAdapter.load(path));
         }
 
-        processTaskChain(operations, result);
+        processTaskChain(result);
 
         Set<String> tees = wrapperConfig.getTeeOutput();
 

@@ -5,6 +5,7 @@
 package ash.nazg.rest.service;
 
 import ash.nazg.config.tdl.DocumentationGenerator;
+import ash.nazg.spark.OpInfo;
 import ash.nazg.spark.Operation;
 import ash.nazg.spark.Operations;
 import ash.nazg.config.tdl.TaskDefinitionLanguage;
@@ -29,12 +30,12 @@ public class OperationService {
 
     public List<TaskDescriptionLanguage.Operation> getAvailableOperations() {
         return Operations.getAvailableOperations().values().stream()
-                .map(oi -> oi.description)
+                .map(OpInfo::description)
                 .collect(Collectors.toList());
     }
 
     public TaskDescriptionLanguage.Operation getOperation(String verb) {
-        return Operations.getAvailableOperations().get(verb).description;
+        return Operations.getAvailableOperations().get(verb).description();
     }
 
     public TaskDefinitionLanguage.Task example(String verb) {
@@ -46,7 +47,7 @@ public class OperationService {
     }
 
     private TaskDefinitionLanguage.Task createExample(String prefix, String verb) {
-        Operation.Info opInfo = Operations.getAvailableOperations().get(verb);
+        OpInfo opInfo = Operations.getAvailableOperations().get(verb);
 
         if (opInfo == null) {
             return null;

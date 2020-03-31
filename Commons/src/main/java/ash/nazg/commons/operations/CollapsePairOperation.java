@@ -19,10 +19,7 @@ import org.apache.spark.api.java.JavaRDDLike;
 import scala.Tuple2;
 
 import java.io.StringWriter;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @SuppressWarnings("unused")
 public class CollapsePairOperation extends Operation {
@@ -62,8 +59,8 @@ public class CollapsePairOperation extends Operation {
     }
 
     @Override
-    public void setConfig(OperationConfig config) throws InvalidConfigValueException {
-        super.setConfig(config);
+    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
+        super.configure(properties, variables);
 
         inputName = describedProps.inputs.get(0);
         inputDelimiter = dataStreamsProps.inputDelimiter(inputName);

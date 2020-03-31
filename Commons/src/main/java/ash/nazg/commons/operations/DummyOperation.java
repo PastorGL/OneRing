@@ -14,6 +14,7 @@ import org.apache.spark.api.java.JavaRDDLike;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 @SuppressWarnings("unused")
 public class DummyOperation extends Operation {
@@ -51,8 +52,8 @@ public class DummyOperation extends Operation {
     }
 
     @Override
-    public void setConfig(OperationConfig propertiesConfig) throws InvalidConfigValueException {
-        super.setConfig(propertiesConfig);
+    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
+        super.configure(properties, variables);
 
         inputNames = describedProps.inputs;
         outputNames = describedProps.outputs;

@@ -11,10 +11,7 @@ import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Map;
+import java.util.*;
 
 @SuppressWarnings("unused")
 public class ExactMatchFilterOperation extends MatchFilterOperation {
@@ -59,8 +56,8 @@ public class ExactMatchFilterOperation extends MatchFilterOperation {
     }
 
     @Override
-    public void setConfig(OperationConfig propertiesConfig) throws InvalidConfigValueException {
-        super.setConfig(propertiesConfig);
+    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
+        super.configure(properties, variables);
 
         inputName = describedProps.inputs.get(0);
         outputName = describedProps.outputs.get(0);

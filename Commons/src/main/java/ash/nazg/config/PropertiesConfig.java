@@ -108,6 +108,10 @@ public abstract class PropertiesConfig {
         }
     }
 
+    protected Properties getOverrides() {
+        return overrides;
+    }
+
     protected void setOverrides(Properties overrides) {
         this.overrides = new Properties(overrides);
     }

@@ -7,6 +7,8 @@ package ash.nazg.config;
 import java.util.*;
 
 public class TaskConfig extends PropertiesConfig {
+    public static final String DIRECTIVE_SIGIL = "$";
+
     public static final String TASK_INPUT_SINK = "task.input.sink";
     public static final String TASK_TEE_OUTPUT = "task.tee.output";
     public static final String TASK_OPERATIONS = "task.operations";
@@ -16,6 +18,7 @@ public class TaskConfig extends PropertiesConfig {
 
     private Set<String> inputSink = null;
     private Set<String> teeOutput = null;
+    private List<String> opNames = null;
 
     public Set<String> getInputSink() {
         if (inputSink == null) {
@@ -41,9 +44,26 @@ public class TaskConfig extends PropertiesConfig {
         return teeOutput;
     }
 
+    public List<String> getOpNames() {
+        if (opNames == null) {
+            opNames = new ArrayList<>();
+            String[] names = getArray(TASK_OPERATIONS);
+            if (names != null) {
+                opNames.addAll(Arrays.asList(names));
+            }
+        }
+
+        return opNames;
+    }
+
     @Override
     public Properties getProperties() {
         return super.getProperties();
+    }
+
+    @Override
+    public Properties getOverrides() {
+        return super.getOverrides();
     }
 
     @Override
@@ -64,14 +84,14 @@ public class TaskConfig extends PropertiesConfig {
 
     public Map<String, String> getOperations() {
         if (operations == null) {
-            String[] opNames = getArray(TASK_OPERATIONS);
-            if (opNames == null) {
-                throw new InvalidConfigValueException("Operations were not specified for the task");
-            }
+            List<String> opNames = getOpNames();
 
             operations = new LinkedHashMap<>();
-
             for (String opName : opNames) {
+                if (opName.startsWith(DIRECTIVE_SIGIL)) {
+                    continue;
+                }
+
                 if (operations.containsKey(opName)) {
                     throw new InvalidConfigValueException("Duplicate operation '" + opName + "' in the operations list was encountered for the task");
                 }
@@ -82,6 +102,10 @@ public class TaskConfig extends PropertiesConfig {
                 }
 
                 operations.put(opName, verb);
+            }
+
+            if (opNames.isEmpty()) {
+                throw new InvalidConfigValueException("Operations were not specified for the task");
             }
         }
 

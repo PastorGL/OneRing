@@ -5,6 +5,7 @@
 package ash.nazg.config.tdl;
 
 import ash.nazg.config.*;
+import ash.nazg.spark.OpInfo;
 import ash.nazg.spark.Operation;
 import ash.nazg.spark.Operations;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -26,7 +27,7 @@ public class PropertiesConverter {
 
         Map<String, Boolean> dsColBased = new HashMap<>();
 
-        Map<String, Operation.Info> ao = Operations.getAvailableOperations();
+        Map<String, OpInfo> ao = Operations.getAvailableOperations();
 
         Properties allOpProperties = taskConfig.getProperties();
         for (Map.Entry<String, String> operation : taskConfig.getOperations().entrySet()) {
@@ -37,7 +38,7 @@ public class PropertiesConverter {
                 throw new InvalidConfigValueException("Operation '" + name + "' has unknown verb '" + verb + "'");
             }
 
-            Operation chainedOp = ao.get(verb).operationClass.newInstance();
+            OpInfo chainedOp = ao.get(verb).getClass().newInstance();
 
             TaskDescriptionLanguage.Operation opDesc = chainedOp.description();
 
@@ -46,7 +47,7 @@ public class PropertiesConverter {
             opDef.name = name;
             opDef.verb = verb;
 
-            OperationConfig opConf = new OperationConfig(allOpProperties, opDesc, name);
+            OperationConfig opConf = new OperationConfig(opDesc, name);
 
             if (opDesc.definitions != null) {
                 List<TaskDefinitionLanguage.Definition> defs = new ArrayList<>();
@@ -197,7 +198,7 @@ public class PropertiesConverter {
                 }
             }
 
-            DataStreamsConfig dsc = opConf.dsc;
+            DataStreamsConfig dsc = opConf.configure(allOpProperties, null);
 
             Set<String> dss = new HashSet<>(opConf.namedInputs.values());
             dss.addAll(opConf.inputs);

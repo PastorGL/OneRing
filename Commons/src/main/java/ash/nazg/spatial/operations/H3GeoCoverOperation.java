@@ -79,8 +79,8 @@ public class H3GeoCoverOperation extends Operation {
     }
 
     @Override
-    public void setConfig(OperationConfig config) throws InvalidConfigValueException {
-        super.setConfig(config);
+    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
+        super.configure(properties, variables);
 
         inputName = describedProps.inputs.get(0);
         outputName = describedProps.outputs.get(0);

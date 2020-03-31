@@ -62,12 +62,12 @@ public class UnionOperation extends Operation {
     }
 
     @Override
-    public void setConfig(OperationConfig config) throws InvalidConfigValueException {
-        super.setConfig(config);
+    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
+        super.configure(properties, variables);
 
-        rawInput = String.join(",", config.inputs);
-        outputName = config.outputs.get(0);
-        unionSpec = config.defs.getTyped(OP_UNION_SPEC);
+        rawInput = String.join(",", describedProps.inputs);
+        outputName = describedProps.outputs.get(0);
+        unionSpec = describedProps.defs.getTyped(OP_UNION_SPEC);
     }
 
     @Override

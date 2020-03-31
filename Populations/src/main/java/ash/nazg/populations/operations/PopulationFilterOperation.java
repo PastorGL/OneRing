@@ -90,8 +90,8 @@ public class PopulationFilterOperation extends Operation {
     }
 
     @Override
-    public void setConfig(OperationConfig propertiesConfig) throws InvalidConfigValueException {
-        super.setConfig(propertiesConfig);
+    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
+        super.configure(properties, variables);
 
         inputName = describedProps.namedInputs.get(RDD_INPUT_SIGNALS);
         inputDelimiter = dataStreamsProps.inputDelimiter(inputName);
