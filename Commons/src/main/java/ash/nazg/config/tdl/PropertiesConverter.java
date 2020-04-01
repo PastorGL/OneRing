@@ -30,157 +30,129 @@ public class PropertiesConverter {
         Map<String, OpInfo> ao = Operations.getAvailableOperations();
 
         Properties allOpProperties = taskConfig.getProperties();
-        for (Map.Entry<String, String> operation : taskConfig.getOperations().entrySet()) {
-            String verb = operation.getValue();
-            String name = operation.getKey();
+        for (String name : taskConfig.getOperations()) {
+            if (!name.startsWith(DIRECTIVE_SIGIL)) {
+                String verb = taskConfig.getVerb(name);
 
-            if (!ao.containsKey(verb)) {
-                throw new InvalidConfigValueException("Operation '" + name + "' has unknown verb '" + verb + "'");
-            }
+                if (!ao.containsKey(verb)) {
+                    throw new InvalidConfigValueException("Operation '" + name + "' has unknown verb '" + verb + "'");
+                }
 
-            OpInfo chainedOp = ao.get(verb).getClass().newInstance();
+                OpInfo chainedOp = ao.get(verb).getClass().newInstance();
 
-            TaskDescriptionLanguage.Operation opDesc = chainedOp.description();
+                TaskDescriptionLanguage.Operation opDesc = chainedOp.description();
 
-            TaskDefinitionLanguage.Operation opDef = new TaskDefinitionLanguage.Operation();
+                TaskDefinitionLanguage.Operation opDef = new TaskDefinitionLanguage.Operation();
 
-            opDef.name = name;
-            opDef.verb = verb;
+                opDef.name = name;
+                opDef.verb = verb;
 
-            OperationConfig opConf = new OperationConfig(opDesc, name);
+                OperationConfig opConf = new OperationConfig(opDesc, name);
 
-            if (opDesc.definitions != null) {
-                List<TaskDefinitionLanguage.Definition> defs = new ArrayList<>();
-                List<TaskDefinitionLanguage.DynamicDef> dynDefs = new ArrayList<>();
-                for (int i = 0; i < opDesc.definitions.length; i++) {
-                    TaskDescriptionLanguage.DefBase defDesc = opDesc.definitions[i];
+                if (opDesc.definitions != null) {
+                    List<TaskDefinitionLanguage.Definition> defs = new ArrayList<>();
+                    List<TaskDefinitionLanguage.DynamicDef> dynDefs = new ArrayList<>();
+                    for (int i = 0; i < opDesc.definitions.length; i++) {
+                        TaskDescriptionLanguage.DefBase defDesc = opDesc.definitions[i];
 
-                    if (defDesc instanceof TaskDescriptionLanguage.DynamicDef) {
-                        TaskDescriptionLanguage.DynamicDef dynDef = (TaskDescriptionLanguage.DynamicDef) defDesc;
-                        for (Map.Entry<String, Object> e : opConf.defs.entrySet()) {
-                            String dynDefName = e.getKey();
-                            if (dynDefName.startsWith(dynDef.prefix)) {
+                        if (defDesc instanceof TaskDescriptionLanguage.DynamicDef) {
+                            TaskDescriptionLanguage.DynamicDef dynDef = (TaskDescriptionLanguage.DynamicDef) defDesc;
+                            for (Map.Entry<String, Object> e : opConf.defs.entrySet()) {
+                                String dynDefName = e.getKey();
+                                if (dynDefName.startsWith(dynDef.prefix)) {
 
-                                TaskDefinitionLanguage.DynamicDef def = new TaskDefinitionLanguage.DynamicDef();
-                                def.name = dynDefName;
-                                def.value = stringify(e.getValue());
+                                    TaskDefinitionLanguage.DynamicDef def = new TaskDefinitionLanguage.DynamicDef();
+                                    def.name = dynDefName;
+                                    def.value = stringify(e.getValue());
 
-                                dynDefs.add(def);
+                                    dynDefs.add(def);
+                                }
                             }
-                        }
-                    } else {
-                        TaskDescriptionLanguage.Definition defDe = (TaskDescriptionLanguage.Definition) defDesc;
-
-                        TaskDefinitionLanguage.Definition def = new TaskDefinitionLanguage.Definition();
-                        def.name = defDe.name;
-
-                        String value = opConf.defs.get(defDe.name) == null ? null : stringify(opConf.defs.get(defDe.name));
-
-                        if (defDe.optional && Objects.equals(defDe.defaults, value)) {
-                            def.useDefaults = true;
                         } else {
-                            def.value = value;
-                        }
+                            TaskDescriptionLanguage.Definition defDe = (TaskDescriptionLanguage.Definition) defDesc;
 
-                        defs.add(def);
+                            TaskDefinitionLanguage.Definition def = new TaskDefinitionLanguage.Definition();
+                            def.name = defDe.name;
+
+                            String value = opConf.defs.get(defDe.name) == null ? null : stringify(opConf.defs.get(defDe.name));
+
+                            if (defDe.optional && Objects.equals(defDe.defaults, value)) {
+                                def.useDefaults = true;
+                            } else {
+                                def.value = value;
+                            }
+
+                            defs.add(def);
+                        }
+                    }
+                    opDef.definitions = defs.toArray(new TaskDefinitionLanguage.Definition[0]);
+                    opDef.dynamicDefs = dynDefs.toArray(new TaskDefinitionLanguage.DynamicDef[0]);
+                }
+
+                opDefs.add(opDef);
+
+                Map<String, TaskDefinitionLanguage.DataStream> opDsDefs = new HashMap<>();
+
+                opDef.inputs = new TaskDefinitionLanguage.OpStreams();
+                if (opDesc.inputs.positional != null) {
+                    List<String> posInputs = opConf.inputs;
+                    opDef.inputs.positionalNames = posInputs.toArray(new String[0]);
+                    for (String inp : posInputs) {
+                        dsColBased.compute(inp, (inpName, cb) -> (cb == null)
+                                ? opDesc.inputs.positional.columnBased
+                                : cb || opDesc.inputs.positional.columnBased
+                        );
+
+                        opDsDefs.put(inp, dsDefs.compute(inp, (inpName, ds) -> {
+                            if (ds == null) {
+                                ds = new TaskDefinitionLanguage.DataStream();
+                                ds.name = inpName;
+                            }
+                            if (ds.input == null) {
+                                ds.input = new TaskDefinitionLanguage.StreamDesc();
+                            }
+
+                            return ds;
+                        }));
+                    }
+                } else if (opDesc.inputs.named != null) {
+                    opDef.inputs.named = new TaskDefinitionLanguage.NamedStream[opDesc.inputs.named.length];
+                    for (int i = 0; i < opDesc.inputs.named.length; i++) {
+                        TaskDescriptionLanguage.NamedStream inDesc = opDesc.inputs.named[i];
+                        TaskDefinitionLanguage.NamedStream input = new TaskDefinitionLanguage.NamedStream();
+                        opDef.inputs.named[i] = input;
+                        input.name = inDesc.name;
+                        input.value = opConf.namedInputs.get(inDesc.name);
+                        dsColBased.compute(input.value, (inpName, cb) -> (cb == null)
+                                ? inDesc.columnBased
+                                : cb || inDesc.columnBased
+                        );
+
+                        opDsDefs.put(input.value, dsDefs.compute(input.value, (inpName, ds) -> {
+                            if (ds == null) {
+                                ds = new TaskDefinitionLanguage.DataStream();
+                                ds.name = inpName;
+                            }
+                            if (ds.input == null) {
+                                ds.input = new TaskDefinitionLanguage.StreamDesc();
+                            }
+
+                            return ds;
+                        }));
                     }
                 }
-                opDef.definitions = defs.toArray(new TaskDefinitionLanguage.Definition[0]);
-                opDef.dynamicDefs = dynDefs.toArray(new TaskDefinitionLanguage.DynamicDef[0]);
-            }
 
-            opDefs.add(opDef);
-
-            Map<String, TaskDefinitionLanguage.DataStream> opDsDefs = new HashMap<>();
-
-            opDef.inputs = new TaskDefinitionLanguage.OpStreams();
-            if (opDesc.inputs.positional != null) {
-                List<String> posInputs = opConf.inputs;
-                opDef.inputs.positionalNames = posInputs.toArray(new String[0]);
-                for (String inp : posInputs) {
-                    dsColBased.compute(inp, (inpName, cb) -> (cb == null)
-                            ? opDesc.inputs.positional.columnBased
-                            : cb || opDesc.inputs.positional.columnBased
-                    );
-
-                    opDsDefs.put(inp, dsDefs.compute(inp, (inpName, ds) -> {
-                        if (ds == null) {
-                            ds = new TaskDefinitionLanguage.DataStream();
-                            ds.name = inpName;
-                        }
-                        if (ds.input == null) {
-                            ds.input = new TaskDefinitionLanguage.StreamDesc();
-                        }
-
-                        return ds;
-                    }));
-                }
-            } else if (opDesc.inputs.named != null) {
-                opDef.inputs.named = new TaskDefinitionLanguage.NamedStream[opDesc.inputs.named.length];
-                for (int i = 0; i < opDesc.inputs.named.length; i++) {
-                    TaskDescriptionLanguage.NamedStream inDesc = opDesc.inputs.named[i];
-                    TaskDefinitionLanguage.NamedStream input = new TaskDefinitionLanguage.NamedStream();
-                    opDef.inputs.named[i] = input;
-                    input.name = inDesc.name;
-                    input.value = opConf.namedInputs.get(inDesc.name);
-                    dsColBased.compute(input.value, (inpName, cb) -> (cb == null)
-                            ? inDesc.columnBased
-                            : cb || inDesc.columnBased
-                    );
-
-                    opDsDefs.put(input.value, dsDefs.compute(input.value, (inpName, ds) -> {
-                        if (ds == null) {
-                            ds = new TaskDefinitionLanguage.DataStream();
-                            ds.name = inpName;
-                        }
-                        if (ds.input == null) {
-                            ds.input = new TaskDefinitionLanguage.StreamDesc();
-                        }
-
-                        return ds;
-                    }));
-                }
-            }
-
-            opDef.outputs = new TaskDefinitionLanguage.OpStreams();
-            if (opDesc.outputs.positional != null) {
-                List<String> posOutputs = opConf.outputs;
-                opDef.outputs.positionalNames = posOutputs.toArray(new String[0]);
-                for (String outp : posOutputs) {
-                    dsColBased.compute(outp, (outName, cb) -> (cb == null)
-                            ? opDesc.outputs.positional.columnBased
-                            : cb || opDesc.outputs.positional.columnBased
-                    );
-
-                    opDsDefs.put(outp, dsDefs.compute(outp, (outpName, ds) -> {
-                        if (ds == null) {
-                            ds = new TaskDefinitionLanguage.DataStream();
-                            ds.name = outpName;
-                        }
-                        if (ds.output == null) {
-                            ds.output = new TaskDefinitionLanguage.StreamDesc();
-                        }
-
-                        return ds;
-                    }));
-                }
-            } else if (opDesc.outputs.named != null) {
-                List<TaskDefinitionLanguage.NamedStream> nOuts = new ArrayList<>();
-                for (int i = 0; i < opDesc.outputs.named.length; i++) {
-                    TaskDescriptionLanguage.NamedStream outDesc = opDesc.outputs.named[i];
-                    String nOutName = opConf.namedOutputs.get(outDesc.name);
-
-                    if (nOutName != null) {
-                        TaskDefinitionLanguage.NamedStream output = new TaskDefinitionLanguage.NamedStream();
-                        output.name = outDesc.name;
-                        output.value = nOutName;
-                        dsColBased.compute(nOutName, (outName, cb) -> (cb == null)
-                                ? outDesc.columnBased
-                                : cb || outDesc.columnBased
+                opDef.outputs = new TaskDefinitionLanguage.OpStreams();
+                if (opDesc.outputs.positional != null) {
+                    List<String> posOutputs = opConf.outputs;
+                    opDef.outputs.positionalNames = posOutputs.toArray(new String[0]);
+                    for (String outp : posOutputs) {
+                        dsColBased.compute(outp, (outName, cb) -> (cb == null)
+                                ? opDesc.outputs.positional.columnBased
+                                : cb || opDesc.outputs.positional.columnBased
                         );
-                        nOuts.add(output);
 
-                        opDsDefs.put(nOutName, dsDefs.compute(nOutName, (outpName, ds) -> {
+                        opDsDefs.put(outp, dsDefs.compute(outp, (outpName, ds) -> {
                             if (ds == null) {
                                 ds = new TaskDefinitionLanguage.DataStream();
                                 ds.name = outpName;
@@ -192,54 +164,90 @@ public class PropertiesConverter {
                             return ds;
                         }));
                     }
+                } else if (opDesc.outputs.named != null) {
+                    List<TaskDefinitionLanguage.NamedStream> nOuts = new ArrayList<>();
+                    for (int i = 0; i < opDesc.outputs.named.length; i++) {
+                        TaskDescriptionLanguage.NamedStream outDesc = opDesc.outputs.named[i];
+                        String nOutName = opConf.namedOutputs.get(outDesc.name);
+
+                        if (nOutName != null) {
+                            TaskDefinitionLanguage.NamedStream output = new TaskDefinitionLanguage.NamedStream();
+                            output.name = outDesc.name;
+                            output.value = nOutName;
+                            dsColBased.compute(nOutName, (outName, cb) -> (cb == null)
+                                    ? outDesc.columnBased
+                                    : cb || outDesc.columnBased
+                            );
+                            nOuts.add(output);
+
+                            opDsDefs.put(nOutName, dsDefs.compute(nOutName, (outpName, ds) -> {
+                                if (ds == null) {
+                                    ds = new TaskDefinitionLanguage.DataStream();
+                                    ds.name = outpName;
+                                }
+                                if (ds.output == null) {
+                                    ds.output = new TaskDefinitionLanguage.StreamDesc();
+                                }
+
+                                return ds;
+                            }));
+                        }
+                    }
+                    if (!nOuts.isEmpty()) {
+                        opDef.outputs.named = nOuts.toArray(new TaskDefinitionLanguage.NamedStream[0]);
+                    }
                 }
-                if (!nOuts.isEmpty()) {
-                    opDef.outputs.named = nOuts.toArray(new TaskDefinitionLanguage.NamedStream[0]);
-                }
-            }
 
-            DataStreamsConfig dsc = opConf.configure(allOpProperties, null);
+                DataStreamsConfig dsc = opConf.configure(allOpProperties, null);
 
-            Set<String> dss = new HashSet<>(opConf.namedInputs.values());
-            dss.addAll(opConf.inputs);
+                Set<String> dss = new HashSet<>(opConf.namedInputs.values());
+                dss.addAll(opConf.inputs);
 
-            TaskDefinitionLanguage.DataStream dsDef;
-            for (String ds : dss) {
-                dsDef = opDsDefs.get(ds);
+                TaskDefinitionLanguage.DataStream dsDef;
+                for (String ds : dss) {
+                    dsDef = opDsDefs.get(ds);
 
-                TaskDefinitionLanguage.StreamDesc streamDesc = dsDef.input;
-                if (dsColBased.get(ds)) {
-                    streamDesc.columns = dsc.inputColumnsRaw.get(ds);
-                    char delimiter = dsc.inputDelimiter(ds);
-                    streamDesc.delimiter = (delimiter != PropertiesConfig.DEFAULT_DELIMITER) ? String.valueOf(delimiter) : null;
-                }
-                String pc = taskConfig.getDsInputPartCount(ds);
-                streamDesc.partCount = "-1".equals(pc) ? null : pc;
-                streamDesc.path = taskConfig.inputPath(ds);
-            }
-
-            dss = new HashSet<>(opConf.namedOutputs.values());
-            dss.addAll(opConf.outputs);
-
-            for (String ds : dss) {
-                dsDef = opDsDefs.get(ds);
-
-                if (dsDef != null) {
-                    TaskDefinitionLanguage.StreamDesc streamDesc = dsDef.output;
+                    TaskDefinitionLanguage.StreamDesc streamDesc = dsDef.input;
                     if (dsColBased.get(ds)) {
-                        streamDesc.columns = dsc.outputColumns.get(ds);
-                        char delimiter = dsc.outputDelimiter(ds);
+                        streamDesc.columns = dsc.inputColumnsRaw.get(ds);
+                        char delimiter = dsc.inputDelimiter(ds);
                         streamDesc.delimiter = (delimiter != PropertiesConfig.DEFAULT_DELIMITER) ? String.valueOf(delimiter) : null;
                     }
-                    String pc = taskConfig.getDsOutputPartCount(ds);
+                    String pc = taskConfig.getDsInputPartCount(ds);
                     streamDesc.partCount = "-1".equals(pc) ? null : pc;
-                    if (tees.contains(ds)) {
-                        streamDesc.path = taskConfig.outputPath(ds);
+                    streamDesc.path = taskConfig.inputPath(ds);
+                }
+
+                dss = new HashSet<>(opConf.namedOutputs.values());
+                dss.addAll(opConf.outputs);
+
+                for (String ds : dss) {
+                    dsDef = opDsDefs.get(ds);
+
+                    if (dsDef != null) {
+                        TaskDefinitionLanguage.StreamDesc streamDesc = dsDef.output;
+                        if (dsColBased.get(ds)) {
+                            streamDesc.columns = dsc.outputColumns.get(ds);
+                            char delimiter = dsc.outputDelimiter(ds);
+                            streamDesc.delimiter = (delimiter != PropertiesConfig.DEFAULT_DELIMITER) ? String.valueOf(delimiter) : null;
+                        }
+                        String pc = taskConfig.getDsOutputPartCount(ds);
+                        streamDesc.partCount = "-1".equals(pc) ? null : pc;
+                        if (tees.contains(ds)) {
+                            streamDesc.path = taskConfig.outputPath(ds);
+                        }
                     }
                 }
-            }
 
-            dsDefs.putAll(opDsDefs);
+                dsDefs.putAll(opDsDefs);
+            } else {
+                TaskDefinitionLanguage.Operation opDef = new TaskDefinitionLanguage.Operation();
+
+                DirVarVal dvv = taskConfig.getDirVarVal(name);
+
+                opDef.name = dvv.variable;
+                opDef.verb = dvv.dir.name();
+            }
         }
 
         DataStreamsConfig dsc = new DataStreamsConfig(allOpProperties, null, null, tees, null, null);
