@@ -22,8 +22,8 @@ public abstract class PropertiesConfig {
     public static final String REP_SEP = ":";
     public static final Pattern REP_VAR = Pattern.compile("\\{([^}]+?)}");
 
-    private Properties properties = new Properties();
-    private Properties overrides = new Properties();
+    protected Properties properties = new Properties();
+    protected Properties overrides = new Properties();
 
     private String prefix = null;
 
@@ -40,36 +40,7 @@ public abstract class PropertiesConfig {
     }
 
     protected void overrideProperty(String index, String property) {
-        String pIndex = replaceVars(index);
-        if (pIndex != index) { // yes, String comparison via equality operator is intentional here
-            properties.remove(index);
-            index = pIndex;
-        }
-
-        properties.setProperty(index, replaceVars(property));
-    }
-
-    private String replaceVars(String stringWithVars) {
-        Matcher hasRepVar = REP_VAR.matcher(stringWithVars);
-        while (hasRepVar.find()) {
-            String rep = hasRepVar.group(1);
-
-            String repVar = rep;
-            String repDef = null;
-            if (rep.contains(REP_SEP)) {
-                String[] rd = rep.split(REP_SEP, 2);
-                repVar = rd[0];
-                repDef = rd[1];
-            }
-
-            String val = overrides.getProperty(repVar, repDef);
-
-            if (val != null) {
-                stringWithVars = stringWithVars.replace("{" + rep + "}", val);
-            }
-        }
-
-        return stringWithVars;
+        properties.setProperty(index, property);
     }
 
     protected String getProperty(String index) {
@@ -106,6 +77,10 @@ public abstract class PropertiesConfig {
         } else {
             source.forEach((key, value) -> overrideProperty(key.toString(), value.toString()));
         }
+    }
+
+    protected Properties getOverrides() {
+        return overrides;
     }
 
     protected void setOverrides(Properties overrides) {

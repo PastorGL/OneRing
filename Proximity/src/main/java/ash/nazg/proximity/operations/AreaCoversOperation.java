@@ -4,6 +4,7 @@
  */
 package ash.nazg.proximity.operations;
 
+import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.OperationConfig;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
@@ -82,8 +83,8 @@ public class AreaCoversOperation extends Operation {
     }
 
     @Override
-    public void setConfig(OperationConfig propertiesConfig) {
-        super.setConfig(propertiesConfig);
+    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
+        super.configure(properties, variables);
 
         inputGeometriesName = describedProps.namedInputs.get(RDD_INPUT_GEOMETRIES);
         inputSignalsName = describedProps.namedInputs.get(RDD_INPUT_SIGNALS);

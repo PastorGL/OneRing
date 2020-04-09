@@ -12,10 +12,7 @@ import ash.nazg.config.OperationConfig;
 import ash.nazg.spatial.functions.PolygonGeoJSONMapper;
 import org.apache.spark.api.java.JavaRDDLike;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @SuppressWarnings("unused")
 public class PolygonJSONSourceOperation extends Operation {
@@ -54,8 +51,8 @@ public class PolygonJSONSourceOperation extends Operation {
     }
 
     @Override
-    public void setConfig(OperationConfig propertiesConfig) throws InvalidConfigValueException {
-        super.setConfig(propertiesConfig);
+    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
+        super.configure(properties, variables);
 
         inputName = describedProps.inputs.get(0);
 

@@ -7,7 +7,6 @@ package ash.nazg.dist;
 import ash.nazg.cli.TaskWrapper;
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.WrapperConfig;
-import ash.nazg.spark.Operations;
 import ash.nazg.storage.Adapters;
 import scala.Tuple2;
 
@@ -52,9 +51,6 @@ public class DistWrapper extends TaskWrapper {
             }
 
             if (distDirection.to && wrapDistCp.to) {
-                Operations taskHandler = new Operations(null);
-                taskHandler.setTaskConfig(wrapperConfig);
-
                 for (String sink : wrapperConfig.getInputSink()) {
                     Map<String, Tuple2<String, String>> splits = DistUtils.globCSVtoRegexMap(wrapperConfig.inputPath(sink));
 

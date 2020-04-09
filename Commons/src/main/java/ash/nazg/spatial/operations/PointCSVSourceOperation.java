@@ -14,10 +14,7 @@ import ash.nazg.config.OperationConfig;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @SuppressWarnings("unused")
 public class PointCSVSourceOperation extends Operation {
@@ -73,8 +70,8 @@ public class PointCSVSourceOperation extends Operation {
     }
 
     @Override
-    public void setConfig(OperationConfig propertiesConfig) throws InvalidConfigValueException {
-        super.setConfig(propertiesConfig);
+    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
+        super.configure(properties, variables);
 
         inputName = describedProps.inputs.get(0);
         outputName = describedProps.outputs.get(0);

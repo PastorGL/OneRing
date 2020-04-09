@@ -28,15 +28,25 @@ public class TestRunner extends WrapperBase implements AutoCloseable {
             .set("spark.network.timeout", "10000")
             .set("spark.ui.enabled", "false");
 
-    private final Operations testTask;
-
     public TestRunner(String path) {
-        super(new WrapperConfig());
+        this(path, null);
+    }
 
-        JavaSparkContext context = new JavaSparkContext(sparkConf);
+    public TestRunner(String path, String varPath) {
+        super(new JavaSparkContext(sparkConf), new WrapperConfig());
+
         context.hadoopConfiguration().set(FileInputFormat.INPUT_DIR_RECURSIVE, Boolean.TRUE.toString());
 
         try (InputStream input = getClass().getResourceAsStream(path)) {
+            if (varPath != null) {
+                InputStream vars = getClass().getResourceAsStream(varPath);
+
+                Properties overrides = new Properties();
+                overrides.load(vars);
+
+                wrapperConfig.setOverrides(overrides);
+            }
+
             Properties source = new Properties();
             source.load(input);
 
@@ -50,9 +60,6 @@ public class TestRunner extends WrapperBase implements AutoCloseable {
             source.setProperty(DS_OUTPUT_PATH, "goes to nowhere");
 
             wrapperConfig.setProperties(source);
-
-            testTask = new Operations(context);
-            testTask.setTaskConfig(wrapperConfig);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -62,19 +69,19 @@ public class TestRunner extends WrapperBase implements AutoCloseable {
         Map<String, JavaRDDLike> rdds = new HashMap<>();
 
         HadoopInput hi = new HadoopInput();
-        hi.setContext(testTask.context);
-        for (String sink : testTask.taskConfig.getInputSink()) {
-            WrapperConfig taskConfig = (WrapperConfig) testTask.taskConfig;
+        hi.setContext(context);
+        for (String sink : wrapperConfig.getInputSink()) {
+            WrapperConfig taskConfig = wrapperConfig;
             hi.setProperties(sink, taskConfig);
             rdds.put(sink, hi.load(taskConfig.inputPath(sink)));
         }
 
-        processTaskChain(testTask, rdds);
+        processTaskChain(rdds);
 
         return rdds;
     }
 
     public void close() {
-        testTask.context.stop();
+        context.stop();
     }
 }

@@ -6,6 +6,7 @@ package ash.nazg.config.tdl;
 
 import ash.nazg.commons.operations.MapToPairOperation;
 import ash.nazg.config.Packages;
+import ash.nazg.spark.OpInfo;
 import ash.nazg.spark.Operation;
 import ash.nazg.spark.Operations;
 import ash.nazg.spatial.config.ConfigurationParameters;
@@ -33,17 +34,18 @@ import static ash.nazg.config.tdl.PropertiesConverter.DEFAULT_DS;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class DocumentationGenerator {
-    public static TaskDefinitionLanguage.Task createExampleTask(Operation.Info opInfo, String prefix) {
+    public static TaskDefinitionLanguage.Task createExampleTask(OpInfo opInfo, String prefix) {
         List<TaskDefinitionLanguage.Operation> ops = new ArrayList<>();
         List<TaskDefinitionLanguage.DataStream> streams = new ArrayList<>();
         List<String> sink = new ArrayList<>();
         List<String> tees = new ArrayList<>();
 
         TaskDefinitionLanguage.Operation opDef = new TaskDefinitionLanguage.Operation();
-        opDef.verb = opInfo.verb;
-        opDef.name = opInfo.verb;
+        String verb = opInfo.verb();
+        TaskDescriptionLanguage.Operation descr = opInfo.description();
 
-        TaskDescriptionLanguage.Operation descr = opInfo.description;
+        opDef.verb = verb;
+        opDef.name = verb;
 
         Map<String, List<String>> namedColumns = new HashMap<>();
         namedColumns.put(null, new ArrayList<>());
@@ -76,11 +78,11 @@ public class DocumentationGenerator {
                             namedColumns.computeIfAbsent(col[0], x -> new ArrayList<>());
                             namedColumns.get(col[0]).add(col[1]);
 
-                            d.value = opInfo.verb + "_" + col[0] + "." + col[1];
+                            d.value = verb + "_" + col[0] + "." + col[1];
                         } else if (col.length == 2) {
                             namedColumns.get(null).add(col[0]);
 
-                            d.value = opInfo.verb + "_0." + col[0];
+                            d.value = verb + "_0." + col[0];
                         }
                     }
 
@@ -119,7 +121,7 @@ public class DocumentationGenerator {
             List<String> posInputs = new ArrayList<>();
             int cnt = (descr.inputs.positionalMinCount != null) ? descr.inputs.positionalMinCount : 1;
             for (int i = 0; i < cnt; i++) {
-                String name = opInfo.verb + "_" + i;
+                String name = verb + "_" + i;
 
                 List<String> columns = null;
                 if (descr.inputs.positional.columnBased) {
@@ -156,11 +158,11 @@ public class DocumentationGenerator {
                             }
                         }
 
-                        createSourceOps(opInfo.verb + "_" + nsDesc.name, dsNum, st, columns, ops, streams);
+                        createSourceOps(verb + "_" + nsDesc.name, dsNum, st, columns, ops, streams);
 
                         TaskDefinitionLanguage.NamedStream ns = new TaskDefinitionLanguage.NamedStream();
                         ns.name = nsDesc.name;
-                        ns.value = opInfo.verb + "_" + nsDesc.name;
+                        ns.value = verb + "_" + nsDesc.name;
 
                         nstreams.add(ns);
                     });
@@ -188,9 +190,9 @@ public class DocumentationGenerator {
                 }
             }
 
-            createOutput(opInfo.verb, dsNum, st, columns, ops, streams, tees);
+            createOutput(verb, dsNum, st, columns, ops, streams, tees);
 
-            opDef.outputs.positionalNames = new String[]{opInfo.verb};
+            opDef.outputs.positionalNames = new String[]{verb};
         } else if (descr.outputs.named != null) {
             List<TaskDefinitionLanguage.NamedStream> nstreams = new ArrayList<>();
             Arrays.stream(descr.outputs.named)
@@ -439,8 +441,8 @@ public class DocumentationGenerator {
         List<TaskDocumentationLanguage.Pair> ops = pkg.ops;
         List<TaskDocumentationLanguage.Pair> adapters = pkg.adapters;
 
-        for (Map.Entry<String, Operation.Info> oi : Operations.getAvailableOperations(pkgName).entrySet()) {
-            Method verb = oi.getValue().operationClass.getDeclaredMethod("verb");
+        for (Map.Entry<String, OpInfo> oi : Operations.getAvailableOperations(pkgName).entrySet()) {
+            Method verb = oi.getValue().getClass().getDeclaredMethod("verb");
             Description d = verb.getDeclaredAnnotation(Description.class);
 
             ops.add(new TaskDocumentationLanguage.Pair(oi.getKey(), d.value()));
@@ -474,20 +476,22 @@ public class DocumentationGenerator {
         index.merge(ic, writer);
     }
 
-    public static void operationDoc(Operation.Info opInfo, Writer writer) throws Exception {
+    public static void operationDoc(OpInfo opInfo, Writer writer) throws Exception {
         TaskDocumentationLanguage.Operation opDoc = new TaskDocumentationLanguage.Operation();
 
-        opDoc.verb = opInfo.verb;
+        opDoc.verb = opInfo.verb();
 
-        Method verb = opInfo.operationClass.getDeclaredMethod("verb");
+        Class<? extends OpInfo> operationClass = opInfo.getClass();
+
+        Method verb = operationClass.getDeclaredMethod("verb");
         Description d = verb.getDeclaredAnnotation(Description.class);
         opDoc.descr = d.value();
 
-        opDoc.pkg = opInfo.operationClass.getPackage().getName();
+        opDoc.pkg = operationClass.getPackage().getName();
 
-        Descriptions ds = Descriptions.inspectOperation(opInfo.operationClass);
+        Descriptions ds = Descriptions.inspectOperation(operationClass);
 
-        TaskDescriptionLanguage.Operation descr = opInfo.description;
+        TaskDescriptionLanguage.Operation descr = opInfo.description();
 
         List<TaskDocumentationLanguage.Parameter> mandatoryParameters = opDoc.mandatoryParameters;
         List<TaskDocumentationLanguage.Parameter> optionalParameters = opDoc.optionalParameters;

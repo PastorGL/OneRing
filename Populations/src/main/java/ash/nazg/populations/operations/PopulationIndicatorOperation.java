@@ -15,10 +15,7 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.Function;
 import scala.Tuple2;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public abstract class PopulationIndicatorOperation extends Operation {
     protected int countColumn;
@@ -31,8 +28,8 @@ public abstract class PopulationIndicatorOperation extends Operation {
     protected char outputDelimiter;
 
     @Override
-    public void setConfig(OperationConfig config) throws InvalidConfigValueException {
-        super.setConfig(config);
+    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
+        super.configure(properties, variables);
 
         outputName = describedProps.outputs.get(0);
         outputDelimiter = dataStreamsProps.outputDelimiter(outputName);

@@ -7,6 +7,7 @@ package ash.nazg.config;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.Descriptions;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.spark.OpInfo;
 import ash.nazg.spark.Operation;
 import ash.nazg.spark.Operations;
 
@@ -25,12 +26,12 @@ public class Guardian {
 
         Set<Class<? extends Enum<?>>> interestingEnums = new HashSet<>();
 
-        Map<String, Operation.Info> ao = Operations.getAvailableOperations();
+        Map<String, OpInfo> ao = Operations.getAvailableOperations();
 
         final List<String> errors = new ArrayList<>();
 
-        for (Map.Entry<String, Operation.Info> oi : ao.entrySet()) {
-            Class<? extends Operation> opClass = oi.getValue().operationClass;
+        for (Map.Entry<String, OpInfo> oi : ao.entrySet()) {
+            Class<? extends OpInfo> opClass = oi.getValue().getClass();
 
             final String cnAbbr = mangleCN(opClass);
 
@@ -64,7 +65,7 @@ public class Guardian {
                 }
             }
 
-            TaskDescriptionLanguage.Operation descr = oi.getValue().description;
+            TaskDescriptionLanguage.Operation descr = oi.getValue().description();
 
             List<String> columnBasedInputs = new ArrayList<>();
 

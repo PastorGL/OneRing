@@ -4,18 +4,24 @@
  */
 package ash.nazg.config;
 
+import ash.nazg.config.tdl.DirVarVal;
+
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class TaskConfig extends PropertiesConfig {
+    public static final String DIRECTIVE_SIGIL = "$";
+    public static final Pattern REP_OPERATIONS = Pattern.compile("(\\$[^{,]+\\{[^}]+?}|\\$[^,]+|[^,]+)");
+
     public static final String TASK_INPUT_SINK = "task.input.sink";
     public static final String TASK_TEE_OUTPUT = "task.tee.output";
     public static final String TASK_OPERATIONS = "task.operations";
     public static final String OP_OPERATION_PREFIX = "op.operation.";
 
-    public Map<String, String> operations;
-
     private Set<String> inputSink = null;
     private Set<String> teeOutput = null;
+    private List<String> opNames = null;
 
     public Set<String> getInputSink() {
         if (inputSink == null) {
@@ -47,6 +53,11 @@ public class TaskConfig extends PropertiesConfig {
     }
 
     @Override
+    public Properties getOverrides() {
+        return super.getOverrides();
+    }
+
+    @Override
     public void setProperties(Properties source) {
         super.setProperties(source);
     }
@@ -62,29 +73,59 @@ public class TaskConfig extends PropertiesConfig {
         super.setPrefix(prefix);
     }
 
-    public Map<String, String> getOperations() {
-        if (operations == null) {
-            String[] opNames = getArray(TASK_OPERATIONS);
-            if (opNames == null) {
-                throw new InvalidConfigValueException("Operations were not specified for the task");
+    public String getVerb(String opName) {
+        String verb = getProperty(OP_OPERATION_PREFIX + opName);
+        if (verb == null) {
+            throw new InvalidConfigValueException("Operation named '" + opName + "' has no verb set in the task");
+        }
+
+        return verb;
+    }
+
+    public DirVarVal getDirVarVal(String directive) {
+        DirVarVal dvv;
+
+        Matcher hasRepVar = REP_VAR.matcher(directive);
+        if (hasRepVar.find()) {
+            String rep = hasRepVar.group(1);
+
+            String repVar = rep;
+            String repDef = null;
+            if (rep.contains(REP_SEP)) {
+                String[] rd = rep.split(REP_SEP, 2);
+                repVar = rd[0];
+                repDef = rd[1];
             }
 
-            operations = new LinkedHashMap<>();
+            String val = getOverrides().getProperty(repVar, repDef);
 
-            for (String opName : opNames) {
-                if (operations.containsKey(opName)) {
-                    throw new InvalidConfigValueException("Duplicate operation '" + opName + "' in the operations list was encountered for the task");
+            dvv = new DirVarVal(directive.substring(1, hasRepVar.start(1) - 1), repVar, val);
+        } else {
+            dvv = new DirVarVal(directive.substring(1));
+        }
+
+        return dvv;
+    }
+
+    public List<String> getOperations() {
+        if (opNames == null) {
+            opNames = new ArrayList<>();
+            String names = getProperty(TASK_OPERATIONS);
+            if (names != null) {
+                Matcher ops = REP_OPERATIONS.matcher(names);
+                while (ops.find()) {
+                    String opName = ops.group(1).trim();
+                    if (!opName.startsWith(DIRECTIVE_SIGIL) && opNames.contains(opName)) {
+                        throw new InvalidConfigValueException("Duplicate operation '" + opName + "' in the operations list was encountered for the task");
+                    }
+
+                    opNames.add(opName);
                 }
-
-                String verb = getProperty(OP_OPERATION_PREFIX + opName);
-                if (verb == null) {
-                    throw new InvalidConfigValueException("Operation named '" + opName + "' has no verb set in the task");
-                }
-
-                operations.put(opName, verb);
+            } else {
+                throw new InvalidConfigValueException("Operations were not specified for the task");
             }
         }
 
-        return operations;
+        return opNames;
     }
 }

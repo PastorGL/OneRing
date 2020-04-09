@@ -15,10 +15,7 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 import scala.Tuple2;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @SuppressWarnings("unused")
 public class RangeFilterOperation extends Operation {
@@ -71,8 +68,8 @@ public class RangeFilterOperation extends Operation {
     }
 
     @Override
-    public void setConfig(OperationConfig propertiesConfig) throws InvalidConfigValueException {
-        super.setConfig(propertiesConfig);
+    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
+        super.configure(properties, variables);
 
         inputName = describedProps.inputs.get(0);
         inputDelimiter = dataStreamsProps.inputDelimiter(inputName);

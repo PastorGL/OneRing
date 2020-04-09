@@ -13,10 +13,7 @@ import ash.nazg.spatial.config.ConfigurationParameters;
 import ash.nazg.spatial.functions.PointGeoJSONMapper;
 import org.apache.spark.api.java.JavaRDDLike;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @SuppressWarnings("unused")
 public class PointJSONSourceOperation extends Operation {
@@ -61,8 +58,8 @@ public class PointJSONSourceOperation extends Operation {
     }
 
     @Override
-    public void setConfig(OperationConfig propertiesConfig) throws InvalidConfigValueException {
-        super.setConfig(propertiesConfig);
+    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
+        super.configure(properties, variables);
 
         inputName = describedProps.inputs.get(0);
 

@@ -4,6 +4,7 @@
  */
 package ash.nazg.config.tdl;
 
+import ash.nazg.spark.OpInfo;
 import ash.nazg.spark.Operation;
 import org.apache.velocity.app.Velocity;
 import org.apache.velocity.runtime.RuntimeConstants;
@@ -31,7 +32,7 @@ public class Descriptions {
     public final Map<String, String> outputs;
     public final Map<String, String> generated;
 
-    private Descriptions(Class<? extends Operation> opClass) {
+    private Descriptions(Class<? extends OpInfo> opClass) {
         opPackage = opClass.getPackage();
 
         Map<String, Field> interesting = getInterestingFields(opClass);
@@ -86,7 +87,7 @@ public class Descriptions {
         }
     }
 
-    public static Descriptions inspectOperation(Class<? extends Operation> opClass) {
+    public static Descriptions inspectOperation(Class<? extends OpInfo> opClass) {
         return new Descriptions(opClass);
     }
 

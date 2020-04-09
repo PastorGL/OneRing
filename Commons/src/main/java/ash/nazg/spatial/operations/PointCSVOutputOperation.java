@@ -57,8 +57,8 @@ public class PointCSVOutputOperation extends Operation {
     }
 
     @Override
-    public void setConfig(OperationConfig propertiesConfig) throws InvalidConfigValueException {
-        super.setConfig(propertiesConfig);
+    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
+        super.configure(properties, variables);
 
         inputName = describedProps.inputs.get(0);
         outputName = describedProps.outputs.get(0);

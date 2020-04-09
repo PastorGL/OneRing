@@ -6,6 +6,7 @@ package ash.nazg.rest.service;
 
 import ash.nazg.config.Packages;
 import ash.nazg.config.tdl.DocumentationGenerator;
+import ash.nazg.spark.OpInfo;
 import ash.nazg.spark.Operation;
 import ash.nazg.spark.Operations;
 
@@ -27,12 +28,12 @@ public class PackageService {
     }
 
     public List<String> getPackage(String name) {
-        Map<String, Operation.Info> ao = Operations.getAvailableOperations(name);
+        Map<String, OpInfo> ao = Operations.getAvailableOperations(name);
 
         List<String> ops = new ArrayList<>();
 
-        for (Operation.Info opInfo : ao.values()) {
-            ops.add(opInfo.verb);
+        for (OpInfo opInfo : ao.values()) {
+            ops.add(opInfo.verb());
         }
 
         return ops;

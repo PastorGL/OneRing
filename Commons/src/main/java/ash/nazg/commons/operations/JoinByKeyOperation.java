@@ -86,8 +86,8 @@ public class JoinByKeyOperation extends Operation {
     }
 
     @Override
-    public void setConfig(OperationConfig propertiesConfig) throws InvalidConfigValueException {
-        super.setConfig(propertiesConfig);
+    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
+        super.configure(properties, variables);
 
         inputName0 = describedProps.inputs.get(0);
         inputName1 = describedProps.inputs.get(1);

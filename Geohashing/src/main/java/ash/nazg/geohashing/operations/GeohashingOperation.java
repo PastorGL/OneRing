@@ -21,10 +21,7 @@ import scala.Tuple2;
 import scala.Tuple3;
 
 import java.io.StringWriter;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public abstract class GeohashingOperation extends Operation {
     @Description("Column with latitude, degrees")
@@ -72,8 +69,8 @@ public abstract class GeohashingOperation extends Operation {
     }
 
     @Override
-    public void setConfig(OperationConfig propertiesConfig) throws InvalidConfigValueException {
-        super.setConfig(propertiesConfig);
+    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
+        super.configure(properties, variables);
 
         inputName = describedProps.inputs.get(0);
         inputDelimiter = dataStreamsProps.inputDelimiter(inputName);
