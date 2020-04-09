@@ -67,18 +67,16 @@ public abstract class WrapperBase {
         }
 
         Properties taskVariables = wrapperConfig.getOverrides();
-        Properties currentVariables = new Properties(taskVariables);
 
         Random random = new Random();
 
         int index = 0;
         do {
-            index = advance(rdds, opChain, opNames, taskVariables, currentVariables, random, index);
+            index = advance(rdds, opChain, opNames, taskVariables, random, index, false);
         } while (++index < opNames.size());
     }
 
-    private int advance(Map<String, JavaRDDLike> rdds, Map<String, Operation> opChain, List<String> opNames, Properties taskVariables, Properties currentVariables, Random random, Integer index) throws Exception {
-        boolean skip = false;
+    private int advance(Map<String, JavaRDDLike> rdds, Map<String, Operation> opChain, List<String> opNames, Properties taskVariables, Random random, Integer index, boolean skip) throws Exception {
         do {
             String name = opNames.get(index);
 
@@ -96,14 +94,14 @@ public abstract class WrapperBase {
                             String[] values = Arrays.stream(varValue.split(COMMA)).map(String::trim).filter(s -> !s.isEmpty()).toArray(String[]::new);
                             int nextIndex = index + 1;
                             for (String val : values) {
-                                currentVariables.setProperty(variable, val);
-                                currentVariables.setProperty(ITER, Long.toHexString(random.nextLong()));
+                                taskVariables.setProperty(variable, val);
+                                taskVariables.setProperty(ITER, Long.toHexString(random.nextLong()));
 
-                                nextIndex = advance(rdds, opChain, opNames, taskVariables, currentVariables, random, index + 1);
+                                nextIndex = advance(rdds, opChain, opNames, taskVariables, random, index + 1, skip);
                             }
 
                             index = nextIndex;
-                            currentVariables.setProperty(variable, varValue);
+                            taskVariables.setProperty(variable, varValue);
                         }
                         break;
                     }
@@ -111,7 +109,7 @@ public abstract class WrapperBase {
                         if (skip) {
                             skip = false;
 
-                            index = advance(rdds, opChain, opNames, taskVariables, currentVariables, random, index + 1);
+                            index = advance(rdds, opChain, opNames, taskVariables, random, index + 1, skip);
                         } else {
                             skip = true;
                         }
@@ -123,7 +121,7 @@ public abstract class WrapperBase {
                         if ((varValue == null) || varValue.trim().isEmpty()) {
                             skip = true;
                         } else {
-                            index = advance(rdds, opChain, opNames, taskVariables, currentVariables, random, index + 1);
+                            index = advance(rdds, opChain, opNames, taskVariables, random, index + 1, skip);
                         }
                         break;
                     }
@@ -138,16 +136,16 @@ public abstract class WrapperBase {
                             value = ((JavaRDD<Object>) rdd).collect().stream().map(String::valueOf).collect(Collectors.joining(COMMA));
                         }
                         if (rdd instanceof JavaPairRDD) {
-                            value = ((JavaPairRDD<Object, Object>) rdd).values().collect().stream().map(String::valueOf).collect(Collectors.joining(COMMA));
+                            value = ((JavaPairRDD<Object, Object>) rdd).keys().collect().stream().map(String::valueOf).collect(Collectors.joining(COMMA));
                         }
 
-                        currentVariables.setProperty(variable, value);
+                        taskVariables.setProperty(variable, value);
                         break;
                     }
                 }
             } else {
                 if (!skip) {
-                    callOperation(rdds, opChain, currentVariables, name);
+                    callOperation(rdds, opChain, taskVariables, name);
                 }
             }
         } while (++index < opNames.size());

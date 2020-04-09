@@ -12,6 +12,77 @@ import static org.junit.Assert.assertNull;
 
 public class ControlFlowComplexTest {
     @Test
+    public void chainsTest() throws Exception {
+        try (TestRunner underTest = new TestRunner("/controlFlow/test.chains.properties", "/controlFlow/vars.properties")) {
+
+            Map<String, JavaRDDLike> ret = underTest.go();
+
+            JavaRDD<Text> rddS = (JavaRDD<Text>) ret.get("signals");
+            assertNotNull(
+                    rddS
+            );
+
+            rddS = (JavaRDD<Text>) ret.get("expected");
+            assertNotNull(
+                    rddS
+            );
+
+            rddS = (JavaRDD<Text>) ret.get("expected2");
+            assertNotNull(
+                    rddS
+            );
+
+            rddS = (JavaRDD<Text>) ret.get("unexpected");
+            assertNull(
+                    rddS
+            );
+
+            rddS = (JavaRDD<Text>) ret.get("unexpected2");
+            assertNull(
+                    rddS
+            );
+        }
+    }
+
+    @Test
+    public void ifNestedChainsTest() throws Exception {
+        try (TestRunner underTest = new TestRunner("/controlFlow/test.IF-nested-chains.properties", "/controlFlow/vars.properties")) {
+
+            Map<String, JavaRDDLike> ret = underTest.go();
+
+            JavaRDD<Text> rddS = (JavaRDD<Text>) ret.get("signals");
+            assertNotNull(
+                    rddS
+            );
+
+            rddS = (JavaRDD<Text>) ret.get("expected");
+            assertNotNull(
+                    rddS
+            );
+
+            rddS = (JavaRDD<Text>) ret.get("unexpected");
+            assertNull(
+                    rddS
+            );
+
+            rddS = (JavaRDD<Text>) ret.get("unexpected2");
+            assertNull(
+                    rddS
+            );
+
+            rddS = (JavaRDD<Text>) ret.get("unexpected3");
+            assertNull(
+                    rddS
+            );
+
+            rddS = (JavaRDD<Text>) ret.get("unexpected4");
+            assertNull(
+                    rddS
+            );
+        }
+    }
+
+    @Test
     public void ifNestedIterTest() throws Exception {
         try (TestRunner underTest = new TestRunner("/controlFlow/test.IF-nested-ITER.properties", "/controlFlow/vars.properties")) {
 

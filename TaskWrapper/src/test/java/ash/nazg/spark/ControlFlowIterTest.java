@@ -5,10 +5,11 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 import org.junit.Test;
 
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
+import static org.junit.Assert.*;
 
 public class ControlFlowIterTest {
     @Test
@@ -128,6 +129,17 @@ public class ControlFlowIterTest {
             assertNotNull(
                     rddS
             );
+        }
+    }
+
+    @Test
+    public void iterIterVarTest() throws Exception {
+        try (TestRunner underTest = new TestRunner("/controlFlow/test.ITER-ITER.properties", "/controlFlow/vars.properties")) {
+
+            Map<String, JavaRDDLike> ret = underTest.go();
+
+            List<String> tees = ret.keySet().stream().filter(k -> k.startsWith("iter-")).collect(Collectors.toList());
+            assertEquals(3, tees.size());
         }
     }
 }
