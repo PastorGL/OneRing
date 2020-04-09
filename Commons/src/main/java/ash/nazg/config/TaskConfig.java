@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
 
 public class TaskConfig extends PropertiesConfig {
     public static final String DIRECTIVE_SIGIL = "$";
-    public static final Pattern REP_OPERATIONS = Pattern.compile("(\\$[^}]+?}|[^,]+)");
+    public static final Pattern REP_OPERATIONS = Pattern.compile("(\\$[^{,]+\\{[^}]+?}|\\$[^,]+|[^,]+)");
 
     public static final String TASK_INPUT_SINK = "task.input.sink";
     public static final String TASK_TEE_OUTPUT = "task.tee.output";
@@ -86,7 +86,7 @@ public class TaskConfig extends PropertiesConfig {
         DirVarVal dvv;
 
         Matcher hasRepVar = REP_VAR.matcher(directive);
-        if (hasRepVar.matches()) {
+        if (hasRepVar.find()) {
             String rep = hasRepVar.group(1);
 
             String repVar = rep;
@@ -99,7 +99,7 @@ public class TaskConfig extends PropertiesConfig {
 
             String val = getOverrides().getProperty(repVar, repDef);
 
-            dvv = new DirVarVal(directive.substring(1, hasRepVar.start(1)), repVar, val);
+            dvv = new DirVarVal(directive.substring(1, hasRepVar.start(1) - 1), repVar, val);
         } else {
             dvv = new DirVarVal(directive.substring(1));
         }
@@ -112,7 +112,6 @@ public class TaskConfig extends PropertiesConfig {
             opNames = new ArrayList<>();
             String names = getProperty(TASK_OPERATIONS);
             if (names != null) {
-
                 Matcher ops = REP_OPERATIONS.matcher(names);
                 while (ops.find()) {
                     String opName = ops.group(1).trim();

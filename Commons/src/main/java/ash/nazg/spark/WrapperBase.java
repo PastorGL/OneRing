@@ -71,11 +71,16 @@ public abstract class WrapperBase {
 
         Random random = new Random();
 
-        int level = 0;
-        int[] index = new int[opNames.size()];
-        boolean[] skip = new boolean[opNames.size()];
-        while (index[level] != opNames.size()) {
-            String name = opNames.get(index[level]);
+        int index = 0;
+        do {
+            index = advance(rdds, opChain, opNames, taskVariables, currentVariables, random, index);
+        } while (++index < opNames.size());
+    }
+
+    private int advance(Map<String, JavaRDDLike> rdds, Map<String, Operation> opChain, List<String> opNames, Properties taskVariables, Properties currentVariables, Random random, Integer index) throws Exception {
+        boolean skip = false;
+        do {
+            String name = opNames.get(index);
 
             if (name.startsWith(DIRECTIVE_SIGIL)) {
                 DirVarVal dvv = wrapperConfig.getDirVarVal(name);
@@ -84,90 +89,56 @@ public abstract class WrapperBase {
 
                 switch (dvv.dir) {
                     case ITER: {
-                        level++;
-
                         String varValue = taskVariables.getProperty(variable, defVal);
                         if ((varValue == null) || varValue.trim().isEmpty()) {
-                            skip[level] = true;
-                            break;
-                        }
+                            skip = true;
+                        } else {
+                            String[] values = Arrays.stream(varValue.split(COMMA)).map(String::trim).filter(s -> !s.isEmpty()).toArray(String[]::new);
+                            int nextIndex = index + 1;
+                            for (String val : values) {
+                                currentVariables.setProperty(variable, val);
+                                currentVariables.setProperty(ITER, Long.toHexString(random.nextLong()));
 
-                        int thisIndex = index[level];
-                        String[] values = Arrays.stream(varValue.split(COMMA)).map(String::trim).filter(s -> !s.isEmpty()).toArray(String[]::new);
-                        for (String val : values) {
-                            currentVariables.setProperty(variable, val);
-                            currentVariables.setProperty(ITER, Long.toHexString(random.nextLong()));
-
-                            index[level] = thisIndex;
-                            while (true) {
-                                String opName = opNames.get(++index[level]);
-                                if (opName.startsWith(DIRECTIVE_SIGIL)) {
-                                    break;
-                                }
-
-                                callOperation(rdds, opChain, currentVariables, opName);
+                                nextIndex = advance(rdds, opChain, opNames, taskVariables, currentVariables, random, index + 1);
                             }
-                        }
 
-                        currentVariables.setProperty(variable, varValue);
+                            index = nextIndex;
+                            currentVariables.setProperty(variable, varValue);
+                        }
                         break;
                     }
-                    case ELSE : {
-                        if (skip[level]) {
-                            skip[level] = false;
+                    case ELSE: {
+                        if (skip) {
+                            skip = false;
 
-                            while (true) {
-                                String opName = opNames.get(++index[level]);
-                                if (opName.startsWith(DIRECTIVE_SIGIL)) {
-                                    break;
-                                }
-
-                                callOperation(rdds, opChain, currentVariables, opName);
-                            }
+                            index = advance(rdds, opChain, opNames, taskVariables, currentVariables, random, index + 1);
                         } else {
-                            skip[level] = true;
+                            skip = true;
                         }
 
                         break;
                     }
                     case IF: {
-                        level++;
-
                         String varValue = taskVariables.getProperty(variable, defVal);
                         if ((varValue == null) || varValue.trim().isEmpty()) {
-                            skip[level] = true;
-                            break;
-                        }
-
-                        while (true) {
-                            String opName = opNames.get(++index[level]);
-                            if (opName.startsWith(DIRECTIVE_SIGIL)) {
-                                break;
-                            }
-
-                            callOperation(rdds, opChain, currentVariables, opName);
+                            skip = true;
+                        } else {
+                            index = advance(rdds, opChain, opNames, taskVariables, currentVariables, random, index + 1);
                         }
                         break;
                     }
                     case END: {
-                        index[level - 1] = index[level];
-
-                        if (skip[level]) {
-                            skip[level] = false;
-                        }
-
-                        level--;
-                        break;
+                        return index;
                     }
                     case LET: {
                         String value = null;
 
                         JavaRDDLike rdd = rdds.get(defVal);
                         if (rdd instanceof JavaRDD) {
-                            value = ((JavaRDD<Object>)rdd).collect().stream().map(String::valueOf).collect(Collectors.joining(COMMA));
+                            value = ((JavaRDD<Object>) rdd).collect().stream().map(String::valueOf).collect(Collectors.joining(COMMA));
                         }
                         if (rdd instanceof JavaPairRDD) {
-                            value = ((JavaPairRDD<Object, Object>)rdd).values().collect().stream().map(String::valueOf).collect(Collectors.joining(COMMA));
+                            value = ((JavaPairRDD<Object, Object>) rdd).values().collect().stream().map(String::valueOf).collect(Collectors.joining(COMMA));
                         }
 
                         currentVariables.setProperty(variable, value);
@@ -175,15 +146,13 @@ public abstract class WrapperBase {
                     }
                 }
             } else {
-                if (skip[level]) {
-                    continue;
+                if (!skip) {
+                    callOperation(rdds, opChain, currentVariables, name);
                 }
-
-                callOperation(rdds, opChain, currentVariables, name);
             }
+        } while (++index < opNames.size());
 
-            index[level]++;
-        }
+        return index;
     }
 
     private void callOperation(Map<String, JavaRDDLike> rdds, Map<String, Operation> opChain, Properties currentVariables, String name) throws Exception {

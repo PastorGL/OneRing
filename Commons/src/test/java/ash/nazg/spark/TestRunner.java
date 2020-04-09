@@ -29,11 +29,24 @@ public class TestRunner extends WrapperBase implements AutoCloseable {
             .set("spark.ui.enabled", "false");
 
     public TestRunner(String path) {
+        this(path, null);
+    }
+
+    public TestRunner(String path, String varPath) {
         super(new JavaSparkContext(sparkConf), new WrapperConfig());
 
         context.hadoopConfiguration().set(FileInputFormat.INPUT_DIR_RECURSIVE, Boolean.TRUE.toString());
 
         try (InputStream input = getClass().getResourceAsStream(path)) {
+            if (varPath != null) {
+                InputStream vars = getClass().getResourceAsStream(varPath);
+
+                Properties overrides = new Properties();
+                overrides.load(vars);
+
+                wrapperConfig.setOverrides(overrides);
+            }
+
             Properties source = new Properties();
             source.load(input);
 
