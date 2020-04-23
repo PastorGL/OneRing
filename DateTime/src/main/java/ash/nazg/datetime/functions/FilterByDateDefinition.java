@@ -11,20 +11,20 @@ import java.util.Date;
 public class FilterByDateDefinition implements Serializable, Cloneable {
     public char inputDelimiter;
 
-    public Integer dateCol;
     public Integer yearCol;
-    public Integer dowCol;
     public Integer monthCol;
+    public Integer dateCol;
+    public Integer dowCol;
     public Integer hourCol;
     public Integer minuteCol;
 
     public Date start;
     public Date end;
     
-    public Integer[] dates;
     public Integer[] years;
-    public Integer[] dows;
     public Integer[] months;
+    public Integer[] dates;
+    public Integer[] dows;
     public Integer[] hours;
     public Integer[] minutes;
 
@@ -35,10 +35,10 @@ public class FilterByDateDefinition implements Serializable, Cloneable {
     public Object clone() throws CloneNotSupportedException {
         FilterByDateDefinition clone = (FilterByDateDefinition) super.clone();
 
-        clone.dateCol = dateCol;
         clone.yearCol = yearCol;
-        clone.dowCol = dowCol;
         clone.monthCol = monthCol;
+        clone.dateCol = dateCol;
+        clone.dowCol = dowCol;
         clone.hourCol = hourCol;
         clone.minuteCol = minuteCol;
 
@@ -47,10 +47,10 @@ public class FilterByDateDefinition implements Serializable, Cloneable {
         clone.start = (start == null) ? null : (Date) start.clone();
         clone.end = (end == null) ? null : (Date) end.clone();
 
-        clone.dates = (dates == null) ? null : dates.clone();
         clone.years = (years == null) ? null : years.clone();
-        clone.dows = (dows == null) ? null : dows.clone();
         clone.months = (months == null) ? null : months.clone();
+        clone.dates = (dates == null) ? null : dates.clone();
+        clone.dows = (dows == null) ? null : dows.clone();
         clone.hours = (hours == null) ? null : hours.clone();
         clone.minutes = (minutes == null) ? null : minutes.clone();
 

@@ -30,16 +30,17 @@ public class SplitByDateOperation extends Operation {
     @Description("Template output with a wildcard part, i.e. output_*")
     public static final String RDD_OUTPUT_SPLITS_TEMPLATE = "template";
     @Description("Optional output that contains all the distinct splits occurred on the input data," +
-            " in the form of names of the generated inputs")
+            " in the form of names of the generated inputs. Its column order is always year,month,date,dow,hour,minute." +
+            " Unreferenced split columns are omitted from this output")
     public static final String RDD_OUTPUT_DISTINCT_SPLITS = "distinct_splits";
-    @Description("If set, split by date of month column value")
-    public static final String DS_DATE_COLUMN = "date.column";
     @Description("If set, split by year column value")
     public static final String DS_YEAR_COLUMN = "year.column";
-    @Description("If set, split by day of week column value")
-    public static final String DS_DOW_COLUMN = "dow.column";
     @Description("If set, split by month column value")
     public static final String DS_MONTH_COLUMN = "month.column";
+    @Description("If set, split by date of month column value")
+    public static final String DS_DATE_COLUMN = "date.column";
+    @Description("If set, split by day of week column value")
+    public static final String DS_DOW_COLUMN = "dow.column";
     @Description("If set, split by hour column value")
     public static final String DS_HOUR_COLUMN = "hour.column";
     @Description("If set, split by minute column value")
@@ -80,10 +81,10 @@ public class SplitByDateOperation extends Operation {
     public TaskDescriptionLanguage.Operation description() {
         return new TaskDescriptionLanguage.Operation(verb(),
                 new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(DS_DATE_COLUMN, DEF_DATE_COLUMN),
                         new TaskDescriptionLanguage.Definition(DS_YEAR_COLUMN, DEF_YEAR_COLUMN),
-                        new TaskDescriptionLanguage.Definition(DS_DOW_COLUMN, DEF_DOW_COLUMN),
                         new TaskDescriptionLanguage.Definition(DS_MONTH_COLUMN, DEF_MONTH_COLUMN),
+                        new TaskDescriptionLanguage.Definition(DS_DATE_COLUMN, DEF_DATE_COLUMN),
+                        new TaskDescriptionLanguage.Definition(DS_DOW_COLUMN, DEF_DOW_COLUMN),
                         new TaskDescriptionLanguage.Definition(DS_HOUR_COLUMN, DEF_HOUR_COLUMN),
                         new TaskDescriptionLanguage.Definition(DS_MINUTE_COLUMN, DEF_MINUTE_COLUMN),
                         new TaskDescriptionLanguage.Definition(OP_SPLIT_TEMPLATE),
@@ -105,7 +106,7 @@ public class SplitByDateOperation extends Operation {
                                 ),
                                 new TaskDescriptionLanguage.NamedStream(
                                         RDD_OUTPUT_DISTINCT_SPLITS,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Fixed},
                                         false
                                 )
                         }
@@ -127,24 +128,24 @@ public class SplitByDateOperation extends Operation {
         String prop;
 
         List<String> splitColumns = new ArrayList<>();
-        prop = describedProps.defs.getTyped(DS_DATE_COLUMN);
-        if (prop != null) {
-            def.dateCol = inputColumns.get(prop);
-            splitColumns.add(prop);
-        }
         prop = describedProps.defs.getTyped(DS_YEAR_COLUMN);
         if (prop != null) {
             def.yearCol = inputColumns.get(prop);
             splitColumns.add(prop);
         }
-        prop = describedProps.defs.getTyped(DS_DOW_COLUMN);
-        if (prop != null) {
-            def.dowCol = inputColumns.get(prop);
-            splitColumns.add(prop);
-        }
         prop = describedProps.defs.getTyped(DS_MONTH_COLUMN);
         if (prop != null) {
             def.monthCol = inputColumns.get(prop);
+            splitColumns.add(prop);
+        }
+        prop = describedProps.defs.getTyped(DS_DATE_COLUMN);
+        if (prop != null) {
+            def.dateCol = inputColumns.get(prop);
+            splitColumns.add(prop);
+        }
+        prop = describedProps.defs.getTyped(DS_DOW_COLUMN);
+        if (prop != null) {
+            def.dowCol = inputColumns.get(prop);
             splitColumns.add(prop);
         }
         prop = describedProps.defs.getTyped(DS_HOUR_COLUMN);
@@ -246,6 +247,12 @@ public class SplitByDateOperation extends Operation {
                 outputName = outputName.replace("{" + splitColumnName + "}", ll[i]);
 
                 Integer[] arr = {new Integer(ll[i])};
+                if ((uDef.yearCol != null) && (sc == uDef.yearCol)) {
+                    uDef.years = arr;
+                }
+                if ((uDef.monthCol != null) && (sc == uDef.monthCol)) {
+                    uDef.months = arr;
+                }
                 if ((uDef.dateCol != null) && (sc == uDef.dateCol)) {
                     uDef.dates = arr;
                 }
@@ -257,12 +264,6 @@ public class SplitByDateOperation extends Operation {
                 }
                 if ((uDef.minuteCol != null) && (sc == uDef.minuteCol)) {
                     uDef.minutes = arr;
-                }
-                if ((uDef.monthCol != null) && (sc == uDef.monthCol)) {
-                    uDef.months = arr;
-                }
-                if ((uDef.yearCol != null) && (sc == uDef.yearCol)) {
-                    uDef.years = arr;
                 }
             }
 

@@ -60,17 +60,17 @@ public class FilterByDateFunction implements FlatMapFunction<Iterator<Object>, T
                 }
             }
 
-            if ((filterByDateDefinition.dates != null) && (filterByDateDefinition.dateCol != null)) {
-                matches = matches && Arrays.asList(filterByDateDefinition.dates).contains(new Integer(ll[filterByDateDefinition.dateCol]));
-            }
             if ((filterByDateDefinition.years != null) && (filterByDateDefinition.yearCol != null)) {
                 matches = matches && Arrays.asList(filterByDateDefinition.years).contains(new Integer(ll[filterByDateDefinition.yearCol]));
             }
-            if ((filterByDateDefinition.dows != null) && (filterByDateDefinition.dowCol != null)) {
-                matches = matches && Arrays.asList(filterByDateDefinition.dows).contains(new Integer(ll[filterByDateDefinition.dowCol]));
-            }
             if ((filterByDateDefinition.months != null) && (filterByDateDefinition.monthCol != null)) {
                 matches = matches && Arrays.asList(filterByDateDefinition.months).contains(new Integer(ll[filterByDateDefinition.monthCol]));
+            }
+            if ((filterByDateDefinition.dates != null) && (filterByDateDefinition.dateCol != null)) {
+                matches = matches && Arrays.asList(filterByDateDefinition.dates).contains(new Integer(ll[filterByDateDefinition.dateCol]));
+            }
+            if ((filterByDateDefinition.dows != null) && (filterByDateDefinition.dowCol != null)) {
+                matches = matches && Arrays.asList(filterByDateDefinition.dows).contains(new Integer(ll[filterByDateDefinition.dowCol]));
             }
             if ((filterByDateDefinition.hours != null) && (filterByDateDefinition.hourCol != null)) {
                 matches = matches && Arrays.asList(filterByDateDefinition.hours).contains(new Integer(ll[filterByDateDefinition.hourCol]));

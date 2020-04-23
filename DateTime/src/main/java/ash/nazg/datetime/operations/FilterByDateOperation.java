@@ -19,14 +19,14 @@ import java.util.stream.Collectors;
 
 @SuppressWarnings("unused")
 public class FilterByDateOperation extends Operation {
-    @Description("By default do not filter by date of month")
-    public static final String DEF_DATE_COLUMN = null;
     @Description("By default do not filter by year")
     public static final String DEF_YEAR_COLUMN = null;
-    @Description("By default do not filter by day of week")
-    public static final String DEF_DOW_COLUMN = null;
     @Description("By default do not filter by month")
     public static final String DEF_MONTH_COLUMN = null;
+    @Description("By default do not filter by date of month")
+    public static final String DEF_DATE_COLUMN = null;
+    @Description("By default do not filter by day of week")
+    public static final String DEF_DOW_COLUMN = null;
     @Description("By default do not filter by hour")
     public static final String DEF_HOUR_COLUMN = null;
     @Description("By default do not filter by minute")
@@ -35,26 +35,26 @@ public class FilterByDateOperation extends Operation {
     public static final String DEF_START = null;
     @Description("By default do not filter by date range end")
     public static final String DEF_END = null;
-    @Description("By default do not filter by date of month")
-    public static final String[] DEF_DATE_VALUE = null;
     @Description("By default do not filter by year")
     public static final String[] DEF_YEAR_VALUE = null;
-    @Description("By default do not filter by day of week")
-    public static final String[] DEF_DOW_VALUE = null;
     @Description("By default do not filter by month")
     public static final String[] DEF_MONTH_VALUE = null;
+    @Description("By default do not filter by date of month")
+    public static final String[] DEF_DATE_VALUE = null;
+    @Description("By default do not filter by day of week")
+    public static final String[] DEF_DOW_VALUE = null;
     @Description("By default do not filter by starting time of day")
     public static final Integer DEF_HHMM_START = null;
     @Description("By default do not filter by ending time of day")
     public static final Integer DEF_HHMM_END = null;
-    @Description("Column with date of month")
-    public static final String DS_DATE_COLUMN = "date.column";
     @Description("Column with year")
     public static final String DS_YEAR_COLUMN = "year.column";
-    @Description("Column with day of week")
-    public static final String DS_DOW_COLUMN = "dow.column";
     @Description("Column with month")
     public static final String DS_MONTH_COLUMN = "month.column";
+    @Description("Column with date of month")
+    public static final String DS_DATE_COLUMN = "date.column";
+    @Description("Column with day of week")
+    public static final String DS_DOW_COLUMN = "dow.column";
     @Description("Column with hour")
     public static final String DS_HOUR_COLUMN = "hour.column";
     @Description("Column with minute")
@@ -94,18 +94,18 @@ public class FilterByDateOperation extends Operation {
     public TaskDescriptionLanguage.Operation description() {
         return new TaskDescriptionLanguage.Operation(verb(),
                 new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(DS_DATE_COLUMN, DEF_DATE_COLUMN),
                         new TaskDescriptionLanguage.Definition(DS_YEAR_COLUMN, DEF_YEAR_COLUMN),
-                        new TaskDescriptionLanguage.Definition(DS_DOW_COLUMN, DEF_DOW_COLUMN),
                         new TaskDescriptionLanguage.Definition(DS_MONTH_COLUMN, DEF_MONTH_COLUMN),
+                        new TaskDescriptionLanguage.Definition(DS_DATE_COLUMN, DEF_DATE_COLUMN),
+                        new TaskDescriptionLanguage.Definition(DS_DOW_COLUMN, DEF_DOW_COLUMN),
                         new TaskDescriptionLanguage.Definition(DS_HOUR_COLUMN, DEF_HOUR_COLUMN),
                         new TaskDescriptionLanguage.Definition(DS_MINUTE_COLUMN, DEF_MINUTE_COLUMN),
                         new TaskDescriptionLanguage.Definition(OP_START, DEF_START),
                         new TaskDescriptionLanguage.Definition(OP_END, DEF_END),
-                        new TaskDescriptionLanguage.Definition(OP_DATE_VALUE, DEF_DATE_VALUE),
                         new TaskDescriptionLanguage.Definition(OP_YEAR_VALUE, DEF_YEAR_VALUE),
-                        new TaskDescriptionLanguage.Definition(OP_DOW_VALUE, DEF_DOW_VALUE),
                         new TaskDescriptionLanguage.Definition(OP_MONTH_VALUE, DEF_MONTH_VALUE),
+                        new TaskDescriptionLanguage.Definition(OP_DATE_VALUE, DEF_DATE_VALUE),
+                        new TaskDescriptionLanguage.Definition(OP_DOW_VALUE, DEF_DOW_VALUE),
                         new TaskDescriptionLanguage.Definition(OP_HHMM_START, Integer.class, DEF_HHMM_START),
                         new TaskDescriptionLanguage.Definition(OP_HHMM_END, Integer.class, DEF_HHMM_END),
                 },
@@ -139,25 +139,25 @@ public class FilterByDateOperation extends Operation {
 
         boolean filteringNeeded = false;
 
-        String prop = describedProps.defs.getTyped(DS_DATE_COLUMN);
-        if (prop != null && !prop.isEmpty()) {
-            filteringNeeded = true;
-            def.dateCol = inputColumns.get(prop);
-        }
-        prop = describedProps.defs.getTyped(DS_YEAR_COLUMN);
+        String prop = describedProps.defs.getTyped(DS_YEAR_COLUMN);
         if (prop != null && !prop.isEmpty()) {
             filteringNeeded = true;
             def.yearCol = inputColumns.get(prop);
-        }
-        prop = describedProps.defs.getTyped(DS_DOW_COLUMN);
-        if (prop != null && !prop.isEmpty()) {
-            filteringNeeded = true;
-            def.dowCol = inputColumns.get(prop);
         }
         prop = describedProps.defs.getTyped(DS_MONTH_COLUMN);
         if (prop != null && !prop.isEmpty()) {
             filteringNeeded = true;
             def.monthCol = inputColumns.get(prop);
+        }
+        prop = describedProps.defs.getTyped(DS_DATE_COLUMN);
+        if (prop != null && !prop.isEmpty()) {
+            filteringNeeded = true;
+            def.dateCol = inputColumns.get(prop);
+        }
+        prop = describedProps.defs.getTyped(DS_DOW_COLUMN);
+        if (prop != null && !prop.isEmpty()) {
+            filteringNeeded = true;
+            def.dowCol = inputColumns.get(prop);
         }
         prop = describedProps.defs.getTyped(DS_HOUR_COLUMN);
         if (prop != null && !prop.isEmpty()) {
@@ -181,12 +181,7 @@ public class FilterByDateOperation extends Operation {
             def.end = FilterByDateDefinition.parseDate(prop);
         }
 
-        String[] arr = describedProps.defs.getTyped(OP_DATE_VALUE);
-        if (arr != null) {
-            filteringNeeded = true;
-            def.dates = integers(arr, 1, 32);
-        }
-        arr = describedProps.defs.getTyped(OP_YEAR_VALUE);
+        String[] arr = describedProps.defs.getTyped(OP_YEAR_VALUE);
         if (arr != null) {
             filteringNeeded = true;
             Calendar c = Calendar.getInstance();
@@ -202,15 +197,20 @@ public class FilterByDateOperation extends Operation {
 
             def.years = integers(arr, lower, upper);
         }
-        arr = describedProps.defs.getTyped(OP_DOW_VALUE);
-        if (arr != null) {
-            filteringNeeded = true;
-            def.dows = integers(arr, 1, 8);
-        }
         arr = describedProps.defs.getTyped(OP_MONTH_VALUE);
         if (arr != null) {
             filteringNeeded = true;
             def.months = integers(arr, 1, 13);
+        }
+        arr = describedProps.defs.getTyped(OP_DATE_VALUE);
+        if (arr != null) {
+            filteringNeeded = true;
+            def.dates = integers(arr, 1, 32);
+        }
+        arr = describedProps.defs.getTyped(OP_DOW_VALUE);
+        if (arr != null) {
+            filteringNeeded = true;
+            def.dows = integers(arr, 1, 8);
         }
 
         Integer hhmm = describedProps.defs.getTyped(OP_HHMM_START);
