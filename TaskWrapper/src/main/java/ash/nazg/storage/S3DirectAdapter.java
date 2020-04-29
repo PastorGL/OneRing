@@ -11,6 +11,9 @@ import java.util.regex.Pattern;
 public abstract class S3DirectAdapter implements StorageAdapter {
     protected static final Pattern PATTERN = Pattern.compile("^s3d://([^/]+)/(.+)");
 
+    protected String accessKey;
+    protected String secretKey;
+
     protected char delimiter;
 
     @Description("S3 Direct adapter for any S3-compatible storage")

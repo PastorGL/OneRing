@@ -5,13 +5,15 @@
 package ash.nazg.storage.input;
 
 import ash.nazg.config.DataStreamsConfig;
+import ash.nazg.config.WrapperConfig;
+import ash.nazg.storage.InputAdapter;
+import ash.nazg.storage.S3DirectAdapter;
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
-import ash.nazg.config.WrapperConfig;
-import ash.nazg.storage.InputAdapter;
-import ash.nazg.storage.S3DirectAdapter;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -32,9 +34,12 @@ public class S3DirectInput extends S3DirectAdapter implements InputAdapter {
 
     @Override
     public void setProperties(String inputName, WrapperConfig wrapperConfig) {
-        DataStreamsConfig adapterConfig = new DataStreamsConfig(wrapperConfig.getProperties(), Collections.singleton(inputName), Collections.singleton(inputName), null, null, null);
+        accessKey = wrapperConfig.getInputProperty("access.key", null);
+        secretKey = wrapperConfig.getInputProperty("secret.key", null);
 
         partCount = wrapperConfig.inputParts(inputName);
+
+        DataStreamsConfig adapterConfig = new DataStreamsConfig(wrapperConfig.getProperties(), Collections.singleton(inputName), Collections.singleton(inputName), null, null, null);
     }
 
     @Override
@@ -49,10 +54,13 @@ public class S3DirectInput extends S3DirectAdapter implements InputAdapter {
         String bucket = m.group(1);
         String key = m.group(2);
 
-        AmazonS3 s3 = AmazonS3ClientBuilder
-                .standard()
-                .enableForceGlobalBucketAccess()
-                .build();
+        AmazonS3ClientBuilder s3ClientBuilder = AmazonS3ClientBuilder.standard()
+                .enableForceGlobalBucketAccess();
+        if ((accessKey != null) && (secretKey != null)) {
+            s3ClientBuilder.setCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials(accessKey, secretKey)));
+        }
+
+        AmazonS3 s3 = s3ClientBuilder.build();
 
         ListObjectsRequest request = new ListObjectsRequest();
         request.setBucketName(bucket);

@@ -8,14 +8,16 @@ import alex.mojaki.s3upload.MultiPartOutputStream;
 import alex.mojaki.s3upload.StreamTransferManager;
 import ash.nazg.config.DataStreamsConfig;
 import ash.nazg.config.InvalidConfigValueException;
+import ash.nazg.config.WrapperConfig;
 import ash.nazg.storage.OutputAdapter;
 import ash.nazg.storage.S3DirectAdapter;
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.google.common.collect.Iterators;
-import ash.nazg.config.WrapperConfig;
 import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -43,7 +45,7 @@ public class S3DirectOutput extends S3DirectAdapter implements OutputAdapter {
 
         if (rdd instanceof JavaRDD) {
             rdd
-                    .mapPartitionsWithIndex(new S3DirectWriteFunction(bucket, key, contentType), true)
+                    .mapPartitionsWithIndex(new S3DirectWriteFunction(accessKey, secretKey, bucket, key, contentType), true)
                     .count();
         }
         if (rdd instanceof JavaPairRDD) {
@@ -59,7 +61,7 @@ public class S3DirectOutput extends S3DirectAdapter implements OutputAdapter {
                             ret.add(new Text(v._1 + _delimiter + v._2));
                         }
 
-                        return new S3DirectWriteFunction(bucket, key, contentType).call(idx, ret.iterator());
+                        return new S3DirectWriteFunction(accessKey, secretKey, bucket, key, contentType).call(idx, ret.iterator());
                     }, true)
                     .count();
         }
@@ -67,19 +69,26 @@ public class S3DirectOutput extends S3DirectAdapter implements OutputAdapter {
 
     @Override
     public void setProperties(String outputName, WrapperConfig wrapperConfig) throws InvalidConfigValueException {
-        DataStreamsConfig adapterConfig = new DataStreamsConfig(wrapperConfig.getProperties(), null, null, Collections.singleton(outputName), Collections.singleton(outputName), null);
-        delimiter = adapterConfig.outputDelimiter(outputName);
+        accessKey = wrapperConfig.getOutputProperty("access.key", null);
+        secretKey = wrapperConfig.getOutputProperty("secret.key", null);
 
         contentType = wrapperConfig.getOutputProperty("content.type", "text/csv");
+
+        DataStreamsConfig adapterConfig = new DataStreamsConfig(wrapperConfig.getProperties(), null, null, Collections.singleton(outputName), Collections.singleton(outputName), null);
+        delimiter = adapterConfig.outputDelimiter(outputName);
     }
 
     public static class S3DirectWriteFunction implements Function2<Integer, Iterator<Object>, Iterator<Object>> {
+        private final String _accessKey;
+        private final String _secretKey;
         private final String _bucket;
         private final String _path;
+        private final String _contentType;
         private transient AmazonS3 _client;
-        private String _contentType;
 
-        private S3DirectWriteFunction(String bucket, String path, String contentType) {
+        private S3DirectWriteFunction(String accessKey, String secretKey, String bucket, String path, String contentType) {
+            _accessKey = accessKey;
+            _secretKey = secretKey;
             _bucket = bucket;
             _path = path;
             _contentType = contentType;
@@ -88,10 +97,13 @@ public class S3DirectOutput extends S3DirectAdapter implements OutputAdapter {
         @Override
         public Iterator<Object> call(Integer partNumber, Iterator<Object> partition) {
             if (_client == null) {
-                _client = AmazonS3ClientBuilder
-                        .standard()
-                        .enableForceGlobalBucketAccess()
-                        .build();
+                AmazonS3ClientBuilder s3ClientBuilder = AmazonS3ClientBuilder.standard()
+                        .enableForceGlobalBucketAccess();
+                if ((_accessKey != null) && (_secretKey != null)) {
+                    s3ClientBuilder.setCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials(_accessKey, _secretKey)));
+                }
+
+                _client = s3ClientBuilder.build();
             }
 
             StreamTransferManager stm = new StreamTransferManager(_bucket, _path + "." + partNumber, _client) {
