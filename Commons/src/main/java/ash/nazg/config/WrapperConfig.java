@@ -25,21 +25,6 @@ public class WrapperConfig extends TaskConfig {
         put(DISTCP_PREFIX, null);
     }};
 
-    @Override
-    public void setOverrides(Properties overrides) {
-        super.setOverrides(overrides);
-    }
-
-    @Override
-    public void overrideProperty(String index, String property) {
-        super.overrideProperty(index, property);
-    }
-
-    @Override
-    public void setProperties(Properties source) {
-        super.setProperties(source);
-    }
-
     public final String inputPath(String input) {
         return getProperty(DS_INPUT_PATH_PREFIX + input);
     }

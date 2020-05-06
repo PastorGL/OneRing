@@ -39,8 +39,37 @@ public abstract class PropertiesConfig {
         }
     }
 
-    protected void overrideProperty(String index, String property) {
-        properties.setProperty(index, property);
+    public void overrideProperty(String index, String property) {
+        String pIndex = replaceVars(index);
+        if (pIndex != index) { // yes, String comparison via equality operator is intentional here
+            properties.remove(index);
+            index = pIndex;
+        }
+
+        properties.setProperty(index, replaceVars(property));
+    }
+
+    private String replaceVars(String stringWithVars) {
+        Matcher hasRepVar = REP_VAR.matcher(stringWithVars);
+        while (hasRepVar.find()) {
+            String rep = hasRepVar.group(1);
+
+            String repVar = rep;
+            String repDef = null;
+            if (rep.contains(REP_SEP)) {
+                String[] rd = rep.split(REP_SEP, 2);
+                repVar = rd[0];
+                repDef = rd[1];
+            }
+
+            String val = overrides.getProperty(repVar, repDef);
+
+            if (val != null) {
+                stringWithVars = stringWithVars.replace("{" + rep + "}", val);
+            }
+        }
+
+        return stringWithVars;
     }
 
     protected String getProperty(String index) {
@@ -66,7 +95,7 @@ public abstract class PropertiesConfig {
         return properties;
     }
 
-    protected void setProperties(Properties source) {
+    public void setProperties(Properties source) {
         properties.clear();
 
         if (prefix != null) {
@@ -83,7 +112,7 @@ public abstract class PropertiesConfig {
         return overrides;
     }
 
-    protected void setOverrides(Properties overrides) {
+    public void setOverrides(Properties overrides) {
         this.overrides = new Properties(overrides);
     }
 }

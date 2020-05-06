@@ -36,40 +36,6 @@ public class OperationConfig extends PropertiesConfig {
         this.opDesc = opDesc;
     }
 
-    @Override
-    protected void overrideProperty(String index, String property) {
-        String pIndex = replaceVars(index);
-        if (pIndex != index) { // yes, String comparison via equality operator is intentional here
-            properties.remove(index);
-            index = pIndex;
-        }
-
-        properties.setProperty(index, replaceVars(property));
-    }
-
-    private String replaceVars(String stringWithVars) {
-        Matcher hasRepVar = REP_VAR.matcher(stringWithVars);
-        while (hasRepVar.find()) {
-            String rep = hasRepVar.group(1);
-
-            String repVar = rep;
-            String repDef = null;
-            if (rep.contains(REP_SEP)) {
-                String[] rd = rep.split(REP_SEP, 2);
-                repVar = rd[0];
-                repDef = rd[1];
-            }
-
-            String val = overrides.getProperty(repVar, repDef);
-
-            if (val != null) {
-                stringWithVars = stringWithVars.replace("{" + rep + "}", val);
-            }
-        }
-
-        return stringWithVars;
-    }
-
     public DataStreamsConfig configure(Properties sourceConfig, Properties overrides) throws InvalidConfigValueException {
         setOverrides(overrides);
         setProperties(sourceConfig);

@@ -58,11 +58,6 @@ public class TaskConfig extends PropertiesConfig {
     }
 
     @Override
-    public void setProperties(Properties source) {
-        super.setProperties(source);
-    }
-
-    @Override
     public String getPrefix() {
         String prefix = super.getPrefix();
         return (prefix == null) ? null : prefix.substring(0, prefix.length() - 1);
