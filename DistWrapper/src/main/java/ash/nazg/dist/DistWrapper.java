@@ -9,16 +9,13 @@ import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.WrapperConfig;
 import ash.nazg.storage.Adapters;
 import org.apache.spark.api.java.JavaSparkContext;
-import scala.Tuple2;
 import scala.Tuple3;
+import scala.Tuple4;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.StringJoiner;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class DistWrapper extends TaskWrapper {
@@ -26,6 +23,7 @@ public class DistWrapper extends TaskWrapper {
     private String outputIni;
     private String codec;
     private boolean deleteOnSuccess = false;
+    private Map<String, Tuple3<String[], String[], Character>> sinkInfo;
 
     public DistWrapper(JavaSparkContext context, WrapperConfig config) {
         super(context, config);
@@ -45,15 +43,16 @@ public class DistWrapper extends TaskWrapper {
         return sj.toString();
     }
 
-    private void distCpCmd(List<Tuple3<String, String, String>> list) throws IOException {
+    // from, to, group, ?sink
+    private void distCpCmd(List<Tuple4<String, String, String, String>> list) throws IOException {
         if (exeDistCp != null) {
             final List<String> lines = new ArrayList<>();
-            for (Tuple3<String, String, String> line : list) {
+            for (Tuple4<String, String, String, String> line : list) {
                lines.add(distCpExe(line._1(), line._2(), line._3()));
             }
             Files.write(Paths.get(outputIni), lines);
         } else {
-            CopyFilesFunction cff = new CopyFilesFunction(context.hadoopConfiguration(), deleteOnSuccess, codec);
+            CopyFilesFunction cff = new CopyFilesFunction(deleteOnSuccess, codec, sinkInfo);
             context.parallelize(new ArrayList<>(list), list.size())
                     .foreach(cff);
         }
@@ -66,7 +65,7 @@ public class DistWrapper extends TaskWrapper {
             throw new InvalidConfigValueException("DistWrapper's copy direction can't be 'both' because it's ambiguous");
         }
 
-        if (distDirection.any && wrapDistCp.any) {
+        if (distDirection.anyDirection && wrapDistCp.anyDirection) {
             exeDistCp = wrapperConfig.getDistCpProperty("exe", null);
             if (exeDistCp != null) {
                 outputIni = wrapperConfig.getDistCpProperty("ini", null);
@@ -77,48 +76,51 @@ public class DistWrapper extends TaskWrapper {
 
             codec = wrapperConfig.getDistCpProperty("codec", "none");
 
-            if (distDirection == CpDirection.ONLY_FROM_HDFS) {
+            if (distDirection == CpDirection.FROM_CLUSTER) {
                 deleteOnSuccess = Boolean.parseBoolean(wrapperConfig.getDistCpProperty("move", "true"));
             }
 
-            if (distDirection.to && wrapDistCp.to) {
-                List<Tuple3<String, String, String>> inputs = new ArrayList<>();
-                for (String sink : wrapperConfig.getInputSink()) {
-                     inputs.addAll(DistUtils.globCSVtoRegexMap(wrapperConfig.inputPath(sink)).entrySet().stream()
-                            .flatMap(e -> {
-                                Tuple2<String, String> value = e.getValue();
+            if (distDirection.toCluster && wrapDistCp.toCluster) {
+                List<Tuple4<String, String, String, String>> inputs = new ArrayList<>();
 
-                                List<Tuple3<String, String, String>> ret = new ArrayList<>();
-                                if (value != null) {
-                                    ret.add(new Tuple3<>("s3://" + value._1, "hdfs://" + inputDir + "/" + e.getKey(), value._2));
-                                }
+                List<String> sinks = wrapperConfig.getInputSink();
+                sinkInfo = new HashMap<>();
+                for (int j = 0; j < sinks.size(); j++) {
+                    String sink = sinks.get(j);
+                    String path = wrapperConfig.inputPath(sink);
 
-                                return ret.stream();
-                            }).collect(Collectors.toList()));
+                    sinkInfo.put(sink, new Tuple3<>(wrapperConfig.getSinkSchema(sink), wrapperConfig.getSinkColumns(sink), wrapperConfig.getSinkDelimiter(sink)));
+
+                    List<Tuple3<String, String, String>> splits = DistUtils.globCSVtoRegexMap(path);
+
+                    for (int i = 0; i < splits.size(); i++) {
+                        Tuple3<String, String, String> split = splits.get(i);
+                        inputs.add(new Tuple4<>(split._2(), inputDir + "/" + sink + "/" + split._1() + "." + j + "." + i, split._3(), sink));
+                    }
                 }
 
                 distCpCmd(inputs);
             }
 
-            if (distDirection.from && wrapDistCp.from) {
+            if (distDirection.fromCluster && wrapDistCp.fromCluster) {
                 if (wrapperStorePath != null) {
-                    List<Tuple3<String, String, String>> outputs = Files.readAllLines(Paths.get(wrapperStorePath)).stream().map(output -> {
+                    List<Tuple4<String, String, String, String>> outputs = Files.readAllLines(Paths.get(wrapperStorePath)).stream().map(output -> {
                         String path = String.valueOf(output);
-                        String name = path.substring(("hdfs://" + outputDir + "/").length());
+                        String name = path.substring((outputDir + "/").length());
 
-                        return new Tuple3<>(path, wrapperConfig.outputPath(name), ".*/(" + name + ".*?)/part.*");
+                        return new Tuple4<>(path, wrapperConfig.outputPath(name), ".*/(" + name + ".*?)/part.*", (String)null);
                     }).collect(Collectors.toList());
 
                     distCpCmd(outputs);
                 } else {
-                    Set<String> tees = wrapperConfig.getTeeOutput();
+                    List<String> tees = wrapperConfig.getTeeOutput();
 
-                    List<Tuple3<String, String, String>> teeList = new ArrayList<>();
+                    List<Tuple4<String, String, String, String>> teeList = new ArrayList<>();
                     for (String name : tees) {
                         String path = wrapperConfig.outputPath(name);
 
                         if (Adapters.PATH_PATTERN.matcher(path).matches()) {
-                            teeList.add(new Tuple3<>("hdfs://" + outputDir + "/" + name, path, ".*/(" + name + ".*?)/part.*"));
+                            teeList.add(new Tuple4<>(outputDir + "/" + name, path, ".*/(" + name + ".*?)/part.*", null));
                         } else {
                             throw new InvalidConfigValueException("Output path '" + path + "' must point to a subdirectory for an output '" + name + "'");
                         }

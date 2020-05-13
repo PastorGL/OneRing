@@ -16,7 +16,7 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 public class Adapters {
-    public static final Pattern PATH_PATTERN = Pattern.compile("^[^:]+:/*([^/]+)/(.+)");
+    public static final Pattern PATH_PATTERN = Pattern.compile("^([^:]+:/*[^/]+)/(.+)");
 
     static private final List<InputAdapter> INPUT_ADAPTERS = new ArrayList<>();
     static private final List<OutputAdapter> OUTPUT_ADAPTERS = new ArrayList<>();

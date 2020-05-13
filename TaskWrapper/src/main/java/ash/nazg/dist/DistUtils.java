@@ -8,13 +8,14 @@ import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.storage.Adapters;
 import org.apache.commons.lang3.StringUtils;
 import scala.Tuple2;
+import scala.Tuple3;
 
 import java.util.*;
 import java.util.regex.Matcher;
 
 public class DistUtils {
-    public static Map<String, Tuple2<String, String>> globCSVtoRegexMap(String inputPath) throws InvalidConfigValueException {
-        Map<String, Tuple2<String, String>> ret = new HashMap<>();
+    public static List<Tuple3<String, String, String>> globCSVtoRegexMap(String inputPath) throws InvalidConfigValueException {
+        List<Tuple3<String, String, String>> ret = new ArrayList<>();
 
         int curlyLevel = 0;
 
@@ -58,7 +59,7 @@ public class DistUtils {
         for (String split : splits) {
             Matcher m = Adapters.PATH_PATTERN.matcher(split);
             if (m.matches()) {
-                String bucket = m.group(1);
+                String rootPath = m.group(1);
                 String path = m.group(2);
 
                 String[] subs = path.split("/");
@@ -169,16 +170,12 @@ public class DistUtils {
 
                 transSubs[groupingSub] = "(" + groupSub + ")";
 
-                if (ret.containsKey(groupSub)) {
-                    throw new InvalidConfigValueException("Glob pattern '" + split + "' tries to overwrite another glob pattern with grouping part '" + groupSub + "'");
-                }
-
                 String joined = StringUtils.join(Arrays.copyOfRange(transSubs, 0, groupingSub), '/');
                 if (!joined.isEmpty()) {
                     joined += "/";
                 }
-                ret.put(groupSub, new Tuple2<>(
-                        bucket + "/" + joined + groupSub,
+                ret.add(new Tuple3<>(groupSub,
+                        rootPath + "/" + joined + groupSub,
                         ".*/" + StringUtils.join(Arrays.copyOfRange(transSubs, groupingSub, transSubs.length), '/') + ".*"
                 ));
             } else {

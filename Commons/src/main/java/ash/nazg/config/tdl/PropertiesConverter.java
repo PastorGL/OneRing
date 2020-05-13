@@ -6,9 +6,7 @@ package ash.nazg.config.tdl;
 
 import ash.nazg.config.*;
 import ash.nazg.spark.OpInfo;
-import ash.nazg.spark.Operation;
 import ash.nazg.spark.Operations;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.*;
 import java.util.function.Function;
@@ -22,8 +20,8 @@ public class PropertiesConverter {
         List<TaskDefinitionLanguage.Operation> opDefs = new ArrayList<>();
         Map<String, TaskDefinitionLanguage.DataStream> dsDefs = new HashMap<>();
 
-        Set<String> sink = taskConfig.getInputSink();
-        Set<String> tees = taskConfig.getTeeOutput();
+        List<String> sink = taskConfig.getInputSink();
+        List<String> tees = taskConfig.getTeeOutput();
 
         Map<String, Boolean> dsColBased = new HashMap<>();
 
@@ -331,12 +329,12 @@ public class PropertiesConverter {
                         properties.put(DS_OUTPUT_PATH, ds.output.path);
                     }
                     if ((ds.output.delimiter != null) && (ds.output.delimiter.charAt(0) != PropertiesConfig.DEFAULT_DELIMITER)) {
-                        properties.put(DataStreamsConfig.DS_OUTPUT_DELIMITER, ds.output.delimiter);
+                        properties.put(PropertiesConfig.DS_OUTPUT_DELIMITER, ds.output.delimiter);
                     }
                 }
                 if (ds.input != null) {
                     if ((ds.input.delimiter != null) && (ds.input.delimiter.charAt(0) != PropertiesConfig.DEFAULT_DELIMITER)) {
-                        properties.put(DataStreamsConfig.DS_INPUT_DELIMITER, ds.input.delimiter);
+                        properties.put(PropertiesConfig.DS_INPUT_DELIMITER, ds.input.delimiter);
                     }
                 }
 
