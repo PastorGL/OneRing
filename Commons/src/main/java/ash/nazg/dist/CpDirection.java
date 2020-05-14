@@ -6,27 +6,27 @@ package ash.nazg.dist;
 
 public enum CpDirection {
     NOP(false, false),
-    ONLY_TO_HDFS(true, false),
-    ONLY_FROM_HDFS(false, true),
+    TO_CLUSTER(true, false),
+    FROM_CLUSTER(false, true),
     BOTH_DIRECTIONS(true, true);
 
-    public final boolean to;
-    public final boolean from;
-    public final boolean any;
+    public final boolean toCluster;
+    public final boolean fromCluster;
+    public final boolean anyDirection;
 
-    CpDirection(boolean to, boolean from) {
-        this.to = to;
-        this.from = from;
-        this.any = to || from;
+    CpDirection(boolean toCluster, boolean fromCluster) {
+        this.toCluster = toCluster;
+        this.fromCluster = fromCluster;
+        this.anyDirection = toCluster || fromCluster;
     }
 
     public static CpDirection parse(Object v) {
         switch (String.valueOf(v).toLowerCase()) {
             case "from": {
-                return ONLY_FROM_HDFS;
+                return FROM_CLUSTER;
             }
             case "to": {
-                return ONLY_TO_HDFS;
+                return TO_CLUSTER;
             }
             case "true":
             case "both": {

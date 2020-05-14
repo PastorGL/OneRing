@@ -6,11 +6,11 @@
     <parent>
         <groupId>ash.nazg</groupId>
         <artifactId>OneRing</artifactId>
-        <version>2.1.0</version>
+        <version>2.2.0</version>
     </parent>
 
     <artifactId>Commons</artifactId>
-    <version>2.1.0</version>
+    <version>2.2.0</version>
 
     <dependencies>
         <!-- EMR 5.23.0 -->

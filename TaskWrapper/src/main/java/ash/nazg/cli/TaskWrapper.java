@@ -6,24 +6,19 @@ package ash.nazg.cli;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.WrapperConfig;
-import ash.nazg.dist.CpDirection;
-import ash.nazg.dist.DistUtils;
-import ash.nazg.spark.WrapperBase;
+import ash.nazg.dist.DistCpSettings;
+import ash.nazg.spark.TaskRunnerWrapper;
 import ash.nazg.storage.Adapters;
 import ash.nazg.storage.InputAdapter;
 import ash.nazg.storage.OutputAdapter;
 import org.apache.spark.api.java.JavaRDDLike;
 import org.apache.spark.api.java.JavaSparkContext;
-import scala.Tuple2;
+import scala.Tuple3;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
-public class TaskWrapper extends WrapperBase {
-    protected CpDirection wrapDistCp;
-    protected String inputDir;
-    protected String outputDir;
-    protected String wrapperStorePath;
+public class TaskWrapper extends TaskRunnerWrapper {
+    protected DistCpSettings settings;
 
     protected Map<String, JavaRDDLike> result;
 
@@ -32,27 +27,22 @@ public class TaskWrapper extends WrapperBase {
 
         result = new HashMap<>();
 
-        wrapDistCp = CpDirection.parse(wrapperConfig.getDistCpProperty("wrap", "none"));
-        inputDir = wrapperConfig.getDistCpProperty("dir.to", "/input");
-        outputDir = wrapperConfig.getDistCpProperty("dir.from", "/output");
-        wrapperStorePath = wrapperConfig.getDistCpProperty("store", null);
+        settings = DistCpSettings.fromConfig(wrapperConfig);
     }
 
     public void go() throws Exception {
-        for (String sink : wrapperConfig.getInputSink()) {
+        List<String> sinks = wrapperConfig.getInputSink();
+        for (String sink : sinks) {
             String path = wrapperConfig.inputPath(sink);
 
-            if (wrapDistCp.to) {
-                Map<String, Tuple2<String, String>> splits = DistUtils.globCSVtoRegexMap(path);
+            if (settings.toCluster) {
+                List<Tuple3<String, String, String>> splits = DistCpSettings.srcDestGroup(path);
 
-                path = splits.entrySet().stream()
-                        .map(split -> {
-                            if (split.getValue() != null) {
-                                return "hdfs://" + inputDir + "/" + split.getKey();
-                            }
-                            return split.getKey();
-                        })
-                        .collect(Collectors.joining(","));
+                StringJoiner joiner = new StringJoiner(",");
+                for (int i = 0; i < splits.size(); i++) {
+                    joiner.add(settings.inputDir + "/" + sink + "/part-" + String.format("%05d", i));
+                }
+                path = joiner.toString();
             }
 
             InputAdapter inputAdapter = Adapters.input(path);
@@ -63,7 +53,7 @@ public class TaskWrapper extends WrapperBase {
 
         processTaskChain(result);
 
-        Set<String> tees = wrapperConfig.getTeeOutput();
+        List<String> tees = wrapperConfig.getTeeOutput();
 
         Set<String> rddNames = result.keySet();
         Set<String> teeNames = new HashSet<>();
@@ -85,7 +75,7 @@ public class TaskWrapper extends WrapperBase {
         }
 
         List<String> paths = null;
-        if (wrapDistCp.from && (wrapperStorePath != null)) {
+        if (settings.fromCluster && (settings.wrapperStorePath != null)) {
             paths = new ArrayList<>();
         }
 
@@ -96,10 +86,10 @@ public class TaskWrapper extends WrapperBase {
                 String path = wrapperConfig.outputPath(teeName);
 
                 if (Adapters.PATH_PATTERN.matcher(path).matches()) {
-                    if (wrapDistCp.from) {
-                        path = "hdfs://" + outputDir + "/" + teeName;
+                    if (settings.fromCluster) {
+                        path = settings.outputDir + "/" + teeName;
 
-                        if (wrapperStorePath != null) {
+                        if (settings.wrapperStorePath != null) {
                             paths.add(path);
                         }
                     }
@@ -113,10 +103,10 @@ public class TaskWrapper extends WrapperBase {
             }
         }
 
-        if (wrapDistCp.from && (wrapperStorePath != null)) {
-            OutputAdapter outputList = Adapters.output(wrapperStorePath);
+        if (settings.fromCluster && (settings.wrapperStorePath != null)) {
+            OutputAdapter outputList = Adapters.output(settings.wrapperStorePath);
             outputList.setProperties("_default", wrapperConfig);
-            outputList.save(wrapperStorePath + "/outputs", context.parallelize(paths, 1));
+            outputList.save(settings.wrapperStorePath + "/outputs", context.parallelize(paths, 1));
         }
     }
 }

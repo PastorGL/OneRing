@@ -2,11 +2,8 @@
  * Copyright (C) 2020 Locomizer team and Contributors
  * This project uses New BSD license with do no evil clause. For full text, check the LICENSE file in the root directory.
  */
-package ash.nazg.cli.config;
+package ash.nazg.config;
 
-import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.PropertiesConfig;
-import ash.nazg.config.WrapperConfig;
 import ash.nazg.storage.Adapters;
 import org.apache.commons.cli.Options;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -21,7 +18,10 @@ public class TaskWrapperConfigBuilder extends WrapperConfigBuilder {
         options = new Options()
                 .addOption("x", "task", true, "Task prefix in the config file")
                 .addOption("V", "variables", true, "name=value pairs of substitution variables for the Spark config encoded as Base64")
-                .addOption("v", "variablesFile", true, "Path to variables file, name=value pairs per each line");
+                .addOption("v", "variablesFile", true, "Path to variables file, name=value pairs per each line")
+                .addOption("l", "local", false, "Run in local[*] mode")
+                .addOption("m", "memory", true, "Driver memory for local mode (no effect otherwise)")
+                .addOption("S", "wrapperStorePath", true, "Path to DistWrapper interface file");
     }
 
     public WrapperConfig build(JavaSparkContext context) {

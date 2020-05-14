@@ -6,16 +6,17 @@ package ash.nazg.dist;
 
 import ash.nazg.config.InvalidConfigValueException;
 import org.junit.Test;
-import scala.Tuple2;
+import scala.Tuple3;
 
-import java.util.Map;
+import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
-public class DistUtilTests {
+public class DistCpSettingsTests {
     @Test
     public void splitTestValid() throws InvalidConfigValueException {
-        Map<String, Tuple2<String, String>> splits = DistUtils.globCSVtoRegexMap(
+        List<Tuple3<String, String, String>> splits = DistCpSettings.srcDestGroup(
                 "s3://mama/asdfasf/{sdf,sdfsdf,sdsdf{sdfsdf,sdf}}" +
                         ",s3://sdfsdf/sdfs/sdf" +
                         ",s3://nnn/sad/\\{sdfsdf??" +
@@ -27,39 +28,46 @@ public class DistUtilTests {
 
         assertEquals(7, splits.size());
 
-        Tuple2<String, String> s1 = splits.get("asdfasf");
-        assertEquals("mama/asdfasf", s1._1);
-        assertEquals(".*/(asdfasf)/(?:sdf|sdfsdf|sdsdf(?:sdfsdf|sdf)).*", s1._2);
+        Tuple3<String, String, String> s1 = splits.get(0);
+        assertEquals("asdfasf", s1._1());
+        assertEquals("s3://mama/asdfasf", s1._2());
+        assertEquals(".*/(asdfasf)/(?:sdf|sdfsdf|sdsdf(?:sdfsdf|sdf)).*", s1._3());
 
-        Tuple2<String, String> s2 = splits.get("sdf");
-        assertEquals("sdfsdf/sdfs/sdf", s2._1);
-        assertEquals(".*/(sdf).*", s2._2);
+        Tuple3<String, String, String> s2 = splits.get(1);
+        assertEquals("sdf", s2._1());
+        assertEquals("s3://sdfsdf/sdfs/sdf", s2._2());
+        assertEquals(".*/(sdf).*", s2._3());
 
-        Tuple2<String, String> s3 = splits.get("sad");
-        assertEquals("nnn/sad", s3._1);
-        assertEquals(".*/(sad)/\\{sdfsdf...*", s3._2);
+        Tuple3<String, String, String> s3 = splits.get(2);
+        assertEquals("sad", s3._1());
+        assertEquals("s3://nnn/sad", s3._2());
+        assertEquals(".*/(sad)/\\{sdfsdf...*", s3._3());
 
-        Tuple2<String, String> s4 = splits.get("woh");
-        assertEquals("doh/woh", s4._1);
-        assertEquals(".*/(woh)/sdfsdf\\}..*.*", s4._2);
+        Tuple3<String, String, String> s4 = splits.get(3);
+        assertEquals("woh", s4._1());
+        assertEquals("s3://doh/woh", s4._2());
+        assertEquals(".*/(woh)/sdfsdf\\}..*.*", s4._3());
 
-        Tuple2<String, String> s5 = splits.get("x");
-        assertEquals("222/x", s5._1);
-        assertEquals(".*/(x)/much\\\\sre..*", s5._2);
+        Tuple3<String, String, String> s5 = splits.get(4);
+        assertEquals("x", s5._1());
+        assertEquals("s3://222/x", s5._2());
+        assertEquals(".*/(x)/much\\\\sre..*", s5._3());
 
-        Tuple2<String, String> s6 = splits.get("ty");
-        assertEquals("D:/qwer/ty", s6._1);
-        assertEquals(".*/(ty)/[^a-d]..*.*", s6._2);
+        Tuple3<String, String, String> s6 = splits.get(5);
+        assertEquals("ty", s6._1());
+        assertEquals("file:/D:/qwer/ty", s6._2());
+        assertEquals(".*/(ty)/[^a-d]..*.*", s6._3());
 
-        Tuple2<String, String> s7 = splits.get("skipped");
-        assertEquals("not/skipped", s7._1);
-        assertEquals(".*/(skipped)/path.*.*", s7._2);
+        Tuple3<String, String, String> s7 = splits.get(6);
+        assertEquals("skipped", s7._1());
+        assertEquals("hdfs:///not/skipped", s7._2());
+        assertEquals(".*/(skipped)/path.*.*", s7._3());
     }
 
     @Test
     public void splitTestInvalid() {
         try {
-            DistUtils.globCSVtoRegexMap(
+            DistCpSettings.srcDestGroup(
                     "s3://mama/xx{sdf,sdfsdf,sdsdf{sdfsdf,sdf}}"
             );
 
@@ -69,7 +77,7 @@ public class DistUtilTests {
         }
 
         try {
-            DistUtils.globCSVtoRegexMap(
+            DistCpSettings.srcDestGroup(
                     "s3://sdfsdf"
             );
 
@@ -79,7 +87,7 @@ public class DistUtilTests {
         }
 
         try {
-            DistUtils.globCSVtoRegexMap(
+            DistCpSettings.srcDestGroup(
                     "/no/protocol/part"
             );
 
@@ -89,7 +97,7 @@ public class DistUtilTests {
         }
 
         try {
-            DistUtils.globCSVtoRegexMap(
+            DistCpSettings.srcDestGroup(
                     "s3://same/this/*.csv" +
                             ",s3://same/this/*.tsv"
             );
@@ -100,7 +108,7 @@ public class DistUtilTests {
         }
 
         try {
-            DistUtils.globCSVtoRegexMap(
+            DistCpSettings.srcDestGroup(
                     "file://shoot"
             );
 

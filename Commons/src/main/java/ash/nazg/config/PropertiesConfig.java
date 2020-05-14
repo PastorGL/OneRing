@@ -18,6 +18,8 @@ public abstract class PropertiesConfig {
      * By default, CSV RDD values are delimited by a TAB
      */
     public static final char DEFAULT_DELIMITER = '\t';
+    public static final String DS_OUTPUT_DELIMITER = "ds.output.delimiter";
+    public static final String DS_INPUT_DELIMITER = "ds.input.delimiter";
 
     public static final String REP_SEP = ":";
     public static final Pattern REP_VAR = Pattern.compile("\\{([^}]+?)}");
@@ -114,5 +116,25 @@ public abstract class PropertiesConfig {
 
     public void setOverrides(Properties overrides) {
         this.overrides = new Properties(overrides);
+    }
+
+    protected char getDsOutputDelimiter() {
+        String delimiter = getProperty(DS_OUTPUT_DELIMITER);
+
+        if ((delimiter == null) || delimiter.isEmpty()) {
+            return DEFAULT_DELIMITER;
+        }
+
+        return delimiter.charAt(0);
+    }
+
+    protected char getDsInputDelimiter() {
+        String delimiter = getProperty(DS_INPUT_DELIMITER);
+
+        if ((delimiter == null) || delimiter.isEmpty()) {
+            return DEFAULT_DELIMITER;
+        }
+
+        return delimiter.charAt(0);
     }
 }

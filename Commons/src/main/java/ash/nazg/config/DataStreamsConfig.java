@@ -7,8 +7,6 @@ package ash.nazg.config;
 import java.util.*;
 
 public class DataStreamsConfig extends PropertiesConfig {
-    public static final String DS_OUTPUT_DELIMITER = "ds.output.delimiter";
-    public static final String DS_INPUT_DELIMITER = "ds.input.delimiter";
     public static final String DS_INPUT_COLUMNS_PREFIX = "ds.input.columns.";
     public static final String DS_INPUT_DELIMITER_PREFIX = "ds.input.delimiter.";
     public static final String DS_OUTPUT_COLUMNS_PREFIX = "ds.output.columns.";
@@ -21,8 +19,8 @@ public class DataStreamsConfig extends PropertiesConfig {
     private final Map<String, Character> outputDelimiters = new HashMap<>();
 
     public DataStreamsConfig(Properties sourceConfig,
-                             Set<String> allInputs, Set<String> columnBasedInputs,
-                             Set<String> allOutputs, Set<String> columnBasedOutputs,
+                             Collection<String> allInputs, Collection<String> columnBasedInputs,
+                             Collection<String> allOutputs, Collection<String> columnBasedOutputs,
                              Map<String, String[]> generatedColumns) throws InvalidConfigValueException {
         setProperties(sourceConfig);
 
@@ -158,25 +156,5 @@ public class DataStreamsConfig extends PropertiesConfig {
 
     public char outputDelimiter(String output) {
         return outputDelimiters.get(output);
-    }
-
-    private char getDsOutputDelimiter() {
-        String delimiter = getProperty(DS_OUTPUT_DELIMITER);
-
-        if ((delimiter == null) || delimiter.isEmpty()) {
-            return DEFAULT_DELIMITER;
-        }
-
-        return delimiter.charAt(0);
-    }
-
-    private char getDsInputDelimiter() {
-        String delimiter = getProperty(DS_INPUT_DELIMITER);
-
-        if ((delimiter == null) || delimiter.isEmpty()) {
-            return DEFAULT_DELIMITER;
-        }
-
-        return delimiter.charAt(0);
     }
 }

@@ -2,33 +2,24 @@
  * Copyright (C) 2020 Locomizer team and Contributors
  * This project uses New BSD license with do no evil clause. For full text, check the LICENSE file in the root directory.
  */
-package ash.nazg.cli;
+package ash.nazg.dist;
 
 import ash.nazg.config.TaskWrapperConfigBuilder;
 import ash.nazg.config.WrapperConfig;
 import ash.nazg.spark.WrapperBase;
-import org.apache.commons.cli.HelpFormatter;
-import org.apache.commons.cli.ParseException;
 import org.apache.hadoop.mapred.FileInputFormat;
-import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
 
-import static ash.nazg.config.WrapperConfig.DS_OUTPUT_PATH;
-
 public class Main {
-    private static final Logger LOG = Logger.getLogger(Main.class);
-
-    /**
-     * @param args the command line arguments
-     */
     public static void main(String[] args) {
         TaskWrapperConfigBuilder configBuilder = new TaskWrapperConfigBuilder();
         JavaSparkContext context = null;
 
         try {
-            configBuilder.addOption("c", "config", true, "Config file (JSON or .ini format)");
-            configBuilder.addOption("o", "output", true, "Output path");
+            configBuilder.addRequiredOption("c", "config", true, "Config file");
+            configBuilder.addOption("d", "direction", true, "Copy direction. Can be 'from', 'to', or 'nop' to just validate the config file and exit");
+            configBuilder.addOption("o", "output", true, "Path to output distcp.ini");
 
             configBuilder.setCommandLine(args);
 
@@ -51,17 +42,14 @@ public class Main {
             context.hadoopConfiguration().set(FileInputFormat.INPUT_DIR_RECURSIVE, Boolean.TRUE.toString());
 
             WrapperConfig config = configBuilder.build(context);
-            configBuilder.overrideFromCommandLine(DS_OUTPUT_PATH, "o");
+            configBuilder.overrideFromCommandLine("distcp.ini", "o");
+            configBuilder.overrideFromCommandLine("distcp.wrap", "d");
             configBuilder.overrideFromCommandLine("distcp.store", "S");
 
-            new TaskWrapper(context, config)
+            new DistWrapper(context, config)
                     .go();
-        } catch (Exception ex) {
-            if (ex instanceof ParseException) {
-                new HelpFormatter().printHelp(WrapperBase.APP_NAME, configBuilder.getOptions());
-            } else {
-                LOG.error(ex.getMessage(), ex);
-            }
+        } catch (Exception e) {
+            e.printStackTrace();
 
             System.exit(1);
         } finally {

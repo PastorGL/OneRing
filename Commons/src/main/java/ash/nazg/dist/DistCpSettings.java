@@ -1,20 +1,47 @@
-/**
- * Copyright (C) 2020 Locomizer team and Contributors
- * This project uses New BSD license with do no evil clause. For full text, check the LICENSE file in the root directory.
- */
 package ash.nazg.dist;
 
 import ash.nazg.config.InvalidConfigValueException;
+import ash.nazg.config.WrapperConfig;
 import ash.nazg.storage.Adapters;
 import org.apache.commons.lang3.StringUtils;
-import scala.Tuple2;
+import scala.Tuple3;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.regex.Matcher;
 
-public class DistUtils {
-    public static Map<String, Tuple2<String, String>> globCSVtoRegexMap(String inputPath) throws InvalidConfigValueException {
-        Map<String, Tuple2<String, String>> ret = new HashMap<>();
+public class DistCpSettings {
+    public final boolean toCluster;
+    public final boolean fromCluster;
+    public final boolean anyDirection;
+
+    public final String inputDir;
+    public final String outputDir;
+    public final String wrapperStorePath;
+
+    private DistCpSettings(String wrap, String inputDir, String outputDir, String wrapperStorePath) {
+        CpDirection cpDirection = CpDirection.parse(wrap);
+        this.toCluster = cpDirection.toCluster;
+        this.fromCluster = cpDirection.fromCluster;
+        this.anyDirection = cpDirection.anyDirection;
+
+        this.inputDir = inputDir;
+        this.outputDir = outputDir;
+        this.wrapperStorePath = wrapperStorePath;
+    }
+
+    public static DistCpSettings fromConfig(WrapperConfig wrapperConfig) {
+        String wrap = wrapperConfig.getDistCpProperty("wrap", "none");
+        String inputDir = wrapperConfig.getDistCpProperty("dir.to", "hdfs:///input");
+        String outputDir = wrapperConfig.getDistCpProperty("dir.from", "hdfs:///output");
+        String wrapperStorePath = wrapperConfig.getDistCpProperty("store", null);
+
+        return new DistCpSettings(wrap, inputDir, outputDir, wrapperStorePath);
+    }
+
+    public static List<Tuple3<String, String, String>> srcDestGroup(String inputPath) throws InvalidConfigValueException {
+        List<Tuple3<String, String, String>> ret = new ArrayList<>();
 
         int curlyLevel = 0;
 
@@ -58,7 +85,7 @@ public class DistUtils {
         for (String split : splits) {
             Matcher m = Adapters.PATH_PATTERN.matcher(split);
             if (m.matches()) {
-                String bucket = m.group(1);
+                String rootPath = m.group(1);
                 String path = m.group(2);
 
                 String[] subs = path.split("/");
@@ -169,16 +196,12 @@ public class DistUtils {
 
                 transSubs[groupingSub] = "(" + groupSub + ")";
 
-                if (ret.containsKey(groupSub)) {
-                    throw new InvalidConfigValueException("Glob pattern '" + split + "' tries to overwrite another glob pattern with grouping part '" + groupSub + "'");
-                }
-
                 String joined = StringUtils.join(Arrays.copyOfRange(transSubs, 0, groupingSub), '/');
                 if (!joined.isEmpty()) {
                     joined += "/";
                 }
-                ret.put(groupSub, new Tuple2<>(
-                        bucket + "/" + joined + groupSub,
+                ret.add(new Tuple3<>(groupSub,
+                        rootPath + "/" + joined + groupSub,
                         ".*/" + StringUtils.join(Arrays.copyOfRange(transSubs, groupingSub, transSubs.length), '/') + ".*"
                 ));
             } else {

@@ -8,12 +8,16 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
+import static ash.nazg.config.DataStreamsConfig.DS_INPUT_COLUMNS_PREFIX;
+import static ash.nazg.config.DataStreamsConfig.DS_INPUT_DELIMITER_PREFIX;
+
 public class WrapperConfig extends TaskConfig {
     public static final String DS_OUTPUT_PATH = "ds.output.path";
     public static final String DS_INPUT_PATH_PREFIX = "ds.input.path.";
     public static final String DS_OUTPUT_PATH_PREFIX = "ds.output.path.";
     public static final String DS_INPUT_PART_COUNT_PREFIX = "ds.input.part_count.";
     public static final String DS_OUTPUT_PART_COUNT_PREFIX = "ds.output.part_count.";
+    public static final String DS_INPUT_SINK_SCHEMA_PREFIX = "ds.input.sink_schema.";
 
     public static final String DISTCP_PREFIX = "distcp.";
     public static final String INPUT_PREFIX = "input.";
@@ -105,5 +109,21 @@ public class WrapperConfig extends TaskConfig {
 
     public String getDistCpProperty(String key, String fallback) {
         return getKnownLayerProperty(DISTCP_PREFIX, key, fallback);
+    }
+
+    public String[] getSinkSchema(String sink) {
+        return getArray(DS_INPUT_SINK_SCHEMA_PREFIX + sink);
+    }
+
+    public String[] getSinkColumns(String sink) {
+        return getArray(DS_INPUT_COLUMNS_PREFIX + sink);
+    }
+
+    public char getSinkDelimiter(String sink) {
+        String delimiter = getProperty(DS_INPUT_DELIMITER_PREFIX + sink);
+
+        return ((delimiter == null) || delimiter.isEmpty())
+                ? getDsInputDelimiter()
+                : delimiter.charAt(0);
     }
 }

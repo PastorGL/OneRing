@@ -19,13 +19,13 @@ public class TaskConfig extends PropertiesConfig {
     public static final String TASK_OPERATIONS = "task.operations";
     public static final String OP_OPERATION_PREFIX = "op.operation.";
 
-    private Set<String> inputSink = null;
-    private Set<String> teeOutput = null;
+    private List<String> inputSink = null;
+    private List<String> teeOutput = null;
     private List<String> opNames = null;
 
-    public Set<String> getInputSink() {
+    public List<String> getInputSink() {
         if (inputSink == null) {
-            inputSink = new HashSet<>();
+            inputSink = new ArrayList<>();
             String[] sinks = getArray(TASK_INPUT_SINK);
             if (sinks != null) {
                 inputSink.addAll(Arrays.asList(sinks));
@@ -35,9 +35,9 @@ public class TaskConfig extends PropertiesConfig {
         return inputSink;
     }
 
-    public Set<String> getTeeOutput() {
+    public List<String> getTeeOutput() {
         if (teeOutput == null) {
-            teeOutput = new HashSet<>();
+            teeOutput = new ArrayList<>();
             String[] tees = getArray(TASK_TEE_OUTPUT);
             if (tees != null) {
                 teeOutput.addAll(Arrays.asList(tees));
