@@ -85,17 +85,15 @@ public class DistWrapper extends TaskWrapper {
 
                 List<String> sinks = wrapperConfig.getInputSink();
                 sinkInfo = new HashMap<>();
-                for (int j = 0; j < sinks.size(); j++) {
-                    String sink = sinks.get(j);
+                for (String sink : sinks) {
                     String path = wrapperConfig.inputPath(sink);
 
                     sinkInfo.put(sink, new Tuple3<>(wrapperConfig.getSinkSchema(sink), wrapperConfig.getSinkColumns(sink), wrapperConfig.getSinkDelimiter(sink)));
 
                     List<Tuple3<String, String, String>> splits = DistUtils.globCSVtoRegexMap(path);
-
                     for (int i = 0; i < splits.size(); i++) {
                         Tuple3<String, String, String> split = splits.get(i);
-                        inputs.add(new Tuple4<>(split._2(), inputDir + "/" + sink + "/" + split._1() + "." + j + "." + i, split._3(), sink));
+                        inputs.add(new Tuple4<>(split._2(), inputDir + "/" + sink + "/part-" + String.format("%05d", i), split._3(), sink));
                     }
                 }
 

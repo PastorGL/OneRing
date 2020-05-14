@@ -9,28 +9,25 @@ import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVWriter;
 import org.apache.commons.io.Charsets;
 
-import java.io.InputStream;
-import java.io.StringWriter;
-import java.util.Scanner;
+import java.io.*;
 
 public class CSVRecordInputStream extends RecordInputStream {
-    private final Scanner scanner;
+    private final BufferedReader reader;
     private final CSVParser parser;
 
     public CSVRecordInputStream(InputStream input, int[] columnOrder, char delimiter) {
         super(columnOrder, delimiter);
-        this.scanner = new Scanner(input);
+        this.reader = new BufferedReader(new InputStreamReader(input));
         this.parser = new CSVParserBuilder().withSeparator(delimiter).build();
     }
 
-    protected void ensureRecord() {
+    protected void ensureRecord() throws IOException {
         if (position == size) {
-            boolean hasLine = scanner.hasNextLine();
+            String line = reader.readLine();
 
-            if (!hasLine) {
+            if (line == null) {
                 recordBuffer = null;
             } else {
-                String line = scanner.nextLine();
                 position = 0;
 
                 try {
@@ -60,7 +57,7 @@ public class CSVRecordInputStream extends RecordInputStream {
     }
 
     @Override
-    public void close() {
-        scanner.close();
+    public void close() throws IOException {
+        reader.close();
     }
 }

@@ -39,8 +39,7 @@ public class TaskWrapper extends WrapperBase {
 
     public void go() throws Exception {
         List<String> sinks = wrapperConfig.getInputSink();
-        for (int j = 0; j < sinks.size(); j++) {
-            String sink = sinks.get(j);
+        for (String sink : sinks) {
             String path = wrapperConfig.inputPath(sink);
 
             if (wrapDistCp.toCluster) {
@@ -48,8 +47,7 @@ public class TaskWrapper extends WrapperBase {
 
                 StringJoiner joiner = new StringJoiner(",");
                 for (int i = 0; i < splits.size(); i++) {
-                    Tuple3<String, String, String> split = splits.get(i);
-                    joiner.add(inputDir + "/" + sink + "/" + split._1() + "." + j + "." + i);
+                    joiner.add(inputDir + "/" + sink + "/part-" + String.format("%05d", i));
                 }
                 path = joiner.toString();
             }
