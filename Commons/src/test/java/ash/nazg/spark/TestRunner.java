@@ -20,7 +20,7 @@ import java.util.Properties;
 import static ash.nazg.config.WrapperConfig.DS_INPUT_PATH_PREFIX;
 import static ash.nazg.config.WrapperConfig.DS_OUTPUT_PATH;
 
-public class TestRunner extends WrapperBase implements AutoCloseable {
+public class TestRunner extends TaskRunnerWrapper implements AutoCloseable {
     private static SparkConf sparkConf = new SparkConf()
             .setAppName("test")
             .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")

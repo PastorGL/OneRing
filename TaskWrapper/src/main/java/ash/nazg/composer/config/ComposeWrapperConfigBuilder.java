@@ -4,7 +4,7 @@
  */
 package ash.nazg.composer.config;
 
-import ash.nazg.cli.config.WrapperConfigBuilder;
+import ash.nazg.config.WrapperConfigBuilder;
 import ash.nazg.config.WrapperConfig;
 import org.apache.commons.cli.Options;
 

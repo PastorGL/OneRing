@@ -4,7 +4,7 @@
  */
 package ash.nazg.cli;
 
-import ash.nazg.cli.config.TaskWrapperConfigBuilder;
+import ash.nazg.config.TaskWrapperConfigBuilder;
 import ash.nazg.config.WrapperConfig;
 import ash.nazg.spark.WrapperBase;
 import org.apache.commons.cli.HelpFormatter;
@@ -29,9 +29,6 @@ public class Main {
         try {
             configBuilder.addOption("c", "config", true, "Config file (JSON or .ini format)");
             configBuilder.addOption("o", "output", true, "Output path");
-            configBuilder.addOption("l", "local", false, "Run in local[*] mode");
-            configBuilder.addOption("m", "memory", true, "Driver memory for local mode (no effect otherwise)");
-            configBuilder.addOption("S", "wrapperStorePath", true, "Path to DistWrapper interface file");
 
             configBuilder.setCommandLine(args);
 

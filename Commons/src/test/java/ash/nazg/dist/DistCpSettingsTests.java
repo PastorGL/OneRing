@@ -13,10 +13,10 @@ import java.util.List;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-public class DistUtilTests {
+public class DistCpSettingsTests {
     @Test
     public void splitTestValid() throws InvalidConfigValueException {
-        List<Tuple3<String, String, String>> splits = DistUtils.globCSVtoRegexMap(
+        List<Tuple3<String, String, String>> splits = DistCpSettings.srcDestGroup(
                 "s3://mama/asdfasf/{sdf,sdfsdf,sdsdf{sdfsdf,sdf}}" +
                         ",s3://sdfsdf/sdfs/sdf" +
                         ",s3://nnn/sad/\\{sdfsdf??" +
@@ -67,7 +67,7 @@ public class DistUtilTests {
     @Test
     public void splitTestInvalid() {
         try {
-            DistUtils.globCSVtoRegexMap(
+            DistCpSettings.srcDestGroup(
                     "s3://mama/xx{sdf,sdfsdf,sdsdf{sdfsdf,sdf}}"
             );
 
@@ -77,7 +77,7 @@ public class DistUtilTests {
         }
 
         try {
-            DistUtils.globCSVtoRegexMap(
+            DistCpSettings.srcDestGroup(
                     "s3://sdfsdf"
             );
 
@@ -87,7 +87,7 @@ public class DistUtilTests {
         }
 
         try {
-            DistUtils.globCSVtoRegexMap(
+            DistCpSettings.srcDestGroup(
                     "/no/protocol/part"
             );
 
@@ -97,7 +97,7 @@ public class DistUtilTests {
         }
 
         try {
-            DistUtils.globCSVtoRegexMap(
+            DistCpSettings.srcDestGroup(
                     "s3://same/this/*.csv" +
                             ",s3://same/this/*.tsv"
             );
@@ -108,7 +108,7 @@ public class DistUtilTests {
         }
 
         try {
-            DistUtils.globCSVtoRegexMap(
+            DistCpSettings.srcDestGroup(
                     "file://shoot"
             );
 

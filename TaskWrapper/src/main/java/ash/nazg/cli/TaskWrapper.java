@@ -6,9 +6,8 @@ package ash.nazg.cli;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.WrapperConfig;
-import ash.nazg.dist.CpDirection;
-import ash.nazg.dist.DistUtils;
-import ash.nazg.spark.WrapperBase;
+import ash.nazg.dist.DistCpSettings;
+import ash.nazg.spark.TaskRunnerWrapper;
 import ash.nazg.storage.Adapters;
 import ash.nazg.storage.InputAdapter;
 import ash.nazg.storage.OutputAdapter;
@@ -18,11 +17,8 @@ import scala.Tuple3;
 
 import java.util.*;
 
-public class TaskWrapper extends WrapperBase {
-    protected CpDirection wrapDistCp;
-    protected String inputDir;
-    protected String outputDir;
-    protected String wrapperStorePath;
+public class TaskWrapper extends TaskRunnerWrapper {
+    protected DistCpSettings settings;
 
     protected Map<String, JavaRDDLike> result;
 
@@ -31,10 +27,7 @@ public class TaskWrapper extends WrapperBase {
 
         result = new HashMap<>();
 
-        wrapDistCp = CpDirection.parse(wrapperConfig.getDistCpProperty("wrap", "none"));
-        inputDir = wrapperConfig.getDistCpProperty("dir.to", "hdfs:///input");
-        outputDir = wrapperConfig.getDistCpProperty("dir.from", "hdfs:///output");
-        wrapperStorePath = wrapperConfig.getDistCpProperty("store", null);
+        settings = DistCpSettings.fromConfig(wrapperConfig);
     }
 
     public void go() throws Exception {
@@ -42,12 +35,12 @@ public class TaskWrapper extends WrapperBase {
         for (String sink : sinks) {
             String path = wrapperConfig.inputPath(sink);
 
-            if (wrapDistCp.toCluster) {
-                List<Tuple3<String, String, String>> splits = DistUtils.globCSVtoRegexMap(path);
+            if (settings.toCluster) {
+                List<Tuple3<String, String, String>> splits = DistCpSettings.srcDestGroup(path);
 
                 StringJoiner joiner = new StringJoiner(",");
                 for (int i = 0; i < splits.size(); i++) {
-                    joiner.add(inputDir + "/" + sink + "/part-" + String.format("%05d", i));
+                    joiner.add(settings.inputDir + "/" + sink + "/part-" + String.format("%05d", i));
                 }
                 path = joiner.toString();
             }
@@ -82,7 +75,7 @@ public class TaskWrapper extends WrapperBase {
         }
 
         List<String> paths = null;
-        if (wrapDistCp.fromCluster && (wrapperStorePath != null)) {
+        if (settings.fromCluster && (settings.wrapperStorePath != null)) {
             paths = new ArrayList<>();
         }
 
@@ -93,10 +86,10 @@ public class TaskWrapper extends WrapperBase {
                 String path = wrapperConfig.outputPath(teeName);
 
                 if (Adapters.PATH_PATTERN.matcher(path).matches()) {
-                    if (wrapDistCp.fromCluster) {
-                        path = outputDir + "/" + teeName;
+                    if (settings.fromCluster) {
+                        path = settings.outputDir + "/" + teeName;
 
-                        if (wrapperStorePath != null) {
+                        if (settings.wrapperStorePath != null) {
                             paths.add(path);
                         }
                     }
@@ -110,10 +103,10 @@ public class TaskWrapper extends WrapperBase {
             }
         }
 
-        if (wrapDistCp.fromCluster && (wrapperStorePath != null)) {
-            OutputAdapter outputList = Adapters.output(wrapperStorePath);
+        if (settings.fromCluster && (settings.wrapperStorePath != null)) {
+            OutputAdapter outputList = Adapters.output(settings.wrapperStorePath);
             outputList.setProperties("_default", wrapperConfig);
-            outputList.save(wrapperStorePath + "/outputs", context.parallelize(paths, 1));
+            outputList.save(settings.wrapperStorePath + "/outputs", context.parallelize(paths, 1));
         }
     }
 }

@@ -4,15 +4,14 @@
  */
 package ash.nazg.dist;
 
-import ash.nazg.cli.config.TaskWrapperConfigBuilder;
+import ash.nazg.config.TaskWrapperConfigBuilder;
 import ash.nazg.config.WrapperConfig;
 import ash.nazg.spark.WrapperBase;
 import org.apache.hadoop.mapred.FileInputFormat;
-import org.apache.hadoop.mapreduce.Job;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
 
-public class Dist {
+public class Main {
     public static void main(String[] args) {
         TaskWrapperConfigBuilder configBuilder = new TaskWrapperConfigBuilder();
         JavaSparkContext context = null;
@@ -21,9 +20,6 @@ public class Dist {
             configBuilder.addRequiredOption("c", "config", true, "Config file");
             configBuilder.addOption("d", "direction", true, "Copy direction. Can be 'from', 'to', or 'nop' to just validate the config file and exit");
             configBuilder.addOption("o", "output", true, "Path to output distcp.ini");
-            configBuilder.addOption("l", "local", false, "Run in local[*] mode");
-            configBuilder.addOption("m", "memory", true, "Driver memory for local mode (no effect otherwise)");
-            configBuilder.addOption("S", "wrapperStorePath", true, "Path to DistWrapper interface file");
 
             configBuilder.setCommandLine(args);
 
@@ -56,6 +52,10 @@ public class Dist {
             e.printStackTrace();
 
             System.exit(1);
+        } finally {
+            if (context != null) {
+                context.stop();
+            }
         }
     }
 }
