@@ -98,17 +98,6 @@ public class DistCpSettingsTests {
 
         try {
             DistCpSettings.srcDestGroup(
-                    "s3://same/this/*.csv" +
-                            ",s3://same/this/*.tsv"
-            );
-
-            fail();
-        } catch (InvalidConfigValueException e) {
-            assertEquals("Glob pattern 's3://same/this/*.tsv' tries to overwrite another glob pattern with grouping part 'this'", e.getMessage());
-        }
-
-        try {
-            DistCpSettings.srcDestGroup(
                     "file://shoot"
             );
 
