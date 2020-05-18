@@ -104,12 +104,21 @@ public class DistWrapper extends WrapperBase {
 
             if (distDirection.fromCluster && settings.fromCluster) {
                 if (settings.wrapperStorePath != null) {
-                    List<Tuple4<String, String, String, String>> outputs = Files.readAllLines(Paths.get(settings.wrapperStorePath)).stream().map(output -> {
-                        String path = String.valueOf(output);
-                        String name = path.substring((settings.outputDir + "/").length());
+                    final String source = settings.wrapperStorePath + "/outputs/part-00000";
+                    List<Tuple4<String, String, String, String>> outputs = context.wholeTextFiles(source.substring(0, source.lastIndexOf('/')))
+                            .filter(t -> t._1.equals(source))
+                            .flatMap(t -> {
+                                String[] s = t._2.split("\\R+");
+                                return Arrays.asList(s).iterator();
+                            })
+                            .collect().stream()
+                            .map(output -> {
+                                String path = String.valueOf(output);
+                                String name = path.substring((settings.outputDir + "/").length());
 
-                        return new Tuple4<>(path, wrapperConfig.outputPath(name), ".*/(" + name + ".*?)/part.*", (String)null);
-                    }).collect(Collectors.toList());
+                                return new Tuple4<>(path, wrapperConfig.outputPath(name), ".*/(" + name + ".*?)/part.*", (String) null);
+                            })
+                            .collect(Collectors.toList());
 
                     distCpCmd(outputs);
                 } else {

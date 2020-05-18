@@ -19,7 +19,6 @@ import org.apache.parquet.hadoop.ParquetReader;
 import org.apache.parquet.hadoop.example.GroupReadSupport;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.schema.MessageType;
-import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.function.VoidFunction;
 import scala.Tuple3;
 import scala.Tuple4;
@@ -194,7 +193,7 @@ public class CopyFilesFunction implements VoidFunction<Tuple4<String, String, St
         try {
             Path srcPath = new Path(src);
 
-            Configuration conf = SparkContext.getOrCreate().hadoopConfiguration();
+            Configuration conf = new Configuration();
 
             FileSystem srcFS = srcPath.getFileSystem(conf);
             RemoteIterator<LocatedFileStatus> srcFiles = srcFS.listFiles(srcPath, true);
