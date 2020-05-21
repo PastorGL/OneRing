@@ -125,13 +125,17 @@ public class DistWrapper extends WrapperBase {
                     List<String> tees = wrapperConfig.getTeeOutput();
 
                     List<Tuple4<String, String, String, String>> teeList = new ArrayList<>();
-                    for (String name : tees) {
-                        String path = wrapperConfig.outputPath(name);
+                    for (String tee : tees) {
+                        if (tee.endsWith("*")) {
+                            throw new InvalidConfigValueException("A call of configuration with wildcard task.tee.output must" +
+                                    " have wrapper store path set");
+                        }
 
+                        String path = wrapperConfig.outputPath(tee);
                         if (Adapters.PATH_PATTERN.matcher(path).matches()) {
-                            teeList.add(new Tuple4<>(settings.outputDir + "/" + name, path, ".*/(" + name + ".*?)/part.*", null));
+                            teeList.add(new Tuple4<>(settings.outputDir + "/" + tee, path, ".*/(" + tee + ".*?)/part.*", null));
                         } else {
-                            throw new InvalidConfigValueException("Output path '" + path + "' must point to a subdirectory for an output '" + name + "'");
+                            throw new InvalidConfigValueException("Output path '" + path + "' must point to a subdirectory for an output '" + tee + "'");
                         }
                     }
 

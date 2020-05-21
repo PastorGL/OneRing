@@ -59,6 +59,11 @@ public class TaskWrapper extends TaskRunnerWrapper {
         Set<String> teeNames = new HashSet<>();
         for (String tee : tees) {
             if (tee.endsWith("*")) {
+                if (settings.wrapperStorePath == null) {
+                    throw new InvalidConfigValueException("A call of configuration with wildcard task.tee.output must" +
+                            " have wrapper store path set");
+                }
+
                 String t = tee.substring(0, tee.length() - 2);
                 for (String name : rddNames) {
                     if (name.startsWith(t)) {

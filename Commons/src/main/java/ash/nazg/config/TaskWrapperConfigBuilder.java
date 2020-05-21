@@ -21,7 +21,7 @@ public class TaskWrapperConfigBuilder extends WrapperConfigBuilder {
                 .addOption("v", "variablesFile", true, "Path to variables file, name=value pairs per each line")
                 .addOption("l", "local", false, "Run in local[*] mode")
                 .addOption("m", "memory", true, "Driver memory for local mode (no effect otherwise)")
-                .addOption("S", "wrapperStorePath", true, "Path to DistWrapper interface file");
+                .addOption("S", "wrapperStorePath", true, "Path where to store a list of wrapped wildcards outputs");
     }
 
     public WrapperConfig build(JavaSparkContext context) {

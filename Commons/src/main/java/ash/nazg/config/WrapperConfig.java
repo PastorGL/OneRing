@@ -23,7 +23,7 @@ public class WrapperConfig extends TaskConfig {
     public static final String INPUT_PREFIX = "input.";
     public static final String OUTPUT_PREFIX = "output.";
 
-    private Map<String, Properties> knownLayers = new HashMap<String, Properties>() {{
+    private final Map<String, Properties> knownLayers = new HashMap<String, Properties>() {{
         put(OUTPUT_PREFIX, null);
         put(INPUT_PREFIX, null);
         put(DISTCP_PREFIX, null);
