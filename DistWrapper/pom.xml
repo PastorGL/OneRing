@@ -71,7 +71,7 @@
     <dependencies>
         <dependency>
             <groupId>ash.nazg</groupId>
-            <artifactId>Commons</artifactId>
+            <artifactId>WrapperCommons</artifactId>
             <version>2.2.0</version>
         </dependency>
         <dependency>

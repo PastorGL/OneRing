@@ -4,7 +4,7 @@
  */
 package ash.nazg.storage.output;
 
-import ash.nazg.spark.TestTaskWrapper;
+import ash.nazg.storage.TestStorageWrapper;
 import com.aerospike.client.*;
 import com.aerospike.client.policy.ScanPolicy;
 import ash.nazg.config.WrapperConfig;
@@ -23,7 +23,7 @@ public class AerospikeOutputTest {
     public void testOutput() throws Exception {
 
         AerospikeClient as = null;
-        try (TestTaskWrapper underTest = new TestTaskWrapper(true, "/config.AerospikeOutput.properties")) {
+        try (TestStorageWrapper underTest = new TestStorageWrapper(true, "/config.AerospikeOutput.properties")) {
             WrapperConfig config = underTest.getConfig();
 
             as = new AerospikeClient(
@@ -32,7 +32,7 @@ public class AerospikeOutputTest {
             );
 
             underTest.go();
-            Map<String, JavaRDDLike> res = underTest.getResult();
+            Map<String, JavaRDDLike> res = underTest.result;
 
             TestScanCallback scanCallback = new TestScanCallback();
             ScanPolicy sp = new ScanPolicy();

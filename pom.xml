@@ -23,6 +23,7 @@
         <module>TaskWrapper</module>
         <module>RESTCommons</module>
         <module>RESTWrapper</module>
+        <module>WrapperCommons</module>
     </modules>
 
     <properties>

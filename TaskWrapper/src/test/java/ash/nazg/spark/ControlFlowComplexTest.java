@@ -3,6 +3,7 @@ package ash.nazg.spark;
 import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.Map;
@@ -10,6 +11,7 @@ import java.util.Map;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
+@Ignore
 public class ControlFlowComplexTest {
     @Test
     public void chainsTest() throws Exception {

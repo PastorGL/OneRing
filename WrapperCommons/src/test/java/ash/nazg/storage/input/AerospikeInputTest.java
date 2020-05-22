@@ -4,11 +4,11 @@
  */
 package ash.nazg.storage.input;
 
-import ash.nazg.spark.TestTaskWrapper;
+import ash.nazg.config.WrapperConfig;
+import ash.nazg.storage.TestStorageWrapper;
 import com.aerospike.client.AerospikeClient;
 import com.aerospike.client.Bin;
 import com.aerospike.client.Key;
-import ash.nazg.config.WrapperConfig;
 import org.apache.spark.api.java.JavaRDDLike;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -24,7 +24,7 @@ public class AerospikeInputTest {
     @Ignore
     public void testInput() throws Exception {
         AerospikeClient as = null;
-        try (TestTaskWrapper underTest = new TestTaskWrapper(false, "/config.AerospikeInput.properties")) {
+        try (TestStorageWrapper underTest = new TestStorageWrapper(false, "/config.AerospikeInput.properties")) {
 
             WrapperConfig config = underTest.getConfig();
 
@@ -36,7 +36,7 @@ public class AerospikeInputTest {
 
             underTest.go();
 
-            Map<String, JavaRDDLike> res = underTest.getResult();
+            Map<String, JavaRDDLike> res = underTest.result;
 
             List c = res.get("profiles").collect();
             for (int i = 0; i < c.size(); i++) {

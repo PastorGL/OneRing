@@ -4,7 +4,7 @@
  */
 package ash.nazg.storage.input;
 
-import ash.nazg.spark.TestTaskWrapper;
+import ash.nazg.storage.TestStorageWrapper;
 import org.apache.spark.api.java.JavaRDDLike;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -17,13 +17,12 @@ public class JDBCInputTest {
     @Ignore
     @Test
     public void testInput() throws Exception {
-        try (TestTaskWrapper underTest = new TestTaskWrapper(false, "/config.JDBCInput.properties")) {
+        try (TestStorageWrapper underTest = new TestStorageWrapper(false, "/config.JDBCInput.properties")) {
             underTest.go();
-            Map<String, JavaRDDLike> res = underTest.getResult();
+            Map<String, JavaRDDLike> res = underTest.result;
 
             long profiles_keyed = res.get("p2").count();
             assertTrue(profiles_keyed > 0L);
-
         }
     }
 }
