@@ -9,6 +9,7 @@ import ash.nazg.config.WrapperConfig;
 import ash.nazg.dist.DistCpSettings;
 import ash.nazg.spark.TaskRunnerWrapper;
 import ash.nazg.storage.Adapters;
+import ash.nazg.storage.HadoopAdapter;
 import ash.nazg.storage.InputAdapter;
 import ash.nazg.storage.OutputAdapter;
 import org.apache.spark.api.java.JavaRDDLike;
@@ -35,7 +36,8 @@ public class TaskWrapper extends TaskRunnerWrapper {
         for (String sink : sinks) {
             String path = wrapperConfig.inputPath(sink);
 
-            if (settings.toCluster) {
+            InputAdapter inputAdapter = Adapters.input(path);
+            if ((inputAdapter instanceof HadoopAdapter) && settings.toCluster) {
                 List<Tuple3<String, String, String>> splits = DistCpSettings.srcDestGroup(path);
 
                 StringJoiner joiner = new StringJoiner(",");
@@ -43,11 +45,13 @@ public class TaskWrapper extends TaskRunnerWrapper {
                     joiner.add(settings.inputDir + "/" + sink + "/part-" + String.format("%05d", i));
                 }
                 path = joiner.toString();
+
+                inputAdapter = Adapters.input(path);
             }
 
-            InputAdapter inputAdapter = Adapters.input(path);
             inputAdapter.setContext(context);
             inputAdapter.setProperties(sink, wrapperConfig);
+
             result.put(sink, inputAdapter.load(path));
         }
 
@@ -90,19 +94,21 @@ public class TaskWrapper extends TaskRunnerWrapper {
             if (rdd != null) {
                 String path = wrapperConfig.outputPath(teeName);
 
-                if (Adapters.PATH_PATTERN.matcher(path).matches()) {
-                    if (settings.fromCluster) {
+                OutputAdapter outputAdapter = Adapters.output(path);
+                if ((outputAdapter instanceof HadoopAdapter) && settings.fromCluster) {
+                    if (Adapters.PATH_PATTERN.matcher(path).matches()) {
                         path = settings.outputDir + "/" + teeName;
 
                         if (settings.wrapperStorePath != null) {
                             paths.add(path);
                         }
+                    } else {
+                        throw new InvalidConfigValueException("Output path '" + path + "' of the output '" + teeName + "' must have a protocol specification and point to a subdirectory");
                     }
-                } else {
-                    throw new InvalidConfigValueException("Output path '" + path + "' of the output '" + teeName + "' must have a protocol specification and point to a subdirectory");
+
+                    outputAdapter = Adapters.output(path);
                 }
 
-                OutputAdapter outputAdapter = Adapters.output(path);
                 outputAdapter.setProperties(teeName, wrapperConfig);
                 outputAdapter.save(path, rdd);
             }

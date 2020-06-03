@@ -8,20 +8,18 @@ import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.WrapperConfig;
 import ash.nazg.spark.WrapperBase;
 import ash.nazg.storage.Adapters;
+import ash.nazg.storage.HadoopAdapter;
+import ash.nazg.storage.InputAdapter;
+import ash.nazg.storage.OutputAdapter;
 import org.apache.spark.api.java.JavaSparkContext;
 import scala.Tuple3;
 import scala.Tuple4;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
 public class DistWrapper extends WrapperBase {
     protected DistCpSettings settings;
-    private String exeDistCp;
-    private String outputIni;
     private String codec;
     private boolean deleteOnSuccess = false;
     private Map<String, Tuple3<String[], String[], Character>> sinkInfo;
@@ -32,50 +30,20 @@ public class DistWrapper extends WrapperBase {
         settings = DistCpSettings.fromConfig(wrapperConfig);
     }
 
-    private String distCpExe(String src, String dest, String groupBy) {
-        StringJoiner sj = new StringJoiner(" ");
-        sj.add(exeDistCp);
-        sj.add("--src=" + src);
-        sj.add("--dest=" + dest);
-        sj.add("--groupBy=" + groupBy);
-        sj.add("--outputCodec=" + codec);
-        if (deleteOnSuccess) {
-            sj.add("--deleteOnSuccess");
-        }
-
-        return sj.toString();
-    }
-
     // from, to, group, ?sink
-    private void distCpCmd(List<Tuple4<String, String, String, String>> list) throws IOException {
-        if (exeDistCp != null) {
-            final List<String> lines = new ArrayList<>();
-            for (Tuple4<String, String, String, String> line : list) {
-               lines.add(distCpExe(line._1(), line._2(), line._3()));
-            }
-            Files.write(Paths.get(outputIni), lines);
-        } else {
-            CopyFilesFunction cff = new CopyFilesFunction(deleteOnSuccess, codec, sinkInfo);
-            context.parallelize(new ArrayList<>(list), list.size())
-                    .foreach(cff);
-        }
+    private void distCpCmd(List<Tuple4<String, String, String, String>> list) {
+        CopyFilesFunction cff = new CopyFilesFunction(deleteOnSuccess, codec, sinkInfo);
+        context.parallelize(new ArrayList<>(list), list.size())
+                .foreach(cff);
     }
 
-    public void go() throws Exception {
+    public void go() {
         CpDirection distDirection = CpDirection.parse(wrapperConfig.getDistCpProperty("wrap", "nop"));
         if (distDirection == CpDirection.BOTH_DIRECTIONS) {
             throw new InvalidConfigValueException("DistWrapper's copy direction can't be 'both' because it's ambiguous");
         }
 
         if (distDirection.anyDirection && settings.anyDirection) {
-            exeDistCp = wrapperConfig.getDistCpProperty("exe", null);
-            if (exeDistCp != null) {
-                outputIni = wrapperConfig.getDistCpProperty("ini", null);
-                if (outputIni == null) {
-                    throw new InvalidConfigValueException("Requested .ini for external tool '" + exeDistCp + "', but no .ini file path specified");
-                }
-            }
-
             codec = wrapperConfig.getDistCpProperty("codec", "none");
 
             if (distDirection == CpDirection.FROM_CLUSTER) {
@@ -90,12 +58,15 @@ public class DistWrapper extends WrapperBase {
                 for (String sink : sinks) {
                     String path = wrapperConfig.inputPath(sink);
 
-                    sinkInfo.put(sink, new Tuple3<>(wrapperConfig.getSinkSchema(sink), wrapperConfig.getSinkColumns(sink), wrapperConfig.getSinkDelimiter(sink)));
+                    InputAdapter inputAdapter = Adapters.input(path);
+                    if (inputAdapter instanceof HadoopAdapter) {
+                        sinkInfo.put(sink, new Tuple3<>(wrapperConfig.getSinkSchema(sink), wrapperConfig.getSinkColumns(sink), wrapperConfig.getSinkDelimiter(sink)));
 
-                    List<Tuple3<String, String, String>> splits = DistCpSettings.srcDestGroup(path);
-                    for (int i = 0; i < splits.size(); i++) {
-                        Tuple3<String, String, String> split = splits.get(i);
-                        inputs.add(new Tuple4<>(split._2(), settings.inputDir + "/" + sink + "/part-" + String.format("%05d", i), split._3(), sink));
+                        List<Tuple3<String, String, String>> splits = DistCpSettings.srcDestGroup(path);
+                        for (int i = 0; i < splits.size(); i++) {
+                            Tuple3<String, String, String> split = splits.get(i);
+                            inputs.add(new Tuple4<>(split._2(), settings.inputDir + "/" + sink + "/part-" + String.format("%05d", i), split._3(), sink));
+                        }
                     }
                 }
 
@@ -132,10 +103,13 @@ public class DistWrapper extends WrapperBase {
                         }
 
                         String path = wrapperConfig.outputPath(tee);
-                        if (Adapters.PATH_PATTERN.matcher(path).matches()) {
-                            teeList.add(new Tuple4<>(settings.outputDir + "/" + tee, path, ".*/(" + tee + ".*?)/part.*", null));
-                        } else {
-                            throw new InvalidConfigValueException("Output path '" + path + "' must point to a subdirectory for an output '" + tee + "'");
+                        OutputAdapter outputAdapter = Adapters.output(path);
+                        if (outputAdapter instanceof HadoopAdapter) {
+                            if (Adapters.PATH_PATTERN.matcher(path).matches()) {
+                                teeList.add(new Tuple4<>(settings.outputDir + "/" + tee, path, ".*/(" + tee + ".*?)/part.*", null));
+                            } else {
+                                throw new InvalidConfigValueException("Output path '" + path + "' must point to a subdirectory for an output '" + tee + "'");
+                            }
                         }
                     }
 

@@ -7,7 +7,6 @@ package ash.nazg.config.tdl;
 import ash.nazg.commons.operations.MapToPairOperation;
 import ash.nazg.config.Packages;
 import ash.nazg.spark.OpInfo;
-import ash.nazg.spark.Operation;
 import ash.nazg.spark.Operations;
 import ash.nazg.spatial.config.ConfigurationParameters;
 import ash.nazg.spatial.operations.PointCSVOutputOperation;
@@ -15,6 +14,7 @@ import ash.nazg.spatial.operations.PointCSVSourceOperation;
 import ash.nazg.spatial.operations.PolygonJSONOutputOperation;
 import ash.nazg.spatial.operations.PolygonJSONSourceOperation;
 import ash.nazg.storage.Adapters;
+import ash.nazg.storage.HadoopAdapter;
 import ash.nazg.storage.InputAdapter;
 import ash.nazg.storage.StorageAdapter;
 import org.apache.velocity.Template;
@@ -632,7 +632,7 @@ public class DocumentationGenerator {
         Method proto = adapterClass.getMethod("proto");
         Description d = proto.getDeclaredAnnotation(Description.class);
 
-        String kind = (adapter.isFallback() ? "Fallback " : "") + ((adapter instanceof InputAdapter) ? "Input" : "Output");
+        String kind = ((adapter instanceof HadoopAdapter) ? "Fallback " : "") + ((adapter instanceof InputAdapter) ? "Input" : "Output");
 
         TaskDocumentationLanguage.Adapter adapterDoc = new TaskDocumentationLanguage.Adapter(kind, adapterClass.getSimpleName(), d.value());
 

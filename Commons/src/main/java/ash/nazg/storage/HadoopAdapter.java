@@ -9,11 +9,6 @@ import ash.nazg.config.tdl.Description;
 import java.util.regex.Pattern;
 
 public abstract class HadoopAdapter implements StorageAdapter {
-    @Override
-    public boolean isFallback() {
-        return true;
-    }
-
     @Description("Default Storage that utilizes Hadoop filesystems")
     public Pattern proto() {
         return Adapters.PATH_PATTERN;

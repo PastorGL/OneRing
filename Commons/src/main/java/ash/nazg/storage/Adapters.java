@@ -35,7 +35,7 @@ public class Adapters {
             for (Class<?> iaClass : iaClassRefs) {
                 try {
                     InputAdapter ia = (InputAdapter) iaClass.newInstance();
-                    if (ia.isFallback()) {
+                    if (ia instanceof HadoopAdapter) {
                         fallbackInput = ia;
                     } else {
                         INPUT_ADAPTERS.add(ia);
@@ -66,7 +66,7 @@ public class Adapters {
             for (Class<?> oaClass : oaClassRefs) {
                 try {
                     OutputAdapter oa = (OutputAdapter) oaClass.newInstance();
-                    if (oa.isFallback()) {
+                    if (oa instanceof HadoopAdapter) {
                         fallbackOutput = oa;
                     } else {
                         OUTPUT_ADAPTERS.add(oa);
