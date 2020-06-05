@@ -12,7 +12,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static ash.nazg.config.PropertiesConfig.COMMA;
-import static ash.nazg.config.TaskConfig.DIRECTIVE_SIGIL;
+import static ash.nazg.config.WrapperConfig.DIRECTIVE_SIGIL;
 
 public abstract class TaskRunnerWrapper extends WrapperBase {
     public static final String ITER = "ITER";
@@ -162,7 +162,7 @@ public abstract class TaskRunnerWrapper extends WrapperBase {
         }
 
         Operation op = opChain.get(name);
-        op.configure(wrapperConfig.getProperties(), currentVariables);
+        op.configure(wrapperConfig.getLayerProperties(WrapperConfig.OP_PREFIX, WrapperConfig.DS_PREFIX), currentVariables);
         Map<String, JavaRDDLike> result = op.getResult(Collections.unmodifiableMap(rdds));
 
         for (String out : result.keySet()) {

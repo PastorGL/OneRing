@@ -1,5 +1,6 @@
-package ash.nazg.spark;
+package ash.nazg.common.config.tdl;
 
+import ash.nazg.spark.TestRunner;
 import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
@@ -12,7 +13,6 @@ import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
 
-@Ignore
 public class ControlFlowIterTest {
     @Test
     public void iterDefaultsTest() throws Exception {

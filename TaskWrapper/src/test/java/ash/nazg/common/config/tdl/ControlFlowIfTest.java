@@ -1,5 +1,6 @@
-package ash.nazg.spark;
+package ash.nazg.common.config.tdl;
 
+import ash.nazg.spark.TestRunner;
 import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
@@ -11,7 +12,6 @@ import java.util.Map;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
-@Ignore
 public class ControlFlowIfTest {
     @Test
     public void ifDefaultsTest() throws Exception {

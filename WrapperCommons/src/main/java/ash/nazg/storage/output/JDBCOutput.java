@@ -5,6 +5,7 @@
 package ash.nazg.storage.output;
 
 import ash.nazg.config.DataStreamsConfig;
+import ash.nazg.config.PropertiesConfig;
 import ash.nazg.config.tdl.Description;
 import com.google.common.collect.Iterators;
 import ash.nazg.config.WrapperConfig;
@@ -39,14 +40,14 @@ public class JDBCOutput extends JDBCAdapter implements OutputAdapter {
 
     @Override
     public void setProperties(String outputName, WrapperConfig wrapperConfig) {
-        dbDriver = wrapperConfig.getOutputProperty("jdbc.driver", null);
-        dbUrl = wrapperConfig.getOutputProperty("jdbc.url", null);
-        dbUser = wrapperConfig.getOutputProperty("jdbc.user", null);
-        dbPassword = wrapperConfig.getOutputProperty("jdbc.password", null);
+        dbDriver = wrapperConfig.getOutputProperty("jdbc.driver", outputName, null);
+        dbUrl = wrapperConfig.getOutputProperty("jdbc.url", outputName, null);
+        dbUser = wrapperConfig.getOutputProperty("jdbc.user", outputName, null);
+        dbPassword = wrapperConfig.getOutputProperty("jdbc.password", outputName, null);
 
-        batchSize = Integer.parseInt(wrapperConfig.getOutputProperty("jdbc.batch.size", "500"));
+        batchSize = Integer.parseInt(wrapperConfig.getOutputProperty("jdbc.batch.size", outputName, "500"));
 
-        DataStreamsConfig adapterConfig = new DataStreamsConfig(wrapperConfig.getProperties(), null, null, Collections.singleton(outputName), Collections.singleton(outputName), null);
+        DataStreamsConfig adapterConfig = new DataStreamsConfig(wrapperConfig.getLayerProperties(WrapperConfig.DS_PREFIX), null, null, Collections.singleton(outputName), Collections.singleton(outputName), null);
 
         cols = adapterConfig.outputColumns.get(outputName);
         delimiter = adapterConfig.outputDelimiter(outputName);

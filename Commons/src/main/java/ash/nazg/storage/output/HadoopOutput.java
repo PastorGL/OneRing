@@ -6,6 +6,7 @@ package ash.nazg.storage.output;
 
 import ash.nazg.config.DataStreamsConfig;
 import ash.nazg.config.InvalidConfigValueException;
+import ash.nazg.config.PropertiesConfig;
 import ash.nazg.storage.HadoopAdapter;
 import ash.nazg.config.WrapperConfig;
 import ash.nazg.storage.OutputAdapter;
@@ -24,7 +25,7 @@ public class HadoopOutput extends HadoopAdapter implements OutputAdapter {
     private char delimiter;
 
     public void setProperties(String outputName, WrapperConfig wrapperConfig) throws InvalidConfigValueException {
-        DataStreamsConfig adapterConfig = new DataStreamsConfig(wrapperConfig.getProperties(), null, null, Collections.singleton(outputName), Collections.singleton(outputName), null);
+        DataStreamsConfig adapterConfig = new DataStreamsConfig(wrapperConfig.getLayerProperties(WrapperConfig.DS_PREFIX), null, null, Collections.singleton(outputName), Collections.singleton(outputName), null);
 
         delimiter = adapterConfig.outputDelimiter(outputName);
     }

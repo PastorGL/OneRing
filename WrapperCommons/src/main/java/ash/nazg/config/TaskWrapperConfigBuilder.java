@@ -75,12 +75,6 @@ public class TaskWrapperConfigBuilder extends WrapperConfigBuilder {
         return wrapperConfig;
     }
 
-    /**
-     * Set a {@link PropertiesConfig} parameter directly from a specified command line argument
-     *
-     * @param index  parameter
-     * @param option command line argument
-     */
     public void overrideFromCommandLine(String index, String option) {
         if (commandLine.hasOption(option)) {
             wrapperConfig.overrideProperty(index, commandLine.getOptionValue(option));

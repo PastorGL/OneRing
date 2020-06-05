@@ -29,8 +29,8 @@ public class AerospikeInputTest {
             WrapperConfig config = underTest.getConfig();
 
             as = new AerospikeClient(
-                    config.getInputProperty("aerospike.host", "localhost"),
-                    Integer.parseInt(config.getInputProperty("aerospike.port", "3000"))
+                    config.getInputProperty("aerospike.host", null, "localhost"),
+                    Integer.parseInt(config.getInputProperty("aerospike.port", null, "3000"))
             );
             as.truncate(null, "test", "profiles_keyed", null);
 

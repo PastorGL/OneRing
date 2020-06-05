@@ -6,9 +6,9 @@ package ash.nazg.storage.input;
 
 import ash.nazg.config.DataStreamsConfig;
 import ash.nazg.config.InvalidConfigValueException;
+import ash.nazg.config.WrapperConfig;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.storage.AerospikeAdapter;
-import ash.nazg.config.WrapperConfig;
 import ash.nazg.storage.InputAdapter;
 import com.opencsv.CSVWriter;
 import org.apache.hadoop.io.Text;
@@ -32,12 +32,12 @@ public class AerospikeInput extends AerospikeAdapter implements InputAdapter {
 
     @Override
     public void setProperties(String inputName, WrapperConfig wrapperConfig) throws InvalidConfigValueException {
-        aerospikeHost = wrapperConfig.getInputProperty("aerospike.host", "localhost");
-        aerospikePort = Integer.valueOf(wrapperConfig.getInputProperty("aerospike.port", "3000"));
+        aerospikeHost = wrapperConfig.getInputProperty("aerospike.host", inputName, "localhost");
+        aerospikePort = Integer.valueOf(wrapperConfig.getInputProperty("aerospike.port", inputName, "3000"));
 
         partCount = wrapperConfig.inputParts(inputName);
 
-        DataStreamsConfig adapterConfig = new DataStreamsConfig(wrapperConfig.getProperties(), Collections.singleton(inputName), Collections.singleton(inputName), null, null, null);
+        DataStreamsConfig adapterConfig = new DataStreamsConfig(wrapperConfig.getLayerProperties(WrapperConfig.DS_PREFIX), Collections.singleton(inputName), Collections.singleton(inputName), null, null, null);
 
         delimiter = adapterConfig.inputDelimiter(inputName);
     }

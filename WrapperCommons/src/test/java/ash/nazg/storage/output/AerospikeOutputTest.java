@@ -27,8 +27,8 @@ public class AerospikeOutputTest {
             WrapperConfig config = underTest.getConfig();
 
             as = new AerospikeClient(
-                    config.getOutputProperty("aerospike.host", "localhost"),
-                    Integer.valueOf(config.getOutputProperty("aerospike.port", "3000"))
+                    config.getOutputProperty("aerospike.host", null, "localhost"),
+                    Integer.valueOf(config.getOutputProperty("aerospike.port", null, "3000"))
             );
 
             underTest.go();

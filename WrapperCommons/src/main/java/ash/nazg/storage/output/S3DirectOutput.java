@@ -8,6 +8,7 @@ import alex.mojaki.s3upload.MultiPartOutputStream;
 import alex.mojaki.s3upload.StreamTransferManager;
 import ash.nazg.config.DataStreamsConfig;
 import ash.nazg.config.InvalidConfigValueException;
+import ash.nazg.config.PropertiesConfig;
 import ash.nazg.config.WrapperConfig;
 import ash.nazg.storage.OutputAdapter;
 import ash.nazg.storage.S3DirectAdapter;
@@ -69,12 +70,12 @@ public class S3DirectOutput extends S3DirectAdapter implements OutputAdapter {
 
     @Override
     public void setProperties(String outputName, WrapperConfig wrapperConfig) throws InvalidConfigValueException {
-        accessKey = wrapperConfig.getOutputProperty("access.key", null);
-        secretKey = wrapperConfig.getOutputProperty("secret.key", null);
+        accessKey = wrapperConfig.getOutputProperty("access.key", outputName, null);
+        secretKey = wrapperConfig.getOutputProperty("secret.key", outputName, null);
 
-        contentType = wrapperConfig.getOutputProperty("content.type", "text/csv");
+        contentType = wrapperConfig.getOutputProperty("content.type", outputName, "text/csv");
 
-        DataStreamsConfig adapterConfig = new DataStreamsConfig(wrapperConfig.getProperties(), null, null, Collections.singleton(outputName), Collections.singleton(outputName), null);
+        DataStreamsConfig adapterConfig = new DataStreamsConfig(wrapperConfig.getLayerProperties(WrapperConfig.DS_PREFIX), null, null, Collections.singleton(outputName), Collections.singleton(outputName), null);
         delimiter = adapterConfig.outputDelimiter(outputName);
     }
 

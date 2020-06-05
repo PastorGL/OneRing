@@ -4,9 +4,6 @@
  */
 package ash.nazg.config;
 
-import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.PropertiesConfig;
-import ash.nazg.config.WrapperConfig;
 import ash.nazg.config.tdl.PropertiesConverter;
 import ash.nazg.config.tdl.TDLObjectMapper;
 import ash.nazg.config.tdl.TaskDefinitionLanguage;
@@ -55,7 +52,6 @@ public abstract class WrapperConfigBuilder {
      * Parse the command line skipping all unknown (not explicitly added) command line arguments and extract task prefix
      *
      * @param args array of command line arguments
-     * @return this task's {@link PropertiesConfig} instance
      * @throws ParseException if any of the known options value is bad
      */
     public void setCommandLine(String[] args) throws ParseException {

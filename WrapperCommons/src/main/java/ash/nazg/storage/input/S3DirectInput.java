@@ -5,6 +5,7 @@
 package ash.nazg.storage.input;
 
 import ash.nazg.config.DataStreamsConfig;
+import ash.nazg.config.PropertiesConfig;
 import ash.nazg.config.WrapperConfig;
 import ash.nazg.storage.InputAdapter;
 import ash.nazg.storage.S3DirectAdapter;
@@ -34,12 +35,12 @@ public class S3DirectInput extends S3DirectAdapter implements InputAdapter {
 
     @Override
     public void setProperties(String inputName, WrapperConfig wrapperConfig) {
-        accessKey = wrapperConfig.getInputProperty("access.key", null);
-        secretKey = wrapperConfig.getInputProperty("secret.key", null);
+        accessKey = wrapperConfig.getInputProperty("access.key", inputName, null);
+        secretKey = wrapperConfig.getInputProperty("secret.key", inputName, null);
 
         partCount = wrapperConfig.inputParts(inputName);
 
-        DataStreamsConfig adapterConfig = new DataStreamsConfig(wrapperConfig.getProperties(), Collections.singleton(inputName), Collections.singleton(inputName), null, null, null);
+        DataStreamsConfig adapterConfig = new DataStreamsConfig(wrapperConfig.getLayerProperties(WrapperConfig.DS_PREFIX), Collections.singleton(inputName), Collections.singleton(inputName), null, null, null);
     }
 
     @Override

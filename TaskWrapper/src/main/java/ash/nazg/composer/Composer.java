@@ -96,7 +96,7 @@ public class Composer {
                 System.out.println("Inputs: " + String.join(", ", cwc.getInputSink()));
                 System.out.println("Outputs: " + String.join(", ", cwc.getTeeOutput()));
 
-                Properties properties = cwc.getProperties();
+                Properties properties = cwc.getLayerProperties();
                 final MultivaluedHashMap<String, String> mvv = new MultivaluedHashMap<>();
                 for (Map.Entry<Object, Object> prop : properties.entrySet()) {
                     String key = prop.getKey().toString();

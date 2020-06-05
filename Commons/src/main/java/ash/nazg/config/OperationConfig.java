@@ -144,12 +144,10 @@ public class OperationConfig extends PropertiesConfig {
                     Map<String, String> ret = new HashMap<>();
                     String partKey = OP_DEFINITION_PREFIX + name + ".";
                     String fullKey = partKey + dynDef.prefix;
-                    Properties properties = getProperties();
+                    Properties properties = getLayerProperties(fullKey);
                     for (Object key : properties.keySet()) {
                         String prop = (String) key;
-                        if (prop.startsWith(fullKey)) {
-                            ret.put(prop.substring(partKey.length()), getProperty(prop));
-                        }
+                        ret.put(prop.substring(partKey.length()), getProperty(prop));
                     }
                     defProps = ret;
                 }

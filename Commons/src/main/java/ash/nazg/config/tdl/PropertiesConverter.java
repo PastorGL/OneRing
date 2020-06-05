@@ -27,7 +27,7 @@ public class PropertiesConverter {
 
         Map<String, OpInfo> ao = Operations.getAvailableOperations();
 
-        Properties allOpProperties = taskConfig.getProperties();
+        Properties allOpProperties = taskConfig.getLayerProperties(WrapperConfig.OP_PREFIX, WrapperConfig.DS_PREFIX);
         for (String name : taskConfig.getOperations()) {
             if (!name.startsWith(DIRECTIVE_SIGIL)) {
                 String verb = taskConfig.getVerb(name);

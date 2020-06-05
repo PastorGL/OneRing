@@ -6,6 +6,7 @@ package ash.nazg.storage.input;
 
 import ash.nazg.config.DataStreamsConfig;
 import ash.nazg.config.InvalidConfigValueException;
+import ash.nazg.config.PropertiesConfig;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.storage.JDBCAdapter;
 import ash.nazg.config.WrapperConfig;
@@ -52,14 +53,14 @@ public class JDBCInput extends JDBCAdapter implements InputAdapter {
 
     @Override
     public void setProperties(String inputName, WrapperConfig wrapperConfig) throws InvalidConfigValueException {
-        dbDriver = wrapperConfig.getInputProperty("jdbc.driver", null);
-        dbUrl = wrapperConfig.getInputProperty("jdbc.url", null);
-        dbUser = wrapperConfig.getInputProperty("jdbc.user", null);
-        dbPassword = wrapperConfig.getInputProperty("jdbc.password", null);
+        dbDriver = wrapperConfig.getInputProperty("jdbc.driver", inputName, null);
+        dbUrl = wrapperConfig.getInputProperty("jdbc.url", inputName, null);
+        dbUser = wrapperConfig.getInputProperty("jdbc.user", inputName, null);
+        dbPassword = wrapperConfig.getInputProperty("jdbc.password", inputName, null);
 
         partCount = wrapperConfig.inputParts(inputName);
 
-        DataStreamsConfig dsc = new DataStreamsConfig(wrapperConfig.getProperties(), Collections.singleton(inputName), Collections.singleton(inputName), null, null, null);
+        DataStreamsConfig dsc = new DataStreamsConfig(wrapperConfig.getLayerProperties(WrapperConfig.DS_PREFIX), Collections.singleton(inputName), Collections.singleton(inputName), null, null, null);
         delimiter = dsc.inputDelimiter(inputName);
     }
 

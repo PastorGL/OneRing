@@ -5,6 +5,7 @@
 package ash.nazg.config;
 
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -24,8 +25,8 @@ public abstract class PropertiesConfig {
     public static final String REP_SEP = ":";
     public static final Pattern REP_VAR = Pattern.compile("\\{([^}]+?)}");
 
-    protected Properties properties = new Properties();
-    protected Properties overrides = new Properties();
+    private final Properties properties = new Properties();
+    private Properties overrides = new Properties();
 
     private String prefix = null;
 
@@ -48,7 +49,7 @@ public abstract class PropertiesConfig {
             index = pIndex;
         }
 
-        properties.setProperty(index, replaceVars(property));
+        properties.setProperty(index, property);
     }
 
     private String replaceVars(String stringWithVars) {
@@ -93,8 +94,23 @@ public abstract class PropertiesConfig {
         return (strings.length == 0) ? null : strings;
     }
 
-    protected Properties getProperties() {
-        return properties;
+    protected Properties getLayerProperties(String layerPrefix) {
+        return getLayerProperties(layerPrefix, true);
+    }
+
+    protected Properties getLayerProperties(String layerPrefix, boolean replace) {
+        Properties layerProperties = new Properties();
+
+        for (Map.Entry<Object, Object> e : properties.entrySet()) {
+            String prop = (String) e.getKey();
+            if (prop.startsWith(layerPrefix)) {
+                String val = (String) e.getValue();
+
+                layerProperties.setProperty(prop, replace ? replaceVars(val) : val);
+            }
+        }
+
+        return layerProperties;
     }
 
     public void setProperties(Properties source) {

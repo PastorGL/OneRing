@@ -6,6 +6,7 @@ package ash.nazg.storage.output;
 
 import ash.nazg.config.DataStreamsConfig;
 import ash.nazg.config.InvalidConfigValueException;
+import ash.nazg.config.PropertiesConfig;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.storage.AerospikeAdapter;
 import com.aerospike.client.AerospikeClient;
@@ -42,10 +43,10 @@ public class AerospikeOutput extends AerospikeAdapter implements OutputAdapter {
 
     @Override
     public void setProperties(String outputName, WrapperConfig wrapperConfig) throws InvalidConfigValueException {
-        aerospikeHost = wrapperConfig.getOutputProperty("aerospike.host", "localhost");
-        aerospikePort = Integer.valueOf(wrapperConfig.getOutputProperty("aerospike.port", "3000"));
+        aerospikeHost = wrapperConfig.getOutputProperty("aerospike.host", outputName, "localhost");
+        aerospikePort = Integer.valueOf(wrapperConfig.getOutputProperty("aerospike.port", outputName, "3000"));
 
-        DataStreamsConfig adapterConfig = new DataStreamsConfig(wrapperConfig.getProperties(), null, null, Collections.singleton(outputName), Collections.singleton(outputName), null);
+        DataStreamsConfig adapterConfig = new DataStreamsConfig(wrapperConfig.getLayerProperties(WrapperConfig.DS_PREFIX), null, null, Collections.singleton(outputName), Collections.singleton(outputName), null);
 
         cols = adapterConfig.outputColumns.get(outputName);
         delimiter = adapterConfig.outputDelimiter(outputName);

@@ -4,14 +4,19 @@
  */
 package ash.nazg.config;
 
-import java.util.HashMap;
-import java.util.Map;
+import ash.nazg.config.tdl.DirVarVal;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static ash.nazg.config.DataStreamsConfig.DS_INPUT_COLUMNS_PREFIX;
 import static ash.nazg.config.DataStreamsConfig.DS_INPUT_DELIMITER_PREFIX;
 
-public class WrapperConfig extends TaskConfig {
+public class WrapperConfig extends PropertiesConfig {
     public static final String DS_OUTPUT_PATH = "ds.output.path";
     public static final String DS_INPUT_PATH_PREFIX = "ds.input.path.";
     public static final String DS_OUTPUT_PATH_PREFIX = "ds.output.path.";
@@ -22,50 +27,164 @@ public class WrapperConfig extends TaskConfig {
     public static final String DISTCP_PREFIX = "distcp.";
     public static final String INPUT_PREFIX = "input.";
     public static final String OUTPUT_PREFIX = "output.";
+    public static final String TASK_PREFIX = "task.";
+    public static final String OP_PREFIX = "op.";
+    public static final String DS_PREFIX = "ds.";
 
-    private final Map<String, Properties> knownLayers = new HashMap<String, Properties>() {{
-        put(OUTPUT_PREFIX, null);
-        put(INPUT_PREFIX, null);
-        put(DISTCP_PREFIX, null);
-    }};
+    public static final String TASK_INPUT_SINK = "task.input.sink";
+    public static final String TASK_TEE_OUTPUT = "task.tee.output";
+    public static final String TASK_OPERATIONS = "task.operations";
+
+    public static final String DIRECTIVE_SIGIL = "$";
+    public static final Pattern REP_OPERATIONS = Pattern.compile("(\\$[^{,]+\\{[^}]+?}|\\$[^,]+|[^,]+)");
+    public static final String OP_OPERATION_PREFIX = "op.operation.";
+
+    private static final List<String> KNOWN_PREFIXES = Arrays.asList(DISTCP_PREFIX, INPUT_PREFIX, OUTPUT_PREFIX, TASK_PREFIX, OP_PREFIX, DS_PREFIX);
+
+    private List<String> inputSink = null;
+    private List<String> teeOutput = null;
+    private List<String> opNames = null;
+
+    public List<String> getInputSink() {
+        if (inputSink == null) {
+            inputSink = new ArrayList<>();
+            String[] sinks = getArray(TASK_INPUT_SINK);
+            if (sinks != null) {
+                inputSink.addAll(Arrays.asList(sinks));
+            }
+        }
+
+        return inputSink;
+    }
+
+    public List<String> getTeeOutput() {
+        if (teeOutput == null) {
+            teeOutput = new ArrayList<>();
+            String[] tees = getArray(TASK_TEE_OUTPUT);
+            if (tees != null) {
+                teeOutput.addAll(Arrays.asList(tees));
+            }
+        }
+
+        return teeOutput;
+    }
+
+    @Override
+    public Properties getOverrides() {
+        return super.getOverrides();
+    }
+
+    @Override
+    public String getPrefix() {
+        String prefix = super.getPrefix();
+        return (prefix == null) ? null : prefix.substring(0, prefix.length() - 1);
+    }
+
+    @Override
+    public void setPrefix(String prefix) {
+        super.setPrefix(prefix);
+    }
+
+    public String getVerb(String opName) {
+        String verb = getProperty(OP_OPERATION_PREFIX + opName);
+        if (verb == null) {
+            throw new InvalidConfigValueException("Operation named '" + opName + "' has no verb set in the task");
+        }
+
+        return verb;
+    }
+
+    public DirVarVal getDirVarVal(String directive) {
+        DirVarVal dvv;
+
+        Matcher hasRepVar = REP_VAR.matcher(directive);
+        if (hasRepVar.find()) {
+            String rep = hasRepVar.group(1);
+
+            String repVar = rep;
+            String repDef = null;
+            if (rep.contains(REP_SEP)) {
+                String[] rd = rep.split(REP_SEP, 2);
+                repVar = rd[0];
+                repDef = rd[1];
+            }
+
+            String val = getOverrides().getProperty(repVar, repDef);
+
+            dvv = new DirVarVal(directive.substring(1, hasRepVar.start(1) - 1), repVar, val);
+        } else {
+            dvv = new DirVarVal(directive.substring(1));
+        }
+
+        return dvv;
+    }
+
+    public List<String> getOperations() {
+        if (opNames == null) {
+            opNames = new ArrayList<>();
+            String names = getProperty(TASK_OPERATIONS);
+            if (names != null) {
+                Matcher ops = REP_OPERATIONS.matcher(names);
+                while (ops.find()) {
+                    String opName = ops.group(1).trim();
+                    if (!opName.startsWith(DIRECTIVE_SIGIL) && opNames.contains(opName)) {
+                        throw new InvalidConfigValueException("Duplicate operation '" + opName + "' in the operations list was encountered for the task");
+                    }
+
+                    opNames.add(opName);
+                }
+            } else {
+                throw new InvalidConfigValueException("Operations were not specified for the task");
+            }
+        }
+
+        return opNames;
+    }
 
     public final String inputPath(String input) {
         return getProperty(DS_INPUT_PATH_PREFIX + input);
     }
 
-    public String getInputProperty(String key, String fallback) {
-        return getKnownLayerProperty(INPUT_PREFIX, key, fallback);
+    public String getInputProperty(String key, String input, String fallback) {
+        return getLayerProperty(INPUT_PREFIX, key, input, fallback);
     }
 
-    private String getKnownLayerProperty(String layerPrefix, String key, String fallback) {
+    private String getLayerProperty(String layerPrefix, String key, String keySuffix, String fallback) {
         Properties layerProperties = getLayerProperties(layerPrefix);
 
-        return layerProperties.getProperty(key, fallback);
+        String defaultVal = layerProperties.getProperty(layerPrefix + key, fallback);
+        return (keySuffix == null) ? defaultVal : layerProperties.getProperty(layerPrefix + key + "." + keySuffix, defaultVal);
     }
 
-    public Properties getLayerProperties(String layerPrefix) {
-        if (!knownLayers.containsKey(layerPrefix)) {
-            return null;
-        }
+    public Properties getLayerProperties(String... layerPrefixes) {
+        Properties layerProperties = new Properties();
 
-        Properties layerProperties = knownLayers.get(layerPrefix);
-        if (layerProperties == null) {
-            layerProperties = new Properties();
+        List<String> prefixes;
+        if ((layerPrefixes == null) || (layerPrefixes.length == 0)) {
+            prefixes = KNOWN_PREFIXES;
+        } else {
+            prefixes = new ArrayList<>();
 
-            int length = layerPrefix.length();
-            for (Map.Entry<Object, Object> e : getProperties().entrySet()) {
-                String prop = (String) e.getKey();
-                if (prop.startsWith(layerPrefix)) {
-                    layerProperties.setProperty(prop.substring(length), (String) e.getValue());
+            kp:
+            for (String kp : KNOWN_PREFIXES) {
+                for (String prefix : layerPrefixes) {
+                    if (prefix.startsWith(kp)) {
+                        prefixes.add(prefix);
+                        continue kp;
+                    }
                 }
             }
         }
 
-        return layerProperties;
-    }
+        for (String layerPrefix : prefixes) {
+            boolean replace = !layerPrefix.startsWith(TASK_PREFIX);
 
-    private String getDsOutputPath() throws InvalidConfigValueException {
-        return getProperty(DS_OUTPUT_PATH);
+            Properties thisLayerProperties = getLayerProperties(layerPrefix, replace);
+
+            layerProperties.putAll(thisLayerProperties);
+        }
+
+        return layerProperties;
     }
 
     public final int inputParts(String input) {
@@ -77,7 +196,7 @@ public class WrapperConfig extends TaskConfig {
     }
 
     public final String defaultOutputPath() {
-        return getDsOutputPath();
+        return getProperty(DS_OUTPUT_PATH);
     }
 
     public final String outputPath(String output) {
@@ -87,7 +206,7 @@ public class WrapperConfig extends TaskConfig {
             return path;
         }
 
-        path = getDsOutputPath();
+        path = defaultOutputPath();
         if (path == null) {
             throw new InvalidConfigValueException("Default output path is not configured");
         }
@@ -95,8 +214,8 @@ public class WrapperConfig extends TaskConfig {
         return path + "/" + output;
     }
 
-    public String getOutputProperty(String key, String fallback) {
-        return getKnownLayerProperty(OUTPUT_PREFIX, key, fallback);
+    public String getOutputProperty(String key, String output, String fallback) {
+        return getLayerProperty(OUTPUT_PREFIX, key, output, fallback);
     }
 
     public String getDsInputPartCount(String input) {
@@ -108,7 +227,7 @@ public class WrapperConfig extends TaskConfig {
     }
 
     public String getDistCpProperty(String key, String fallback) {
-        return getKnownLayerProperty(DISTCP_PREFIX, key, fallback);
+        return getLayerProperty(DISTCP_PREFIX, key, null, fallback);
     }
 
     public String[] getSinkSchema(String sink) {
