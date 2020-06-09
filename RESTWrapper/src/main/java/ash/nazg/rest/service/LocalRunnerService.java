@@ -131,7 +131,7 @@ public class LocalRunnerService extends Runner {
             WrapperConfig wrapperConfig = new WrapperConfig();
             wrapperConfig.setPrefix(entry.task.prefix);
             wrapperConfig.setOverrides(overrides);
-            wrapperConfig.setProperties(props);
+            wrapperConfig.setProperties(props, true);
 
             return wrapperConfig;
         }

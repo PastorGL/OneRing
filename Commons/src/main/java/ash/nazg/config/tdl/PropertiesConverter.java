@@ -46,6 +46,7 @@ public class PropertiesConverter {
                 opDef.verb = verb;
 
                 OperationConfig opConf = new OperationConfig(opDesc, name);
+                opConf.configure(allOpProperties, null);
 
                 if (opDesc.definitions != null) {
                     List<TaskDefinitionLanguage.Definition> defs = new ArrayList<>();

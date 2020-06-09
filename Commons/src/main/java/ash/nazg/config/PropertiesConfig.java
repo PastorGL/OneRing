@@ -43,13 +43,17 @@ public abstract class PropertiesConfig {
     }
 
     public void overrideProperty(String index, String property) {
+        overrideProperty(index, property, false);
+    }
+
+    public void overrideProperty(String index, String property, final boolean replace) {
         String pIndex = replaceVars(index);
         if (pIndex != index) { // yes, String comparison via equality operator is intentional here
             properties.remove(index);
             index = pIndex;
         }
 
-        properties.setProperty(index, property);
+        properties.setProperty(index, replace ? replaceVars(property) : property);
     }
 
     private String replaceVars(String stringWithVars) {
@@ -114,15 +118,19 @@ public abstract class PropertiesConfig {
     }
 
     public void setProperties(Properties source) {
+        setProperties(source, false);
+    }
+
+    public void setProperties(Properties source, final boolean replace) {
         properties.clear();
 
         if (prefix != null) {
             final int prefixLength = prefix.length();
             source.entrySet().stream()
                     .filter(e -> e.getKey().toString().startsWith(prefix))
-                    .forEach(e -> overrideProperty(e.getKey().toString().substring(prefixLength), e.getValue().toString()));
+                    .forEach(e -> overrideProperty(e.getKey().toString().substring(prefixLength), e.getValue().toString(), replace));
         } else {
-            source.forEach((key, value) -> overrideProperty(key.toString(), value.toString()));
+            source.forEach((key, value) -> overrideProperty(key.toString(), value.toString(), replace));
         }
     }
 
