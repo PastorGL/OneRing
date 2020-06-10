@@ -158,7 +158,7 @@ public class OperationConfig extends PropertiesConfig {
                     String name = defProp.getKey();
                     String prop = defProp.getValue();
 
-                    if (prop == null) {
+                    if (prop == null || prop.isEmpty()) {
                         defs.put(name, null);
                         continue;
                     }
