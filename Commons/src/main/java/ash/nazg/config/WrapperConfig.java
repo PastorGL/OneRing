@@ -13,9 +13,6 @@ import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static ash.nazg.config.DataStreamsConfig.DS_INPUT_COLUMNS_PREFIX;
-import static ash.nazg.config.DataStreamsConfig.DS_INPUT_DELIMITER_PREFIX;
-
 public class WrapperConfig extends PropertiesConfig {
     public static final String DS_OUTPUT_PATH = "ds.output.path";
     public static final String DS_INPUT_PATH_PREFIX = "ds.input.path.";
@@ -44,6 +41,8 @@ public class WrapperConfig extends PropertiesConfig {
     private List<String> inputSink = null;
     private List<String> teeOutput = null;
     private List<String> opNames = null;
+
+    private DataStreamsConfig sinkConfig = null;
 
     public List<String> getInputSink() {
         if (inputSink == null) {
@@ -230,19 +229,25 @@ public class WrapperConfig extends PropertiesConfig {
         return getLayerProperty(DISTCP_PREFIX, key, null, fallback);
     }
 
+    private DataStreamsConfig getSinkConfig() {
+        if (sinkConfig == null) {
+            List<String> is = getInputSink();
+
+            sinkConfig = new DataStreamsConfig(getLayerProperties(DS_PREFIX), is, is, null, null, null);
+        }
+
+        return sinkConfig;
+    }
+
     public String[] getSinkSchema(String sink) {
-        return getArray(DS_INPUT_SINK_SCHEMA_PREFIX + sink);
+        return getSinkConfig().getArray(DS_INPUT_SINK_SCHEMA_PREFIX + sink);
     }
 
     public String[] getSinkColumns(String sink) {
-        return getArray(DS_INPUT_COLUMNS_PREFIX + sink);
+        return getSinkConfig().inputColumnsRaw.get(sink);
     }
 
     public char getSinkDelimiter(String sink) {
-        String delimiter = getProperty(DS_INPUT_DELIMITER_PREFIX + sink);
-
-        return ((delimiter == null) || delimiter.isEmpty())
-                ? getDsInputDelimiter()
-                : delimiter.charAt(0);
+        return getSinkConfig().inputDelimiter(sink);
     }
 }

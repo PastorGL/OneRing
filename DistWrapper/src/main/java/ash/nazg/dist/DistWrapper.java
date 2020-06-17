@@ -62,6 +62,11 @@ public class DistWrapper extends WrapperBase {
                     if (inputAdapter instanceof HadoopAdapter) {
                         sinkInfo.put(sink, new Tuple3<>(wrapperConfig.getSinkSchema(sink), wrapperConfig.getSinkColumns(sink), wrapperConfig.getSinkDelimiter(sink)));
 
+                        System.out.println("Sink: " + sink);
+                        System.out.println("- schema: " + Arrays.toString(wrapperConfig.getSinkSchema(sink)));
+                        System.out.println("- columns: " + Arrays.toString(wrapperConfig.getSinkColumns(sink)));
+                        System.out.println("- delimiter: " + wrapperConfig.getSinkDelimiter(sink));
+
                         List<Tuple3<String, String, String>> splits = DistCpSettings.srcDestGroup(path);
                         for (int i = 0; i < splits.size(); i++) {
                             Tuple3<String, String, String> split = splits.get(i);

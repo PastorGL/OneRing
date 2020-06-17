@@ -167,6 +167,7 @@ public class CopyFilesFunction implements VoidFunction<Tuple4<String, String, St
 
         try (OutputStream outputStream = decorateOutputStream(outputFilePath, conf)) {
             for (String inputFile : inputFiles) {
+                System.out.println(inputFile + " >+ " + outputFile);
                 Path inputFilePath = new Path(inputFile);
 
                 try (InputStream inputStream = decorateInputStream(inputFilePath, conf)) {
@@ -235,7 +236,8 @@ public class CopyFilesFunction implements VoidFunction<Tuple4<String, String, St
                 srcFS.delete(srcPath, true);
             }
         } catch (Exception e) {
-            System.err.println(e.getMessage());
+            System.err.println("Exception with message: " + e.getMessage());
+            e.printStackTrace(System.err);
             System.exit(14);
         }
     }
