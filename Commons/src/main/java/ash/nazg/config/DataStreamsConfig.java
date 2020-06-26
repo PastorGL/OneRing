@@ -90,33 +90,27 @@ public class DataStreamsConfig extends PropertiesConfig {
 
         if (columnBasedOutputs != null) {
             for (String o : columnBasedOutputs) {
-                String[] cols = getArray(DS_OUTPUT_COLUMNS_PREFIX + o);
-                cols = (cols == null) ? new String[0] : cols;
-
-                String[] columns = cols;
+                String[] columns = getArray(DS_OUTPUT_COLUMNS_PREFIX + o);
+                columns = (columns == null) ? new String[0] : columns;
 
                 String[] outputGeneratedColumns = null;
                 if (generatedColumns != null) {
                     outputGeneratedColumns = generatedColumns.get(o);
                 }
 
-                boolean hitGenerated = false;
-
                 checkOutputColumns:
                 for (String outputColumn : columns) {
-                    if (generatedColumns != null) {
-                        if (outputGeneratedColumns != null) {
-                            for (String g : outputGeneratedColumns) {
-                                if (g.equals(outputColumn)) {
-                                    hitGenerated = true;
-                                    continue checkOutputColumns;
-                                }
-                                if (g.endsWith("*") && (outputColumn.startsWith(g.substring(0, g.length() - 2)))) {
-                                    hitGenerated = true;
-                                    continue checkOutputColumns;
-                                }
+                    if ((outputGeneratedColumns != null) && (outputColumn.startsWith("_"))) {
+                        for (String g : outputGeneratedColumns) {
+                            if (g.equals(outputColumn)) {
+                                continue checkOutputColumns;
+                            }
+                            if (g.endsWith("*") && (outputColumn.startsWith(g.substring(0, g.length() - 2)))) {
+                                continue checkOutputColumns;
                             }
                         }
+
+                        throw new InvalidConfigValueException("Output '" + o + "' refers to an unknown generated column '" + outputColumn + "'");
                     }
 
                     if ((columnBasedInputs != null) && (columnBasedInputs.size() > 0)) {
@@ -131,10 +125,6 @@ public class DataStreamsConfig extends PropertiesConfig {
                             throw new InvalidConfigValueException("Column '" + column[1] + "' of output '" + o + "' doesn't exist in the input '" + column[0] + "'");
                         }
                     }
-                }
-
-                if ((outputGeneratedColumns != null) && !hitGenerated) {
-                    throw new InvalidConfigValueException("Output '" + o + "' must include at least one generated column of the following list: '" + String.join("', '", outputGeneratedColumns) + "'");
                 }
 
                 outputColumns.put(o, columns);

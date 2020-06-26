@@ -42,7 +42,7 @@ public class WrapperConfig extends PropertiesConfig {
     private List<String> teeOutput = null;
     private List<String> opNames = null;
 
-    private DataStreamsConfig sinkConfig = null;
+    private DataStreamsConfig dsConfig = null;
 
     public List<String> getInputSink() {
         if (inputSink == null) {
@@ -141,7 +141,7 @@ public class WrapperConfig extends PropertiesConfig {
     }
 
     public final String inputPath(String input) {
-        return getProperty(DS_INPUT_PATH_PREFIX + input);
+        return getDataStreamsConfig().getProperty(DS_INPUT_PATH_PREFIX + input);
     }
 
     public String getInputProperty(String key, String input, String fallback) {
@@ -195,11 +195,11 @@ public class WrapperConfig extends PropertiesConfig {
     }
 
     public final String defaultOutputPath() {
-        return getProperty(DS_OUTPUT_PATH);
+        return getDataStreamsConfig().getProperty(DS_OUTPUT_PATH);
     }
 
     public final String outputPath(String output) {
-        String path = getProperty(DS_OUTPUT_PATH_PREFIX + output);
+        String path = getDataStreamsConfig().getProperty(DS_OUTPUT_PATH_PREFIX + output);
 
         if (path != null) {
             return path;
@@ -218,36 +218,36 @@ public class WrapperConfig extends PropertiesConfig {
     }
 
     public String getDsInputPartCount(String input) {
-        return getProperty(DS_INPUT_PART_COUNT_PREFIX + input, "-1");
+        return getDataStreamsConfig().getProperty(DS_INPUT_PART_COUNT_PREFIX + input, "-1");
     }
 
     public String getDsOutputPartCount(String output) {
-        return getProperty(DS_OUTPUT_PART_COUNT_PREFIX + output, "-1");
+        return getDataStreamsConfig().getProperty(DS_OUTPUT_PART_COUNT_PREFIX + output, "-1");
     }
 
     public String getDistCpProperty(String key, String fallback) {
         return getLayerProperty(DISTCP_PREFIX, key, null, fallback);
     }
 
-    private DataStreamsConfig getSinkConfig() {
-        if (sinkConfig == null) {
+    private DataStreamsConfig getDataStreamsConfig() {
+        if (dsConfig == null) {
             List<String> is = getInputSink();
 
-            sinkConfig = new DataStreamsConfig(getLayerProperties(DS_PREFIX), is, is, null, null, null);
+            dsConfig = new DataStreamsConfig(getLayerProperties(DS_PREFIX), is, is, null, null, null);
         }
 
-        return sinkConfig;
+        return dsConfig;
     }
 
     public String[] getSinkSchema(String sink) {
-        return getSinkConfig().getArray(DS_INPUT_SINK_SCHEMA_PREFIX + sink);
+        return getDataStreamsConfig().getArray(DS_INPUT_SINK_SCHEMA_PREFIX + sink);
     }
 
     public String[] getSinkColumns(String sink) {
-        return getSinkConfig().inputColumnsRaw.get(sink);
+        return getDataStreamsConfig().inputColumnsRaw.get(sink);
     }
 
     public char getSinkDelimiter(String sink) {
-        return getSinkConfig().inputDelimiter(sink);
+        return getDataStreamsConfig().inputDelimiter(sink);
     }
 }
