@@ -8,9 +8,7 @@ import ash.nazg.config.InvalidConfigValueException;
 import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.io.compress.*;
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.format.converter.ParquetMetadataConverter;
@@ -21,16 +19,13 @@ import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.schema.MessageType;
 import org.apache.spark.api.java.function.VoidFunction;
 import scala.Tuple3;
-import scala.Tuple4;
 
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 
-public class CopyFilesFunction implements VoidFunction<Tuple4<String, String, String, String>> {
+public class CopyFilesFunction implements VoidFunction<Tuple3<List<String>, String, String>> {
     private static final Map<String, Class<? extends CompressionCodec>> CODECS = new HashMap<>();
 
     static {
@@ -69,6 +64,7 @@ public class CopyFilesFunction implements VoidFunction<Tuple4<String, String, St
 
     private OutputStream decorateOutputStream(Path outputFilePath, Configuration conf) throws Exception {
         FileSystem outputFs = outputFilePath.getFileSystem(conf);
+        outputFs.setVerifyChecksum(false);
         OutputStream outputStream = outputFs.create(outputFilePath);
 
         String suffix = getSuffix(outputFilePath.getName()).toLowerCase();
@@ -186,31 +182,13 @@ public class CopyFilesFunction implements VoidFunction<Tuple4<String, String, St
     }
 
     @Override
-    public void call(Tuple4<String, String, String, String> srcDestGroup) {
-        final String src = srcDestGroup._1();
+    public void call(Tuple3<List<String>, String, String> srcDestGroup) {
+        List<String> srcFiles = srcDestGroup._1();
         String dest = srcDestGroup._2();
-        final String groupBy = srcDestGroup._3();
-        sink = srcDestGroup._4();
+        sink = srcDestGroup._3();
         try {
-            Path srcPath = new Path(src);
-
-            Configuration conf = new Configuration();
-
-            FileSystem srcFS = srcPath.getFileSystem(conf);
-            RemoteIterator<LocatedFileStatus> srcFiles = srcFS.listFiles(srcPath, true);
-
-            Pattern pattern = Pattern.compile(groupBy);
-
-            List<String> ret = new ArrayList<>();
             HashSet<String> codecs = new HashSet<>();
-            while (srcFiles.hasNext()) {
-                String srcFile = srcFiles.next().getPath().toString();
-
-                Matcher m = pattern.matcher(srcFile);
-                if (m.matches()) {
-                    ret.add(srcFile);
-                }
-
+            for (String srcFile: srcFiles) {
                 codecs.add(getSuffix(srcFile));
             }
 
@@ -230,10 +208,16 @@ public class CopyFilesFunction implements VoidFunction<Tuple4<String, String, St
                 dest += "." + codec;
             }
 
-            mergeAndCopyFiles(ret, dest, conf);
+            Configuration conf = new Configuration();
+
+            mergeAndCopyFiles(srcFiles, dest, conf);
 
             if (deleteOnSuccess) {
-                srcFS.delete(srcPath, true);
+                for (String srcFile: srcFiles) {
+                    Path srcPath = new Path(srcFile);
+                    FileSystem srcFS = srcPath.getFileSystem(conf);
+                    srcFS.delete(srcPath, false);
+                }
             }
         } catch (Exception e) {
             System.err.println("Exception with message: " + e.getMessage());

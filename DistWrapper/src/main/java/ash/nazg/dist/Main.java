@@ -27,7 +27,8 @@ public class Main {
                     .setAppName(WrapperBase.APP_NAME)
                     .set("spark.serializer", org.apache.spark.serializer.KryoSerializer.class.getCanonicalName());
 
-            if (configBuilder.hasOption("local")) {
+            boolean local = configBuilder.hasOption("local");
+            if (local) {
                 sparkConf
                         .setMaster("local[*]")
                         .set("spark.network.timeout", "10000");
@@ -46,10 +47,10 @@ public class Main {
             configBuilder.overrideFromCommandLine("distcp.wrap", "d");
             configBuilder.overrideFromCommandLine("distcp.store", "S");
 
-            new DistWrapper(context, config)
+            new DistWrapper(context, config, local)
                     .go();
         } catch (Exception e) {
-            e.printStackTrace();
+            e.printStackTrace(System.err);
 
             System.exit(1);
         } finally {

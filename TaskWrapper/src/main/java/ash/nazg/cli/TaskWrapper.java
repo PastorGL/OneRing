@@ -14,7 +14,6 @@ import ash.nazg.storage.InputAdapter;
 import ash.nazg.storage.OutputAdapter;
 import org.apache.spark.api.java.JavaRDDLike;
 import org.apache.spark.api.java.JavaSparkContext;
-import scala.Tuple3;
 
 import java.util.*;
 
@@ -38,13 +37,7 @@ public class TaskWrapper extends TaskRunnerWrapper {
 
             InputAdapter inputAdapter = Adapters.input(path);
             if ((inputAdapter instanceof HadoopAdapter) && settings.toCluster) {
-                List<Tuple3<String, String, String>> splits = DistCpSettings.srcDestGroup(path);
-
-                StringJoiner joiner = new StringJoiner(",");
-                for (int i = 0; i < splits.size(); i++) {
-                    joiner.add(settings.inputDir + "/" + sink + "/part-" + String.format("%05d", i));
-                }
-                path = joiner.toString();
+                path = settings.inputDir + "/" + sink + "/part-*";
 
                 inputAdapter = Adapters.input(path);
             }

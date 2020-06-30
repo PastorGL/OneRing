@@ -11,29 +11,117 @@ import ash.nazg.storage.Adapters;
 import ash.nazg.storage.HadoopAdapter;
 import ash.nazg.storage.InputAdapter;
 import ash.nazg.storage.OutputAdapter;
+import com.google.common.collect.Lists;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocatedFileStatus;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
+import org.apache.spark.SparkContext;
+import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import scala.Tuple2;
 import scala.Tuple3;
 import scala.Tuple4;
 
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class DistWrapper extends WrapperBase {
+    private final boolean local;
     protected DistCpSettings settings;
     private String codec;
     private boolean deleteOnSuccess = false;
     private Map<String, Tuple3<String[], String[], Character>> sinkInfo;
 
-    public DistWrapper(JavaSparkContext context, WrapperConfig config) {
+    public DistWrapper(JavaSparkContext context, WrapperConfig config, boolean local) {
         super(context, config);
-
+        this.local = local;
+        
         settings = DistCpSettings.fromConfig(wrapperConfig);
     }
 
     // from, to, group, ?sink
     private void distCpCmd(List<Tuple4<String, String, String, String>> list) {
+        JavaRDD<Tuple4<String, String, String, String>> srcDestGroups = context.parallelize(list, list.size());
+
+        // sink?, dest -> files
+        Map<Tuple2<String, String>, List<String>> discoveredFiles = srcDestGroups
+                .mapToPair(srcDestGroup -> {
+                    List<String> files = new ArrayList<>();
+                    try {
+                        Path srcPath = new Path(srcDestGroup._1());
+
+                        Configuration conf = new Configuration();
+
+                        FileSystem srcFS = srcPath.getFileSystem(conf);
+                        RemoteIterator<LocatedFileStatus> srcFiles = srcFS.listFiles(srcPath, true);
+
+                        Pattern pattern = Pattern.compile(srcDestGroup._3());
+
+                        while (srcFiles.hasNext()) {
+                            String srcFile = srcFiles.next().getPath().toString();
+
+                            Matcher m = pattern.matcher(srcFile);
+                            if (m.matches()) {
+                                files.add(srcFile);
+                            }
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Exception while enumerating files to copy: " + e.getMessage());
+                        e.printStackTrace(System.err);
+                        System.exit(13);
+                    }
+
+                    return new Tuple2<>(new Tuple2<>(srcDestGroup._4(), srcDestGroup._2()), files);
+                })
+                .combineByKey(t -> t, (c, t) -> {
+                    c.addAll(t);
+                    return c;
+                }, (c1, c2) -> {
+                    c1.addAll(c2);
+                    return c1;
+                })
+                .collectAsMap();
+
         CopyFilesFunction cff = new CopyFilesFunction(deleteOnSuccess, codec, sinkInfo);
-        context.parallelize(new ArrayList<>(list), list.size())
+
+        SparkContext sc = context.sc();
+        int numOfExecutors = local ? 1 : sc.statusTracker().getExecutorInfos().length - 1;
+
+        List<Tuple3<List<String>, String, String>> regrouped = new ArrayList<>();
+
+        for (Map.Entry<Tuple2<String, String>, List<String>> group : discoveredFiles.entrySet()) {
+            int desiredNumber = numOfExecutors;
+
+            String sink = group.getKey()._1;
+            if (sink != null) {
+                desiredNumber = wrapperConfig.inputParts(sink);
+                if (desiredNumber <= 0) {
+                    desiredNumber = numOfExecutors;
+                }
+            }
+
+            List<String> sinkFiles = group.getValue();
+            int countOfFiles = sinkFiles.size();
+
+            int groupSize = countOfFiles / desiredNumber;
+            if (groupSize <= 0) {
+                groupSize = 1;
+            }
+
+            List<List<String>> sinkParts = Lists.partition(sinkFiles, groupSize);
+
+            for (int i = 0; i < sinkParts.size(); i++) {
+                List<String> sinkPart = sinkParts.get(i);
+
+                regrouped.add(new Tuple3<>(new ArrayList<>(sinkPart), group.getKey()._2 + "/part-" + String.format("%05d", i), sink));
+            }
+        }
+
+        context.parallelize(regrouped, regrouped.size())
                 .foreach(cff);
     }
 
@@ -68,9 +156,8 @@ public class DistWrapper extends WrapperBase {
                         System.out.println("- delimiter: " + wrapperConfig.getSinkDelimiter(sink));
 
                         List<Tuple3<String, String, String>> splits = DistCpSettings.srcDestGroup(path);
-                        for (int i = 0; i < splits.size(); i++) {
-                            Tuple3<String, String, String> split = splits.get(i);
-                            inputs.add(new Tuple4<>(split._2(), settings.inputDir + "/" + sink + "/part-" + String.format("%05d", i), split._3(), sink));
+                        for (Tuple3<String, String, String> split : splits) {
+                            inputs.add(new Tuple4<>(split._2(), settings.inputDir + "/" + sink, split._3(), sink));
                         }
                     }
                 }
