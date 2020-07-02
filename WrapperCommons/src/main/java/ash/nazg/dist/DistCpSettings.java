@@ -7,7 +7,6 @@ import org.apache.commons.lang3.StringUtils;
 import scala.Tuple3;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Matcher;
 
@@ -88,24 +87,44 @@ public class DistCpSettings {
                 String rootPath = m.group(1);
                 String path = m.group(2);
 
-                String[] subs = path.split("/");
-                String[] transSubs = new String[subs.length];
+                List<String> transSubs = new ArrayList<>();
                 int groupingSub = -1;
 
+                String sub = path;
                 int s = 0;
-                boolean translatedOnce = false;
-                for (String sub : subs) {
-                    boolean translated = false;
 
+                nextSub:
+                while (true) {
                     StringBuilder translatedSub = new StringBuilder();
+
                     curlyLevel = 0;
-                    int set = 0;
+                    boolean inSet = false;
                     for (int i = 0; i < sub.length(); i++) {
                         char c = sub.charAt(i);
 
                         switch (c) {
+                            case '/': {
+                                if (!inSet && (curlyLevel == 0)) {
+                                    transSubs.add(translatedSub.toString());
+
+                                    if (++i != sub.length()) {
+                                        s++;
+
+                                        sub = sub.substring(i);
+                                        continue nextSub;
+                                    } else {
+                                        break nextSub;
+                                    }
+                                } else {
+                                    translatedSub.append(c);
+                                }
+                                break;
+                            }
                             case '\\': {
-                                translatedSub.append(c).append(sub.charAt(++i));
+                                translatedSub.append(c);
+                                if (++i != sub.length()) {
+                                    translatedSub.append(sub.charAt(i));
+                                }
                                 break;
                             }
                             case '$':
@@ -119,7 +138,9 @@ public class DistCpSettings {
                             case '{': {
                                 curlyLevel++;
                                 translatedSub.append("(?:");
-                                translatedOnce = translated = true;
+                                if (groupingSub < 0)  {
+                                   groupingSub = s - 1;
+                                }
                                 break;
                             }
                             case '}': {
@@ -137,72 +158,77 @@ public class DistCpSettings {
                             }
                             case '?': {
                                 translatedSub.append('.');
-                                translatedOnce = translated = true;
+                                if (groupingSub < 0)  {
+                                    groupingSub = s - 1;
+                                }
                                 break;
                             }
                             case '*': {
                                 translatedSub.append(".*");
-                                translatedOnce = translated = true;
+                                if (groupingSub < 0)  {
+                                    groupingSub = s - 1;
+                                }
                                 break;
                             }
                             case '[': {
-                                set++;
+                                inSet = true;
                                 translatedSub.append(c);
-                                translatedOnce = translated = true;
+                                if (groupingSub < 0)  {
+                                    groupingSub = s - 1;
+                                }
                                 break;
                             }
-                            case '^' : {
-                                if (set > 0) {
+                            case '^': {
+                                if (inSet) {
                                     translatedSub.append('\\');
                                 }
                                 translatedSub.append(c);
                                 break;
                             }
                             case '!': {
-                                translatedSub.append((set > 0) && ('[' == sub.charAt(i - 1)) ? '^' : '!');
+                                translatedSub.append(inSet && ('[' == sub.charAt(i - 1)) ? '^' : '!');
                                 break;
                             }
                             case ']': {
-                                set = 0;
+                                inSet = false;
                                 translatedSub.append(c);
                                 break;
                             }
-                            default : {
+                            default: {
                                 translatedSub.append(c);
                             }
                         }
                     }
 
-                    if (translated) {
-                        if (groupingSub < 0) {
-                            groupingSub = s - 1;
-                        }
+                    if (inSet || (curlyLevel > 0)) {
+                        throw new InvalidConfigValueException("Glob pattern '" + split + "' contains unbalances range [] or braces {} definition");
                     }
 
-                    transSubs[s] = translatedSub.toString();
+                    if (groupingSub < 0) {
+                        groupingSub = s;
+                    }
 
-                    s++;
+                    transSubs.add(translatedSub.toString());
+
+                    break;
                 }
 
-                if (!translatedOnce) {
-                    groupingSub = subs.length - 1;
-                }
-
-                if (groupingSub < 0) {
+                if (s < 1) {
                     throw new InvalidConfigValueException("Glob pattern '" + split + "' has no valid grouping candidate part in the path");
                 }
 
-                String groupSub = transSubs[groupingSub] + "";
+                String groupSub = transSubs.get(groupingSub);
 
-                transSubs[groupingSub] = "(" + groupSub + ")";
+                transSubs.remove(groupingSub);
+                transSubs.add(groupingSub, "(" + groupSub + ")");
 
-                String joined = StringUtils.join(Arrays.copyOfRange(transSubs, 0, groupingSub), '/');
+                String joined = StringUtils.join(transSubs.subList(0, groupingSub), '/');
                 if (!joined.isEmpty()) {
                     joined += "/";
                 }
                 ret.add(new Tuple3<>(groupSub,
                         rootPath + "/" + joined + groupSub,
-                        ".*/" + StringUtils.join(Arrays.copyOfRange(transSubs, groupingSub, transSubs.length), '/') + ".*"
+                        ".*/" + StringUtils.join(transSubs.subList(groupingSub, transSubs.size()), '/') + ".*"
                 ));
             } else {
                 throw new InvalidConfigValueException("Glob pattern '" + split + "' must have protocol specification and its first path part must be not a grouping candidate");
