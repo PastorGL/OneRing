@@ -8,7 +8,6 @@ import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
-import ash.nazg.config.OperationConfig;
 import ash.nazg.spatial.SpatialUtils;
 import com.opencsv.CSVWriter;
 import com.uber.h3core.H3Core;

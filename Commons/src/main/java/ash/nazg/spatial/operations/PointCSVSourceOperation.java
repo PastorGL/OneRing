@@ -10,7 +10,6 @@ import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
 import ash.nazg.spatial.config.ConfigurationParameters;
 import ash.nazg.spatial.functions.PointCSVMapper;
-import ash.nazg.config.OperationConfig;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 

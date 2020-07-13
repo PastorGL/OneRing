@@ -8,7 +8,6 @@ import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
-import ash.nazg.config.OperationConfig;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import com.uber.h3core.H3Core;
@@ -27,7 +26,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static ash.nazg.spatial.config.ConfigurationParameters.*;
-
 
 @SuppressWarnings("unused")
 public class PolygonH3SourceOperation extends Operation {

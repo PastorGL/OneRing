@@ -8,7 +8,6 @@ import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
-import ash.nazg.config.OperationConfig;
 import com.opencsv.CSVWriter;
 import org.apache.hadoop.io.MapWritable;
 import org.apache.hadoop.io.Text;

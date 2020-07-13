@@ -4,11 +4,10 @@
  */
 package ash.nazg.columnar.operations;
 
-import ash.nazg.spark.Operation;
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.OperationConfig;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVWriter;
@@ -21,12 +20,12 @@ import java.util.*;
 
 @SuppressWarnings("unused")
 public class CustomColumnOperation extends Operation {
-    @Description("Fixed value of a custom column (opaque, not parsed in any way)")
+    @Description("A list of values of custom column(s)")
     public static final String OP_CUSTOM_COLUMN_VALUE = "custom.column.value";
-    @Description("Position to insert a column. Counts from 0 onwards from the beginning of a row, or from the end if < 0 (-1 is last and so on)")
+    @Description("Position(s) to insert column(s). Counts from 0 onwards from the beginning of a row, or from the end if < 0 (-1 is last and so on)")
     public static final String OP_CUSTOM_COLUMN_INDEX = "custom.column.index";
-    @Description("By default, add to the end of a row")
-    public static final Integer DEF_CUSTOM_COLUMN_INDEX = -1;
+    @Description("By default, add a single column to the end of a row")
+    public static final String[] DEF_CUSTOM_COLUMN_INDEX = {"-1"};
 
     public static final String VERB = "customColumn";
 
@@ -34,11 +33,11 @@ public class CustomColumnOperation extends Operation {
     private char inputDelimiter;
     private String outputName;
 
-    private String columnValue;
-    private Integer columnIndex;
+    private String[] columnValues;
+    private int[] columnIndices;
 
     @Override
-    @Description("Insert a custom column in the input CSV at a given index")
+    @Description("Insert a custom column(s) in the input CSV at a given index(ices)")
     public String verb() {
         return VERB;
     }
@@ -47,8 +46,8 @@ public class CustomColumnOperation extends Operation {
     public TaskDescriptionLanguage.Operation description() {
         return new TaskDescriptionLanguage.Operation(verb(),
                 new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(OP_CUSTOM_COLUMN_VALUE),
-                        new TaskDescriptionLanguage.Definition(OP_CUSTOM_COLUMN_INDEX, Integer.class, DEF_CUSTOM_COLUMN_INDEX),
+                        new TaskDescriptionLanguage.Definition(OP_CUSTOM_COLUMN_VALUE, String[].class),
+                        new TaskDescriptionLanguage.Definition(OP_CUSTOM_COLUMN_INDEX, String[].class, DEF_CUSTOM_COLUMN_INDEX),
                 },
 
                 new TaskDescriptionLanguage.OpStreams(
@@ -75,16 +74,17 @@ public class CustomColumnOperation extends Operation {
         inputDelimiter = dataStreamsProps.inputDelimiter(inputName);
         outputName = describedProps.outputs.get(0);
 
-        columnValue = describedProps.defs.getTyped(OP_CUSTOM_COLUMN_VALUE);
-        columnIndex = describedProps.defs.getTyped(OP_CUSTOM_COLUMN_INDEX);
+        columnValues = describedProps.defs.getTyped(OP_CUSTOM_COLUMN_VALUE);
+        String[] indices = describedProps.defs.getTyped(OP_CUSTOM_COLUMN_INDEX);
+        columnIndices = Arrays.stream(indices).map(Integer::parseInt).mapToInt(Integer::intValue).toArray();
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         final char _inputDelimiter = inputDelimiter;
-        final String _columnValue = columnValue;
-        final Integer _columnIndex = columnIndex;
+        final String[] _columnValues = columnValues;
+        final int[] _columnIndices = columnIndices;
 
         JavaRDD<Text> out = ((JavaRDD<Object>) input.get(inputName))
                 .mapPartitions(it -> {
@@ -96,14 +96,26 @@ public class CustomColumnOperation extends Operation {
                         Object o = it.next();
                         String l = o instanceof String ? (String) o : String.valueOf(o);
                         String[] row = parser.parseLine(l);
-                        String[] newRow = new String[row.length + 1];
-                        int columnIndex = _columnIndex < 0
-                                ? row.length + 1 + _columnIndex
-                                : _columnIndex;
+                        String[] newRow = new String[row.length + _columnIndices.length];
 
-                        System.arraycopy(row, 0, newRow, 0, columnIndex);
-                        newRow[columnIndex] = _columnValue;
-                        System.arraycopy(row, columnIndex, newRow, columnIndex + 1, row.length - columnIndex);
+                        for (int i = 0, j = 0, k = 0; i < newRow.length; i++) {
+                            if (k < _columnIndices.length) {
+                                int _columnIndex = _columnIndices[k];
+                                int columnIndex = _columnIndex < 0
+                                        ? row.length + 1 + _columnIndex
+                                        : _columnIndex;
+
+                                if (i == columnIndex) {
+                                    newRow[columnIndex] = _columnValues[k];
+                                    k++;
+
+                                    continue;
+                                }
+                            }
+
+                            newRow[i] = row[j];
+                            j++;
+                        }
 
                         StringWriter buffer = new StringWriter();
                         CSVWriter writer = new CSVWriter(buffer, _inputDelimiter,

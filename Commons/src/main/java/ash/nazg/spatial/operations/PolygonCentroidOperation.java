@@ -8,23 +8,28 @@ import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
+import org.apache.hadoop.io.DoubleWritable;
+import org.apache.hadoop.io.MapWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
+import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
-import org.wololo.jts2geojson.GeoJSONWriter;
 
 import java.util.*;
 
+import static ash.nazg.spatial.config.ConfigurationParameters.GEN_CENTER_LAT;
+import static ash.nazg.spatial.config.ConfigurationParameters.GEN_CENTER_LON;
+
 @SuppressWarnings("unused")
-public class PolygonJSONOutputOperation extends Operation {
-    public static final String VERB = "polygonJsonOutput";
+public class PolygonCentroidOperation extends Operation {
+    public static final String VERB = "polygonCentroid";
 
     private String inputName;
     private String outputName;
 
     @Override
-    @Description("Take a Polygon RDD and produce a GeoJSON fragment file")
+    @Description("Take a Polygon RDD and extract a Point RDD of centroids while keeping all properties")
     public String verb() {
         return VERB;
     }
@@ -43,8 +48,8 @@ public class PolygonJSONOutputOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Plain},
-                                false
+                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Point},
+                                true
                         )
                 )
         );
@@ -60,15 +65,26 @@ public class PolygonJSONOutputOperation extends Operation {
 
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
-        JavaRDD<Text> output = ((JavaRDD<Polygon>) input.get(inputName))
+        JavaRDD<Point> output = ((JavaRDD<Polygon>) input.get(inputName))
                 .mapPartitions(it -> {
-                    GeoJSONWriter wr = new GeoJSONWriter();
+                    Text latAttr = new Text(GEN_CENTER_LAT);
+                    Text lonAttr = new Text(GEN_CENTER_LON);
 
-                    List<Text> result = new ArrayList<>();
+                    List<Point> result = new ArrayList<>();
 
                     while (it.hasNext()) {
-                        Polygon poly = it.next();
-                        result.add(new Text(wr.write(poly).toString()));
+                        Polygon next = it.next();
+
+                        Point centroid = next.getCentroid();
+                        Point point = (Point) centroid.copy();
+
+                        MapWritable props = new MapWritable();
+                        props.putAll((MapWritable) next.getUserData());
+                        props.put(latAttr, new DoubleWritable(centroid.getY()));
+                        props.put(lonAttr, new DoubleWritable(centroid.getX()));
+                        point.setUserData(props);
+
+                        result.add(point);
                     }
 
                     return result.iterator();

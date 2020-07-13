@@ -5,7 +5,6 @@
 package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.OperationConfig;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
