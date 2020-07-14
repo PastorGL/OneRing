@@ -25,7 +25,7 @@ public class NormalizeFunction extends SeriesFunction {
         String[] out = new String[outputColumns.length];
 
         for (int i = 0; i < outputColumns.length; i++) {
-            if (outputColumns[i] > 0) {
+            if (outputColumns[i] >= 0) {
                 out[i] = row[outputColumns[i]];
             } else {
                 double result = new Double(row[columnForCalculation]) / maxValue * upper;
