@@ -32,6 +32,7 @@ public class CustomColumnOperation extends Operation {
     private String inputName;
     private char inputDelimiter;
     private String outputName;
+    private char outputDelimiter;
 
     private String[] columnValues;
     private int[] columnIndices;
@@ -73,6 +74,7 @@ public class CustomColumnOperation extends Operation {
         inputName = describedProps.inputs.get(0);
         inputDelimiter = dataStreamsProps.inputDelimiter(inputName);
         outputName = describedProps.outputs.get(0);
+        outputDelimiter = dataStreamsProps.outputDelimiter(outputName);
 
         columnValues = describedProps.defs.getTyped(OP_CUSTOM_COLUMN_VALUE);
         String[] indices = describedProps.defs.getTyped(OP_CUSTOM_COLUMN_INDEX);
@@ -83,6 +85,7 @@ public class CustomColumnOperation extends Operation {
     @SuppressWarnings("unchecked")
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         final char _inputDelimiter = inputDelimiter;
+        final char _outputDelimiter = outputDelimiter;
         final String[] _columnValues = columnValues;
         final int[] _columnIndices = columnIndices;
 
@@ -118,7 +121,7 @@ public class CustomColumnOperation extends Operation {
                         }
 
                         StringWriter buffer = new StringWriter();
-                        CSVWriter writer = new CSVWriter(buffer, _inputDelimiter,
+                        CSVWriter writer = new CSVWriter(buffer, _outputDelimiter,
                                 CSVWriter.DEFAULT_QUOTE_CHARACTER, CSVWriter.DEFAULT_ESCAPE_CHARACTER, "");
 
                         writer.writeNext(newRow, false);
