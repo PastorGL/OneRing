@@ -14,7 +14,7 @@ public class MulFunction extends ColumnsMathFunction {
         String[] out = new String[outputColumns.length];
 
         for (int i = 0; i < outputColumns.length; i++) {
-            if (outputColumns[i] > 0) {
+            if (outputColumns[i] >= 0) {
                 out[i] = row[outputColumns[i]];
             } else {
                 double result = (_const != null) ? _const : 1.D;
