@@ -37,7 +37,7 @@ public class CustomColumnOperationTest {
             List<Text> list = ret.get("with_column").collect();
 
             long count = list.stream().filter(text -> {
-                CSVParser parser = new CSVParserBuilder().withSeparator(',').build();
+                CSVParser parser = new CSVParserBuilder().withSeparator('|').build();
                 String[] row = new String[0];
                 try {
                     row = parser.parseLine(text.toString());
@@ -71,7 +71,7 @@ public class CustomColumnOperationTest {
             List<Text> list = ret.get("with_columns").collect();
 
             long count = list.stream().filter(text -> {
-                CSVParser parser = new CSVParserBuilder().withSeparator(',').build();
+                CSVParser parser = new CSVParserBuilder().withSeparator('\t').build();
                 String[] row = new String[0];
                 try {
                     row = parser.parseLine(text.toString());
