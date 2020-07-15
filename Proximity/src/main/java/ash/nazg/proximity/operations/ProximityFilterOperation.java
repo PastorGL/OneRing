@@ -5,7 +5,6 @@
 package ash.nazg.proximity.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.OperationConfig;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
@@ -104,14 +103,11 @@ public class ProximityFilterOperation extends Operation {
 
         final SpatialUtils spatialUtils = new SpatialUtils();
 
-        // Get hashed POIs
-        // hash -> props, radius
-        JavaPairRDD<Long, Tuple2<MapWritable, Double>> hashedPois = inputPois
-                .mapPartitionsToPair(it -> {
-                    List<Tuple2<Long, Tuple2<MapWritable, Double>>> result = new ArrayList<>();
+        // Get POIs radii
+        JavaRDD<Tuple2<MapWritable, Double>> poiRadii = inputPois
+                .mapPartitions(it -> {
+                    List<Tuple2<MapWritable, Double>> result = new ArrayList<>();
 
-                    Text latAttr = new Text("_center_lat");
-                    Text lonAttr = new Text("_center_lon");
                     Text radiusAttr = new Text("_radius");
 
                     while (it.hasNext()) {
@@ -120,22 +116,41 @@ public class ProximityFilterOperation extends Operation {
                         MapWritable properties = (MapWritable) o.getUserData();
 
                         double radius = ((DoubleWritable) properties.get(radiusAttr)).get();
-                        result.add(new Tuple2<>(
-                                spatialUtils.getHash(
-                                        ((DoubleWritable) properties.get(latAttr)).get(),
-                                        ((DoubleWritable) properties.get(lonAttr)).get(),
-                                        radius
-                                ),
-                                new Tuple2<>(properties, radius))
-                        );
+                        result.add(new Tuple2<>(properties, radius));
                     }
 
                     return result.iterator();
                 });
 
-        final double _maxRadius = hashedPois
-                .map(t -> t._2._2)
+        final double _maxRadius = poiRadii
+                .map(t -> t._2)
                 .max(Comparator.naturalOrder());
+
+        // hash -> props, radius
+        JavaPairRDD<Long, Tuple2<MapWritable, Double>> hashedPois = poiRadii
+                .mapPartitionsToPair(it -> {
+                    List<Tuple2<Long, Tuple2<MapWritable, Double>>> result = new ArrayList<>();
+
+                    Text latAttr = new Text("_center_lat");
+                    Text lonAttr = new Text("_center_lon");
+
+                    while (it.hasNext()) {
+                        Tuple2<MapWritable, Double> o = it.next();
+
+                        MapWritable properties = o._1;
+
+                        result.add(new Tuple2<>(
+                                spatialUtils.getHash(
+                                        ((DoubleWritable) properties.get(latAttr)).get(),
+                                        ((DoubleWritable) properties.get(lonAttr)).get(),
+                                        _maxRadius
+                                ),
+                                new Tuple2<>(properties, o._2))
+                        );
+                    }
+
+                    return result.iterator();
+                });
 
         Map<Long, Iterable<Tuple2<MapWritable, Double>>> hashedPoisMap = hashedPois
                 .groupByKey()
