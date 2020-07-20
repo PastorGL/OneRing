@@ -8,7 +8,6 @@ import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
-import ash.nazg.spatial.SpatialUtils;
 import com.opencsv.CSVWriter;
 import com.uber.h3core.H3Core;
 import com.uber.h3core.LengthUnit;
@@ -96,7 +95,7 @@ public class H3GeoCoverOperation extends Operation {
         level = describedProps.defs.getTyped(OP_HASH_LEVEL);
 
         if ((level < 0) || (level > 15)) {
-            throw new InvalidConfigValueException("Mesh level must fall into interval '0'..'15' but is '" + level + "' in the operation '" + name + "'");
+            throw new InvalidConfigValueException("Hash level must fall into interval '0'..'15' but is '" + level + "' in the operation '" + name + "'");
         }
     }
 
@@ -114,7 +113,6 @@ public class H3GeoCoverOperation extends Operation {
             Text radiusAttr = new Text(GEN_RADIUS);
 
             H3Core h3 = H3Core.newInstance();
-            final SpatialUtils spatialUtils = new SpatialUtils();
 
             while (it.hasNext()) {
                 Object o = it.next();

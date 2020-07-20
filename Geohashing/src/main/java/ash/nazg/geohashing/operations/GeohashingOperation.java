@@ -5,7 +5,6 @@
 package ash.nazg.geohashing.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.OperationConfig;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.geohashing.functions.HasherFunction;
@@ -102,13 +101,13 @@ public abstract class GeohashingOperation extends Operation {
         level = describedProps.defs.getTyped(OP_HASH_LEVEL);
 
         if (level < getMinLevel() || level > getMaxLevel()) {
-            throw new InvalidConfigValueException("Mesh level must fall into interval '" + getMinLevel() + "'..'" + getMaxLevel() + "' but is '" + level + "' in the operation '" + name + "'");
+            throw new InvalidConfigValueException("Geohash level must fall into interval '" + getMinLevel() + "'..'" + getMaxLevel() + "' but is '" + level + "' in the operation '" + name + "'");
         }
 
         try {
             hasher = getHasher();
         } catch (Exception e) {
-            throw new InvalidConfigValueException("Hasher can't initialize with an exception for the operation '" + name + "'", e);
+            throw new InvalidConfigValueException("Geohasher can't initialize with an exception for the operation '" + name + "'", e);
         }
     }
 
