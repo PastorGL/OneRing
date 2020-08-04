@@ -34,9 +34,9 @@ public class Main {
                         .set("spark.network.timeout", "10000");
 
                 if (configBuilder.hasOption("driverMemory")) {
-                    sparkConf
-                            .set("spark.driver.memory", configBuilder.getOptionValue("driverMemory"));
+                    sparkConf.set("spark.driver.memory", configBuilder.getOptionValue("driverMemory"));
                 }
+                sparkConf.set("spark.ui.enabled", String.valueOf(configBuilder.hasOption("sparkUI")));
             }
 
             context = new JavaSparkContext(sparkConf);

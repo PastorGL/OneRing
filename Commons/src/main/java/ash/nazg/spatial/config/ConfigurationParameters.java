@@ -25,4 +25,6 @@ public final class ConfigurationParameters {
     public static final String GEN_CENTER_LON = "_center_lon";
     @Description("Point radius attribute")
     public static final String GEN_RADIUS = "_radius";
+    @Description("Column with a generated hash value")
+    public static final String GEN_HASH = "_hash";
 }

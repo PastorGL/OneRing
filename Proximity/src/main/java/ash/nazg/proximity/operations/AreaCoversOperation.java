@@ -5,7 +5,6 @@
 package ash.nazg.proximity.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.OperationConfig;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
@@ -27,9 +26,6 @@ import java.util.stream.Collectors;
 
 import static ash.nazg.proximity.config.ConfigurationParameters.*;
 
-/**
- * Joining points by distance
- */
 @SuppressWarnings("unused")
 public class AreaCoversOperation extends Operation {
     public static final String VERB = "areaCovers";

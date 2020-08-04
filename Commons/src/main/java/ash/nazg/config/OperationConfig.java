@@ -8,7 +8,6 @@ import ash.nazg.config.tdl.TaskDescriptionLanguage;
 
 import java.lang.reflect.Constructor;
 import java.util.*;
-import java.util.regex.Matcher;
 
 public class OperationConfig extends PropertiesConfig {
     public static final String OP_INPUTS_PREFIX = "op.inputs.";

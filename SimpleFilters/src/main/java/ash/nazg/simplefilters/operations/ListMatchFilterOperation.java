@@ -7,7 +7,6 @@ package ash.nazg.simplefilters.operations;
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
-import ash.nazg.config.OperationConfig;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import org.apache.spark.api.java.JavaRDD;
@@ -15,17 +14,10 @@ import org.apache.spark.api.java.JavaRDDLike;
 
 import java.util.*;
 
+import static ash.nazg.simplefilters.config.ConfigurationParameters.*;
+
 @SuppressWarnings("unused")
 public class ListMatchFilterOperation extends MatchFilterOperation {
-    @Description("CSV RDD with to be filtered")
-    public static final String RDD_INPUT_SOURCE = "source";
-    @Description("CSV RDD with values to match any of them")
-    public static final String RDD_INPUT_VALUES = "values";
-    @Description("Column to match a value")
-    public static final String DS_MATCH_COLUMN = "source.match.column";
-    @Description("Column with a value to match")
-    public static final String DS_VALUES_COLUMN = "values.match.column";
-
     public static final String VERB = "listMatch";
 
     private String inputValuesName;
@@ -43,8 +35,8 @@ public class ListMatchFilterOperation extends MatchFilterOperation {
     public TaskDescriptionLanguage.Operation description() {
         return new TaskDescriptionLanguage.Operation(verb(),
                 new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(DS_MATCH_COLUMN),
-                        new TaskDescriptionLanguage.Definition(DS_VALUES_COLUMN),
+                        new TaskDescriptionLanguage.Definition(DS_SOURCE_MATCH_COLUMN),
+                        new TaskDescriptionLanguage.Definition(DS_VALUES_MATCH_COLUMN),
                 },
 
                 new TaskDescriptionLanguage.OpStreams(
@@ -79,7 +71,7 @@ public class ListMatchFilterOperation extends MatchFilterOperation {
         Map<String, Integer> inputColumns = dataStreamsProps.inputColumns.get(inputName);
 
         String prop;
-        prop = describedProps.defs.getTyped(DS_MATCH_COLUMN);
+        prop = describedProps.defs.getTyped(DS_SOURCE_MATCH_COLUMN);
         matchColumn = inputColumns.get(prop);
 
         inputValuesName = describedProps.namedInputs.get(RDD_INPUT_VALUES);
@@ -87,7 +79,7 @@ public class ListMatchFilterOperation extends MatchFilterOperation {
 
         inputColumns = dataStreamsProps.inputColumns.get(inputValuesName);
 
-        prop = describedProps.defs.getTyped(DS_VALUES_COLUMN);
+        prop = describedProps.defs.getTyped(DS_VALUES_MATCH_COLUMN);
         valuesColumn = inputColumns.get(prop);
     }
 

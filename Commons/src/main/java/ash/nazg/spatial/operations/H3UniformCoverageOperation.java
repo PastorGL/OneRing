@@ -26,18 +26,16 @@ import java.io.StringWriter;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static ash.nazg.spatial.config.ConfigurationParameters.GEN_RADIUS;
+import static ash.nazg.spatial.config.ConfigurationParameters.*;
 
 @SuppressWarnings("unused")
-public class H3GeoCoverOperation extends Operation {
+public class H3UniformCoverageOperation extends Operation {
     @Description("Default hash level")
     public static final Integer DEF_HASH_LEVEL = 9;
     @Description("Level of the hash")
     public static final String OP_HASH_LEVEL = "hash.level";
-    @Description("Column with a generated hash value")
-    public static final String GEN_HASH = "_hash";
 
-    private static final String VERB = "h3GeoCover";
+    private static final String VERB = "h3UniformCoverage";
 
     protected Integer level;
     private String inputName;
@@ -46,7 +44,7 @@ public class H3GeoCoverOperation extends Operation {
     private List<String> outputColumns;
 
     @Override
-    @Description("Create a complete (non-collapsed) H3 coverage from the Polygon or Point RDD. Can pass" +
+    @Description("Create a uniform (non-compact) H3 coverage from the Polygon or Point RDD. Can pass" +
             " any properties from the source geometries to the resulting CSV RDD columns, for each hash per each geometry")
     public String verb() {
         return VERB;
@@ -87,7 +85,6 @@ public class H3GeoCoverOperation extends Operation {
         Map<String, Integer> inputColumns = dataStreamsProps.inputColumns.get(inputName);
         String prop;
 
-        List<Integer> out = new ArrayList<>();
         outputColumns = Arrays.stream(dataStreamsProps.outputColumns.get(outputName))
                 .map(c -> c.replaceFirst("^" + inputName + "\\.", ""))
                 .collect(Collectors.toList());
