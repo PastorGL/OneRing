@@ -19,9 +19,10 @@ public class TaskWrapperConfigBuilder extends WrapperConfigBuilder {
                 .addOption("x", "task", true, "Task prefix in the config file")
                 .addOption("V", "variables", true, "name=value pairs of substitution variables for the Spark config encoded as Base64")
                 .addOption("v", "variablesFile", true, "Path to variables file, name=value pairs per each line")
-                .addOption("l", "local", false, "Run in local[*] mode")
-                .addOption("m", "driverMemory", true, "Driver memory for local mode (no effect otherwise)")
-                .addOption("u", "sparkUI", false, "Enable Spark UI for local mode (no effect otherwise)")
+                .addOption("l", "local", false, "Run in local mode (its options have no effect otherwise)")
+                .addOption("m", "driverMemory", true, "Driver memory for local mode, by default Spark uses 1g")
+                .addOption("u", "sparkUI", false, "Enable Spark UI for local mode, by default it is disabled")
+                .addOption("L", "localCores", true, "Set cores # for local mode, by default * -- all cores")
                 .addOption("S", "wrapperStorePath", true, "Path where to store a list of wrapped wildcards outputs");
     }
 

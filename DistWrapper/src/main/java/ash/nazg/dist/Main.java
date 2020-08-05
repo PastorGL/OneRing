@@ -29,8 +29,13 @@ public class Main {
 
             boolean local = configBuilder.hasOption("local");
             if (local) {
+                String cores = "*";
+                if (configBuilder.hasOption("localCores")) {
+                    cores = configBuilder.getOptionValue("localCores");
+                }
+
                 sparkConf
-                        .setMaster("local[*]")
+                        .setMaster("local[" + cores + "]")
                         .set("spark.network.timeout", "10000");
 
                 if (configBuilder.hasOption("driverMemory")) {
