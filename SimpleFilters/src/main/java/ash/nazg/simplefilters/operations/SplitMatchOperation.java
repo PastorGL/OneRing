@@ -37,7 +37,8 @@ public class SplitMatchOperation extends Operation {
     private int[] outputCols;
 
     @Override
-    @Description("Takes a CSV RDD with hashed signals and CSV RDD with H3 hashes and filters signals by coverage")
+    @Description("Takes a CSV RDD with values in a column and CSV RDD with tokens in another column," +
+            " and augments rows of first by values from second for all token matches")
     public String verb() {
         return VERB;
     }
@@ -92,16 +93,16 @@ public class SplitMatchOperation extends Operation {
         outputMatchedName = describedProps.namedOutputs.get(RDD_OUTPUT_MATCHED);
         outputEvictedName = describedProps.namedOutputs.get(RDD_OUTPUT_EVICTED);
 
-        Map<String, Integer> inputSignalsColumns = dataStreamsProps.inputColumns.get(inputSourceName);
-        Map<String, Integer> inputGeometriesColumns = dataStreamsProps.inputColumns.get(inputValuesName);
+        Map<String, Integer> inputSourceColumns = dataStreamsProps.inputColumns.get(inputSourceName);
+        Map<String, Integer> inputValuesColumns = dataStreamsProps.inputColumns.get(inputValuesName);
 
         String prop;
 
         prop = describedProps.defs.getTyped(DS_SOURCE_MATCH_COLUMN);
-        matchColumn = inputSignalsColumns.get(prop);
+        matchColumn = inputSourceColumns.get(prop);
 
         prop = describedProps.defs.getTyped(DS_VALUES_MATCH_COLUMN);
-        valuesColumn = inputSignalsColumns.get(prop);
+        valuesColumn = inputValuesColumns.get(prop);
 
         outputDelimiter = dataStreamsProps.outputDelimiter(outputMatchedName);
 
@@ -110,8 +111,8 @@ public class SplitMatchOperation extends Operation {
         for (int i = 0; i < outputColumns.length; i++) {
             String col = outputColumns[i];
             outputCols[i] = col.startsWith(inputValuesName)
-                    ? -inputGeometriesColumns.get(col) - 1
-                    : +inputSignalsColumns.get(col);
+                    ? -inputValuesColumns.get(col) - 1
+                    : +inputSourceColumns.get(col);
         }
     }
 
@@ -144,17 +145,17 @@ public class SplitMatchOperation extends Operation {
 
                         String[] acc = new String[_outputCols.length];
 
+                        for (int i = 0; i < _outputCols.length; i++) {
+                            int c = _outputCols[i];
+
+                            acc[i] = (c < 0) ? "" : row[c];
+                        }
+
                         StringWriter buffer = new StringWriter();
                         CSVWriter writer = new CSVWriter(buffer, _outputDelimiter, CSVWriter.DEFAULT_QUOTE_CHARACTER,
                                 CSVWriter.DEFAULT_ESCAPE_CHARACTER, "");
                         writer.writeNext(acc, false);
                         writer.close();
-
-                        for (int i = 0; i < outputCols.length; i++) {
-                            int c = outputCols[i];
-
-                            acc[i] = (c < 0) ? "" : row[i];
-                        }
 
                         ret.add(new Tuple2<>(source, new Text(buffer.toString())));
                     }
@@ -183,10 +184,10 @@ public class SplitMatchOperation extends Operation {
 
                         String[] acc = new String[_outputCols.length];
 
-                        for (int i = 0; i < outputCols.length; i++) {
-                            int c = outputCols[i];
+                        for (int i = 0; i < _outputCols.length; i++) {
+                            int c = _outputCols[i];
 
-                            acc[i] = (c < 0) ? row[-i + 1] : "";
+                            acc[i] = (c < 0) ? row[-1 - c] : "";
                         }
 
                         StringWriter buffer = new StringWriter();
@@ -202,7 +203,7 @@ public class SplitMatchOperation extends Operation {
                 })
                 .repartition(partCount);
 
-        JavaPairRDD<Boolean, Text> signals = sourcePair
+        JavaPairRDD<Boolean, Text> matched = sourcePair
                 .zipPartitions(valuesPair, (itSource, itValues) -> {
                     List<Tuple2<Boolean, Text>> result = new ArrayList<>();
 
@@ -224,13 +225,15 @@ public class SplitMatchOperation extends Operation {
                             String match = values.get(source).toString();
                             String value = s._2.toString();
 
-                            String[] acc = parser.parseLine(value);
                             String[] row = parser.parseLine(match);
+                            String[] acc = parser.parseLine(value);
 
-                            for (int i = 0; i < outputCols.length; i++) {
-                                int c = outputCols[i];
+                            for (int i = 0; i < _outputCols.length; i++) {
+                                int c = _outputCols[i];
 
-                                acc[i] = (c < 0) ? row[i] : acc[i];
+                                if (c < 0) {
+                                    acc[i] = row[i];
+                                }
                             }
 
                             StringWriter buffer = new StringWriter();
@@ -251,12 +254,12 @@ public class SplitMatchOperation extends Operation {
 
         if (outputEvictedName != null) {
             Map<String, JavaRDDLike> ret = new HashMap<>();
-            ret.put(outputMatchedName, signals.filter(t -> t._1).values());
-            ret.put(outputEvictedName, signals.filter(t -> !t._1).values());
+            ret.put(outputMatchedName, matched.filter(t -> t._1).values());
+            ret.put(outputEvictedName, matched.filter(t -> !t._1).values());
 
             return Collections.unmodifiableMap(ret);
         } else {
-            return Collections.singletonMap(outputMatchedName, signals.filter(t -> t._1).values());
+            return Collections.singletonMap(outputMatchedName, matched.filter(t -> t._1).values());
         }
     }
 }

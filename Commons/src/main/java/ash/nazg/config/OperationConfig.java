@@ -9,6 +9,8 @@ import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import java.lang.reflect.Constructor;
 import java.util.*;
 
+import static ash.nazg.config.WrapperConfig.DS_PREFIX;
+
 public class OperationConfig extends PropertiesConfig {
     public static final String OP_INPUTS_PREFIX = "op.inputs.";
     public static final String OP_INPUT_PREFIX = "op.input.";
@@ -118,7 +120,7 @@ public class OperationConfig extends PropertiesConfig {
             }
         }
 
-        DataStreamsConfig dsc = new DataStreamsConfig(sourceConfig, allInputs, columnBasedInputs, allOutputs, columnBasedOutputs, generatedColumns);
+        DataStreamsConfig dsc = new DataStreamsConfig(getLayerProperties(DS_PREFIX), allInputs, columnBasedInputs, allOutputs, columnBasedOutputs, generatedColumns);
 
         if (opDesc.definitions != null) {
             for (TaskDescriptionLanguage.DefBase defDesc : opDesc.definitions) {
