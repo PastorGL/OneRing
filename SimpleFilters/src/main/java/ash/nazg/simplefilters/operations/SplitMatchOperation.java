@@ -8,6 +8,7 @@ import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVWriter;
 import org.apache.hadoop.io.Text;
+import org.apache.spark.HashPartitioner;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
@@ -128,6 +129,8 @@ public class SplitMatchOperation extends Operation {
 
         JavaRDD<Object> inputSource = (JavaRDD<Object>) input.get(inputSourceName);
 
+        int _numPartitions = inputSource.getNumPartitions();
+
         JavaPairRDD<Text, Text> sourcePair = inputSource
                 .mapPartitionsToPair(it -> {
                     List<Tuple2<Text, Text>> ret = new ArrayList<>();
@@ -161,9 +164,8 @@ public class SplitMatchOperation extends Operation {
                     }
 
                     return ret.iterator();
-                });
-
-        int partCount = sourcePair.getNumPartitions();
+                })
+                .partitionBy(new HashPartitioner(_numPartitions));
 
         JavaRDD<Object> inputValues = (JavaRDD<Object>) input.get(inputValuesName);
 
@@ -201,7 +203,7 @@ public class SplitMatchOperation extends Operation {
 
                     return ret.iterator();
                 })
-                .repartition(partCount);
+                .partitionBy(new HashPartitioner(_numPartitions));
 
         JavaPairRDD<Boolean, Text> matched = sourcePair
                 .zipPartitions(valuesPair, (itSource, itValues) -> {
