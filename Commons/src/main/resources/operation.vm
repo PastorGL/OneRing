@@ -30,7 +30,7 @@ Name | Type | Description
     #end
 #end
 
-#if( $op.positionalOutputs != $null || $op.namesOutputs.size() > 0 )
+#if( $op.positionalOutputs != $null || $op.namedOutputs.size() > 0 )
 $H$H Outputs
 
     #if( $op.positionalOutputs != $null )
