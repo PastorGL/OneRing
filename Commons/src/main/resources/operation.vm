@@ -6,55 +6,25 @@ $op.descr
 
 Configuration examples: [JSON](../operation/$op.verb/example.json), [.ini](../operation/$op.verb/example.ini)
 
-#if( $op.positionalInputs != $null || $op.namedInputs.size() > 0 )
 $H$H Inputs
 
-    #if( $op.positionalInputs != $null )
+#if( $op.positionalInputs != $null )
 $H$H$H Positional
 
 Allowed types are #foreach( $type in $op.positionalInputs.type )`$type`#if( $foreach.hasNext ), #end#end
 
-        #if( $op.positionalMin != $null)
+    #if( $op.positionalMin != $null)
 There is a required minimum of **$op.positionalMin** positional inputs
-        #end
     #end
+#end
 
-    #if( $op.namedInputs.size() > 0 )
+#if( $op.namedInputs.size() > 0 )
 $H$H$H Named
 
 Name | Type | Description
 --- | --- | ---
-        #foreach( $input in $op.namedInputs )
+    #foreach( $input in $op.namedInputs )
 `$input.name` | #foreach( $type in $input.type )`$type`#if( $foreach.hasNext ), #end#end | $input.descr
-        #end
-    #end
-#end
-
-#if( $op.positionalOutputs != $null || $op.namedOutputs.size() > 0 )
-$H$H Outputs
-
-    #if( $op.positionalOutputs != $null )
-$H$H$H Positional
-
-Resulting types are #foreach( $type in $op.positionalOutputs.type )`$type`#if( $foreach.hasNext ), #end#end
-#if( $op.positionalOutputs.generated.size() > 0 )
-
-Generated column | Description
---- | ---
-#foreach( $gen in $op.positionalOutputs.generated )
-`$gen.name` | $gen.descr
-#end
-#end
-    #end
-
-    #if( $op.namedOutputs.size() > 0 )
-$H$H$H Named
-
-Name | Type | Description | Generated columns
---- | --- | --- | ---
-        #foreach( $output in $op.namedOutputs )
-`$output.name` | #foreach( $type in $output.type )`$type`#if( $foreach.hasNext ), #end#end | $output.descr | #foreach( $gen in $output.generated )`$gen.name` — $gen.descr#if( $foreach.hasNext )<br>#end#end
-        #end
     #end
 #end
 
@@ -89,6 +59,32 @@ Name prefix | Type | Description | Allowed values
         #foreach( $param in $op.dynamicParameters )
 `$param.name` | `$param.type` | $param.descr | #foreach( $value in $param.values ) `$value.name` — $value.descr#if( $foreach.hasNext )<br>#end#end
         #end
+    #end
+#end
+
+$H$H Outputs
+
+#if( $op.positionalOutputs != $null )
+$H$H$H Positional
+
+Resulting types are #foreach( $type in $op.positionalOutputs.type )`$type`#if( $foreach.hasNext ), #end#end
+    #if( $op.positionalOutputs.generated.size() > 0 )
+
+Generated column | Description
+--- | ---
+        #foreach( $gen in $op.positionalOutputs.generated )
+`$gen.name` | $gen.descr
+        #end
+    #end
+#end
+
+#if( $op.namedOutputs.size() > 0 )
+$H$H$H Named
+
+Name | Type | Description | Generated columns
+--- | --- | --- | ---
+    #foreach( $output in $op.namedOutputs )
+`$output.name` | #foreach( $type in $output.type )`$type`#if( $foreach.hasNext ), #end#end | $output.descr | #foreach( $gen in $output.generated )`$gen.name` — $gen.descr#if( $foreach.hasNext )<br>#end#end
     #end
 #end
 
