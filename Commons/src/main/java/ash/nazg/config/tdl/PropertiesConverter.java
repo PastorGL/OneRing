@@ -276,12 +276,20 @@ public class PropertiesConverter {
     }
 
     static private String stringify(Object value) {
+        if (value == null) {
+            return "null";
+        }
+
         return value.getClass() == String[].class
                 ? String.join(",", (String[]) value)
                 : String.valueOf(value);
     }
 
     static public Properties toProperties(TaskDefinitionLanguage.Task task) {
+        return toProperties(task, false);
+    }
+
+    static public Properties toProperties(TaskDefinitionLanguage.Task task, boolean withDefaults) {
         Properties properties = new Properties();
         List<String> opNames = new ArrayList<>();
         for (TaskDefinitionLanguage.Operation op : task.operations) {
@@ -292,7 +300,7 @@ public class PropertiesConverter {
 
             if (op.definitions != null) {
                 for (TaskDefinitionLanguage.Definition def : op.definitions) {
-                    if ((def.useDefaults == null) || !def.useDefaults) {
+                    if (withDefaults || (def.useDefaults == null) || !def.useDefaults) {
                         properties.put(OperationConfig.OP_DEFINITION_PREFIX + opName + "." + def.name, stringify(def.value));
                     }
                 }

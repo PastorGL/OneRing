@@ -5,19 +5,23 @@
 package ash.nazg.rest.service;
 
 import ash.nazg.config.tdl.DocumentationGenerator;
-import ash.nazg.spark.OpInfo;
-import ash.nazg.spark.Operation;
-import ash.nazg.spark.Operations;
 import ash.nazg.config.tdl.TaskDefinitionLanguage;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.TaskDocumentationLanguage;
+import ash.nazg.spark.OpInfo;
+import ash.nazg.spark.Operations;
+import org.apache.velocity.Template;
+import org.apache.velocity.VelocityContext;
+import org.apache.velocity.app.Velocity;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.util.List;
-import java.util.Properties;
 import java.util.stream.Collectors;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 @Singleton
 public class OperationService {
@@ -42,8 +46,8 @@ public class OperationService {
         return createExample(null, verb);
     }
 
-    public Properties example(String prefix, String verb) {
-        return taskService.validateTask(createExample(prefix, verb));
+    public TaskDefinitionLanguage.Task example(String prefix, String verb) {
+        return createExample(prefix, verb);
     }
 
     private TaskDefinitionLanguage.Task createExample(String prefix, String verb) {
@@ -53,12 +57,31 @@ public class OperationService {
             return null;
         }
 
-        return DocumentationGenerator.createExampleTask(opInfo, prefix);
+        try {
+            TaskDocumentationLanguage.Operation opDoc = DocumentationGenerator.operationDoc(opInfo);
+
+            return DocumentationGenerator.createExampleTask(opInfo, opDoc, prefix);
+        } catch (Exception ignore) {
+        }
+
+        return null;
     }
 
     public String doc(String verb) {
+        OpInfo opInfo = Operations.getAvailableOperations().get(verb);
+
+        if (opInfo == null) {
+            return null;
+        }
+
         try (Writer writer = new StringWriter()) {
-            DocumentationGenerator.operationDoc(Operations.getAvailableOperations().get(verb), writer);
+            TaskDocumentationLanguage.Operation opDoc = DocumentationGenerator.operationDoc(opInfo);
+
+            VelocityContext vc = new VelocityContext();
+            vc.put("op", opDoc);
+
+            Template operation = Velocity.getTemplate("operation.vm", UTF_8.name());
+            operation.merge(vc, writer);
 
             return writer.toString();
         } catch (Exception ignore) {

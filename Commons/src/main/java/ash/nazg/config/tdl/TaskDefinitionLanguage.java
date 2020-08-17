@@ -51,10 +51,12 @@ public class TaskDefinitionLanguage {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class Operation {
         @JsonProperty(value = "definitions")
+        @JsonInclude(JsonInclude.Include.NON_EMPTY)
         @Valid
         public Definition[] definitions;
 
         @JsonProperty(value = "dynamicDefs")
+        @JsonInclude(JsonInclude.Include.NON_EMPTY)
         @Valid
         public DynamicDef[] dynamicDefs;
 

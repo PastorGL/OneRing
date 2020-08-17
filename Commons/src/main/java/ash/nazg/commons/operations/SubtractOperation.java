@@ -61,7 +61,7 @@ public class SubtractOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.KeyValue, TaskDescriptionLanguage.StreamType.Plain, TaskDescriptionLanguage.StreamType.CSV},
+                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.KeyValue, TaskDescriptionLanguage.StreamType.Plain},
                                 true
                         ),
                         2

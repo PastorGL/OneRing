@@ -22,6 +22,7 @@ import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.Velocity;
 
 import java.io.FileWriter;
+import java.io.IOException;
 import java.io.Writer;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -29,12 +30,13 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-import static ash.nazg.config.OperationConfig.COLUMN_SUFFIX;
+import static ash.nazg.config.OperationConfig.*;
+import static ash.nazg.config.WrapperConfig.*;
 import static ash.nazg.config.tdl.PropertiesConverter.DEFAULT_DS;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class DocumentationGenerator {
-    public static TaskDefinitionLanguage.Task createExampleTask(OpInfo opInfo, String prefix) {
+    public static TaskDefinitionLanguage.Task createExampleTask(OpInfo opInfo, TaskDocumentationLanguage.Operation opDoc,  String prefix) {
         List<TaskDefinitionLanguage.Operation> ops = new ArrayList<>();
         List<TaskDefinitionLanguage.DataStream> streams = new ArrayList<>();
         List<String> sink = new ArrayList<>();
@@ -54,6 +56,10 @@ public class DocumentationGenerator {
             List<TaskDefinitionLanguage.Definition> defs = new ArrayList<>();
             List<TaskDefinitionLanguage.DynamicDef> dynDefs = new ArrayList<>();
 
+            Map<String, String> manDescr = parameterListToMap(opDoc.getMandatoryParameters());
+            Map<String, String> optDescr = parameterListToMap(opDoc.getOptionalParameters());
+            Map<String, String> dynDescr = parameterListToMap(opDoc.getDynamicParameters());
+
             for (TaskDescriptionLanguage.DefBase db : descr.definitions) {
                 if (db instanceof TaskDescriptionLanguage.Definition) {
                     TaskDescriptionLanguage.Definition def = (TaskDescriptionLanguage.Definition) db;
@@ -62,12 +68,12 @@ public class DocumentationGenerator {
                     d.name = def.name;
 
                     if (def.optional) {
-                        d.value = def.defaults;
+                        d.value = "<* " + def.defaults + ": " + optDescr.get(def.name) + " *>";
                     } else {
                         if (def.clazz.isEnum()) {
-                            d.value = Arrays.stream(def.enumValues).collect(Collectors.joining(" ", "<* One of the following: ", " *>"));
+                            d.value = Arrays.stream(def.enumValues).collect(Collectors.joining(", ", "<* One of: ", " *>"));
                         } else {
-                            d.value = "<* Value of type " + def.clazz.getSimpleName() + " *>";
+                            d.value = "<* " + def.clazz.getSimpleName() + ": " + manDescr.get(def.name) + " *>";
                         }
                     }
 
@@ -98,9 +104,9 @@ public class DocumentationGenerator {
 
                     d.name = dyn.prefix + "*";
                     if (dyn.clazz.isEnum()) {
-                        d.value = Arrays.stream(dyn.enumValues).collect(Collectors.joining(" ", "<* One of the following: ", " *>"));
+                        d.value = Arrays.stream(dyn.enumValues).collect(Collectors.joining(" ", "<* One of: ", " *>"));
                     } else {
-                        d.value = "<* Value of type " + dyn.clazz.getSimpleName() + " *>";
+                        d.value = "<* " + dyn.clazz.getSimpleName() + ": " + dynDescr.get(dyn.prefix) + " *>";
                     }
 
                     dynDefs.add(d);
@@ -131,11 +137,11 @@ public class DocumentationGenerator {
                     if ((named != null) && !named.isEmpty()) {
                         columns.addAll(named);
                     } else {
-                        columns.add("<* A list of columns goes here *>");
+                        columns.add("<* A list of columns *>");
                     }
                 }
 
-                createSourceOps(name, dsNum, st, columns, ops, streams);
+                createSourceOps(name, dsNum, st, columns, ops, streams, sink);
                 posInputs.add(name);
             }
 
@@ -154,11 +160,11 @@ public class DocumentationGenerator {
                             if ((named != null) && !named.isEmpty()) {
                                 columns.addAll(named);
                             } else {
-                                columns.add("<* A list of columns goes here *>");
+                                columns.add("<* A list of columns *>");
                             }
                         }
 
-                        createSourceOps(verb + "_" + nsDesc.name, dsNum, st, columns, ops, streams);
+                        createSourceOps(verb + "_" + nsDesc.name, dsNum, st, columns, ops, streams, sink);
 
                         TaskDefinitionLanguage.NamedStream ns = new TaskDefinitionLanguage.NamedStream();
                         ns.name = nsDesc.name;
@@ -175,9 +181,6 @@ public class DocumentationGenerator {
 
         if (descr.outputs.positional != null) {
             TaskDescriptionLanguage.StreamType st = descr.outputs.positional.types[0];
-            if (st == TaskDescriptionLanguage.StreamType.Passthru) {
-                st = descr.inputs.positional.types[0];
-            }
 
             List<String> columns = null;
             if (descr.outputs.positional.columnBased) {
@@ -186,7 +189,7 @@ public class DocumentationGenerator {
                 if ((descr.outputs.positional.generatedColumns != null) && (descr.outputs.positional.generatedColumns.length > 0)) {
                     columns.addAll(Arrays.asList(descr.outputs.positional.generatedColumns));
                 } else {
-                    columns.add("<* A list of columns goes here *>");
+                    columns.add("<* A list of columns from input(s) goes here *>");
                 }
             }
 
@@ -206,7 +209,7 @@ public class DocumentationGenerator {
                             if ((nsDesc.generatedColumns != null) && (nsDesc.generatedColumns.length > 0)) {
                                 columns.addAll(Arrays.asList(nsDesc.generatedColumns));
                             } else {
-                                columns.add("<* A list of columns goes here *>");
+                                columns.add("<* A list of columns from input(s) goes here *>");
                             }
                         }
 
@@ -237,7 +240,11 @@ public class DocumentationGenerator {
         return task;
     }
 
-    private static void createSourceOps(String name, AtomicInteger dsNum, TaskDescriptionLanguage.StreamType st, List<String> columns, List<TaskDefinitionLanguage.Operation> ops, List<TaskDefinitionLanguage.DataStream> streams) {
+    private static Map<String, String> parameterListToMap(List<TaskDocumentationLanguage.Parameter> pl) {
+        return pl.stream().collect(Collectors.toMap(l -> l.name, l -> l.descr));
+    }
+
+    private static void createSourceOps(String name, AtomicInteger dsNum, TaskDescriptionLanguage.StreamType st, List<String> columns, List<TaskDefinitionLanguage.Operation> ops, List<TaskDefinitionLanguage.DataStream> streams, List<String> sink) {
         switch (st) {
             case Plain:
             case CSV: {
@@ -252,6 +259,7 @@ public class DocumentationGenerator {
                 }
 
                 streams.add(input);
+                sink.add(name);
 
                 break;
             }
@@ -284,6 +292,7 @@ public class DocumentationGenerator {
                 input.input.partCount = "100500";
 
                 streams.add(input);
+                sink.add("source_" + dsNum);
 
                 TaskDefinitionLanguage.DataStream output = new TaskDefinitionLanguage.DataStream();
                 output.name = name;
@@ -315,6 +324,7 @@ public class DocumentationGenerator {
                 input.input.partCount = "100500";
 
                 streams.add(input);
+                sink.add("source_" + dsNum);
 
                 TaskDefinitionLanguage.DataStream output = new TaskDefinitionLanguage.DataStream();
                 output.name = name;
@@ -338,6 +348,7 @@ public class DocumentationGenerator {
                 inter.input.partCount = "100500";
 
                 streams.add(inter);
+                sink.add(name + "_0");
 
                 TaskDefinitionLanguage.Operation toPair = new TaskDefinitionLanguage.Operation();
                 toPair.verb = MapToPairOperation.VERB;
@@ -370,22 +381,6 @@ public class DocumentationGenerator {
 
     private static void createOutput(String name, AtomicInteger dsNum, TaskDescriptionLanguage.StreamType st, List<String> columns, List<TaskDefinitionLanguage.Operation> ops, List<TaskDefinitionLanguage.DataStream> streams, List<String> tees) {
         switch (st) {
-            case Plain:
-            case CSV:
-            case Fixed:
-            case KeyValue: {
-                TaskDefinitionLanguage.DataStream output = new TaskDefinitionLanguage.DataStream();
-                output.name = name;
-                if (columns != null) {
-                    output.output = new TaskDefinitionLanguage.StreamDesc();
-                    output.output.columns = columns.toArray(new String[0]);
-                    output.output.delimiter = ",";
-                }
-
-                streams.add(output);
-                tees.add(name);
-                break;
-            }
             case Point: {
                 TaskDefinitionLanguage.Operation out = new TaskDefinitionLanguage.Operation();
                 out.verb = PointCSVOutputOperation.VERB;
@@ -428,6 +423,19 @@ public class DocumentationGenerator {
 
                 streams.add(output);
                 tees.add(name + "_output");
+                break;
+            }
+            default: {
+                TaskDefinitionLanguage.DataStream output = new TaskDefinitionLanguage.DataStream();
+                output.name = name;
+                if (columns != null) {
+                    output.output = new TaskDefinitionLanguage.StreamDesc();
+                    output.output.columns = columns.toArray(new String[0]);
+                    output.output.delimiter = ",";
+                }
+
+                streams.add(output);
+                tees.add(name);
                 break;
             }
         }
@@ -476,7 +484,7 @@ public class DocumentationGenerator {
         index.merge(ic, writer);
     }
 
-    public static void operationDoc(OpInfo opInfo, Writer writer) throws Exception {
+    public static TaskDocumentationLanguage.Operation operationDoc(OpInfo opInfo) throws Exception {
         TaskDocumentationLanguage.Operation opDoc = new TaskDocumentationLanguage.Operation();
 
         opDoc.verb = opInfo.verb();
@@ -619,11 +627,7 @@ public class DocumentationGenerator {
                     });
         }
 
-        VelocityContext vc = new VelocityContext();
-        vc.put("op", opDoc);
-
-        Template operation = Velocity.getTemplate("operation.vm", UTF_8.name());
-        operation.merge(vc, writer);
+        return opDoc;
     }
 
     public static void adapterDoc(StorageAdapter adapter, FileWriter writer) throws Exception {
@@ -656,5 +660,90 @@ public class DocumentationGenerator {
         }
 
         return enDescr;
+    }
+
+    public static void writeDoc(TaskDefinitionLanguage.Task exampleTask, Writer writer) throws IOException {
+        Properties props = PropertiesConverter.toProperties(exampleTask, true);
+
+        DocumentationGenerator.DocComparator cmp = new DocumentationGenerator.DocComparator();
+
+        Map sm = props.keySet().stream()
+                .sorted(cmp)
+                .collect(Collectors.toMap(k -> k, props::get, (o, n) -> n, LinkedHashMap::new));
+
+        String kk = null;
+
+        for (Object e : sm.entrySet()) {
+            String k = ((Map.Entry<String, Object>) e).getKey();
+
+            if (kk != null) {
+                int difference = cmp.compare(k, kk);
+                if (difference > 1) {
+                    writer.write("\n");
+                }
+                if (difference > 2) {
+                    writer.write("\n");
+                }
+            }
+            writer.write(k + "=" + ((Map.Entry<String, Object>) e).getValue() + "\n");
+            kk = k;
+        }
+    }
+
+    public static class DocComparator implements Comparator<Object> {
+        private static Map<String, Integer> PRIORITIES = new HashMap() {
+            private int p = 0;
+
+            {
+                put(DISTCP_PREFIX);
+                put(INPUT_PREFIX);
+                put(TASK_INPUT_SINK);
+                put(TASK_OPERATIONS);
+                put("ds.input.");
+                put(OP_OPERATION_PREFIX);
+                put(OP_INPUTS_PREFIX);
+                put0(OP_INPUT_PREFIX);
+                put(OP_DEFINITION_PREFIX);
+                put(OP_OUTPUT_PREFIX);
+                put0(OP_OUTPUTS_PREFIX);
+                put("ds.output.");
+                put(OUTPUT_PREFIX);
+                put(TASK_TEE_OUTPUT);
+            }
+
+            private void put(String prefix) {
+                put(prefix, ++p);
+            }
+            private void put0(String prefix) {
+                put(prefix, p);
+            }
+
+            public Integer get(Object k) {
+                for (Object e : entrySet()) {
+                    if (((String) k).startsWith(((Map.Entry<String, Integer>) e).getKey())) {
+                        return ((Map.Entry<String, Integer>) e).getValue();
+                    }
+                }
+
+                return 0;
+            }
+        };
+
+        @Override
+        public int compare(Object o1, Object o2) {
+            int d = PRIORITIES.get(o1) - PRIORITIES.get(o2);
+            if (d > 0) {
+                return 2;
+            }
+            if (d < 0) {
+                return -2;
+            }
+
+            d = ((String)o1).compareTo((String)o2);
+            if (d > 0) {
+                return 1;
+            }
+            return -1;
+        }
     }
 }

@@ -4,16 +4,17 @@
  */
 package ash.nazg.rest.endpoints;
 
-import ash.nazg.rest.service.OperationService;
+import ash.nazg.config.tdl.DocumentationGenerator;
 import ash.nazg.config.tdl.TaskDefinitionLanguage;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.rest.service.OperationService;
 import org.hibernate.validator.constraints.NotEmpty;
 
 import javax.inject.Inject;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
+import java.io.StringWriter;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Path("operation")
 public class OperationEndpoint {
@@ -40,10 +41,11 @@ public class OperationEndpoint {
     @GET
     @Path("{verb}/example.ini")
     @Produces(MediaType.TEXT_PLAIN)
-    public String taskExample(@QueryParam("prefix") String prefix, @PathParam("verb") @NotEmpty String verb) {
-        return operationService.example(prefix, verb).entrySet().stream()
-                .map(e -> e.getKey() + "=" + e.getValue())
-                .collect(Collectors.joining("\n"));
+    public String taskExample(@QueryParam("prefix") String prefix, @PathParam("verb") @NotEmpty String verb) throws Exception {
+        StringWriter sw = new StringWriter();
+
+        DocumentationGenerator.writeDoc(operationService.example(prefix, verb), sw);
+        return sw.toString();
     }
 
     @GET
