@@ -5,7 +5,7 @@
     <parent>
         <artifactId>OneRing</artifactId>
         <groupId>ash.nazg</groupId>
-        <version>2.2.0</version>
+        <version>2.4.0</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -15,7 +15,7 @@
         <dependency>
             <groupId>ash.nazg</groupId>
             <artifactId>Commons</artifactId>
-            <version>2.2.0</version>
+            <version>2.4.0</version>
         </dependency>
 
         <dependency>
@@ -50,7 +50,7 @@
         <dependency>
             <groupId>ash.nazg</groupId>
             <artifactId>Commons</artifactId>
-            <version>2.2.0</version>
+            <version>2.4.0</version>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
