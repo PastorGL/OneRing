@@ -122,7 +122,16 @@ public class MapToPairOperation extends Operation {
         final int[] _valueColumns = valueColumns;
         char _outputDelimiter = outputDelimiter;
 
-        JavaPairRDD<Text, Text> out = ((JavaRDD<Object>) input.get(inputName))
+        JavaRDDLike inp = input.get(inputName);
+        JavaRDD<Object> rdd = null;
+        if (inp instanceof JavaRDD) {
+            rdd = (JavaRDD)inp;
+        }
+        if (inp instanceof JavaPairRDD) {
+            rdd = ((JavaPairRDD)inp).values();
+        }
+
+        JavaPairRDD<Text, Text> out = rdd
                 .mapPartitionsToPair(it -> {
                     CSVParser parser = new CSVParserBuilder().withSeparator(_inputDelimiter).build();
 

@@ -128,6 +128,11 @@ public class KeyedMathOperation extends Operation {
                 keyedFunc = new MulFunction(_const);
                 break;
             }
+            case DIV: {
+                Double _const = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
+                keyedFunc = new DivFunction(_const);
+                break;
+            }
         }
 
     }

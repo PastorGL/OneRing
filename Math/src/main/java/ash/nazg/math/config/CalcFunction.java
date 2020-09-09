@@ -21,4 +21,6 @@ public enum CalcFunction {
     MAX,
     @Description("Multiply column values, optionally also by a constant")
     MUL, @Description("Alias of MUL") MULTIPLY,
+    @Description("Divide first columns by all others, optionally also by a constant")
+    DIV, @Description("Alias of DIV") DIVIDE, @Description("Alias of DIV") PROPORTION,
 }

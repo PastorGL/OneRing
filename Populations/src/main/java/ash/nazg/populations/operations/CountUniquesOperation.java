@@ -7,7 +7,7 @@ package ash.nazg.populations.operations;
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
-import ash.nazg.config.OperationConfig;
+import ash.nazg.populations.functions.CountUniquesFunction;
 import com.opencsv.CSVWriter;
 import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -77,16 +77,16 @@ public class CountUniquesOperation extends PopulationIndicatorOperation {
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         final char _outputDelimiter = outputDelimiter;
 
-        JavaPairRDD<Text, Set<Text>> userSetPerGid = new ValueSetPerCountColumn(inputValuesDelimiter, countColumn, valueColumn)
+        JavaPairRDD<Text, Integer> userSetPerGid = new CountUniquesFunction(inputValuesDelimiter, countColumn, valueColumn)
                 .call((JavaRDD<Object>) input.get(inputValuesName));
 
         JavaRDD<Text> output = userSetPerGid.mapPartitions(it -> {
             List<Text> ret = new ArrayList<>();
 
             while (it.hasNext()) {
-                Tuple2<Text, Set<Text>> t = it.next();
+                Tuple2<Text, Integer> t = it.next();
 
-                String[] acc = new String[]{t._1.toString(), Long.toString(t._2.size())};
+                String[] acc = new String[]{t._1.toString(), Integer.toString(t._2)};
 
                 StringWriter buffer = new StringWriter();
                 CSVWriter writer = new CSVWriter(buffer, _outputDelimiter, CSVWriter.DEFAULT_QUOTE_CHARACTER,
