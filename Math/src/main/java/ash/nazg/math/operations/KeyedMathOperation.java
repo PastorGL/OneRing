@@ -123,11 +123,14 @@ public class KeyedMathOperation extends Operation {
                 keyedFunc = new MaxFunction(ceil);
                 break;
             }
+            case MULTIPLY:
             case MUL: {
                 Double _const = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
                 keyedFunc = new MulFunction(_const);
                 break;
             }
+            case DIVIDE:
+            case PROPORTION:
             case DIV: {
                 Double _const = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
                 keyedFunc = new DivFunction(_const);

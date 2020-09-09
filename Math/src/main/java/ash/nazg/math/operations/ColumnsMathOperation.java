@@ -145,9 +145,17 @@ public class ColumnsMathOperation extends Operation {
                 mathFunc = new MaxFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, ceil);
                 break;
             }
+            case MULTIPLY:
             case MUL: {
                 Double _const = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
                 mathFunc = new MulFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, _const);
+                break;
+            }
+            case DIVIDE:
+            case PROPORTION:
+            case DIV: {
+                Double _const = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
+                mathFunc = new DivFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, _const);
                 break;
             }
         }
