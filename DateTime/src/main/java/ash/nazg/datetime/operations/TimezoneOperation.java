@@ -18,10 +18,7 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 
 import java.io.StringWriter;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.util.*;
@@ -56,6 +53,8 @@ public class TimezoneOperation extends Operation {
     public static final String GEN_OUTPUT_HOUR_INT = "_output_hour_int";
     @Description("Generated output minute column")
     public static final String GEN_OUTPUT_MINUTE_INT = "_output_minute_int";
+    @Description("Generated Epoch time of the timestamp")
+    public static final String GEN_EPOCH_TIME = "_epoch_time";
     @Description("By default, source time zone is GMT")
     public static final String DEF_SRC_TIMEZONE_DEFAULT = "GMT";
     @Description("By default, destination time zone is GMT")
@@ -121,6 +120,7 @@ public class TimezoneOperation extends Operation {
                                 new String[]{
                                         GEN_INPUT_DATE, GEN_INPUT_DOW_INT, GEN_INPUT_DAY_INT, GEN_INPUT_MONTH_INT, GEN_INPUT_YEAR_INT, GEN_INPUT_HOUR_INT, GEN_INPUT_MINUTE_INT,
                                         GEN_OUTPUT_DATE, GEN_OUTPUT_DOW_INT, GEN_OUTPUT_DAY_INT, GEN_OUTPUT_MONTH_INT, GEN_OUTPUT_YEAR_INT, GEN_OUTPUT_HOUR_INT, GEN_OUTPUT_MINUTE_INT,
+                                        GEN_EPOCH_TIME
                                 }
                         )
                 )
@@ -257,6 +257,7 @@ public class TimezoneOperation extends Operation {
                         properties.put(GEN_OUTPUT_YEAR_INT, String.valueOf(outputDate.getYear()));
                         properties.put(GEN_OUTPUT_HOUR_INT, String.valueOf(outputDate.getHour()));
                         properties.put(GEN_OUTPUT_MINUTE_INT, String.valueOf(outputDate.getMinute()));
+                        properties.put(GEN_EPOCH_TIME, String.valueOf(localGMTDate.toEpochSecond(ZoneOffset.UTC)));
 
                         StringWriter buffer = new StringWriter();
                         String[] acc = new String[_outputColumns.length];
