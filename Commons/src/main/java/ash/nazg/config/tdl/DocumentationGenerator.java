@@ -9,10 +9,7 @@ import ash.nazg.config.Packages;
 import ash.nazg.spark.OpInfo;
 import ash.nazg.spark.Operations;
 import ash.nazg.spatial.config.ConfigurationParameters;
-import ash.nazg.spatial.operations.PointCSVOutputOperation;
-import ash.nazg.spatial.operations.PointCSVSourceOperation;
-import ash.nazg.spatial.operations.PolygonJSONOutputOperation;
-import ash.nazg.spatial.operations.PolygonJSONSourceOperation;
+import ash.nazg.spatial.operations.*;
 import ash.nazg.storage.Adapters;
 import ash.nazg.storage.HadoopAdapter;
 import ash.nazg.storage.InputAdapter;
@@ -338,6 +335,38 @@ public class DocumentationGenerator {
 
                 break;
             }
+            case Track: {
+                TaskDefinitionLanguage.Operation src = new TaskDefinitionLanguage.Operation();
+                src.verb = TrackGPXSourceOperation.VERB;
+                src.name = "source_" + dsNum.incrementAndGet();
+                src.inputs = new TaskDefinitionLanguage.OpStreams();
+                src.inputs.positionalNames = new String[]{"source_" + dsNum};
+                src.outputs = new TaskDefinitionLanguage.OpStreams();
+                src.outputs.positionalNames = new String[]{name};
+
+                ops.add(src);
+
+                TaskDefinitionLanguage.DataStream input = new TaskDefinitionLanguage.DataStream();
+                input.name = "source_" + dsNum;
+                input.input = new TaskDefinitionLanguage.StreamDesc();
+                input.input.path = "proto://full/path/to/source_" + dsNum + "/*.gpx";
+                input.input.partCount = "100500";
+
+                streams.add(input);
+                sink.add("source_" + dsNum);
+
+                TaskDefinitionLanguage.DataStream output = new TaskDefinitionLanguage.DataStream();
+                output.name = name;
+                if (columns != null) {
+                    output.input = new TaskDefinitionLanguage.StreamDesc();
+                    output.input.columns = columns.toArray(new String[0]);
+                    output.input.delimiter = ",";
+                }
+
+                streams.add(output);
+
+                break;
+            }
             case KeyValue: {
                 TaskDefinitionLanguage.DataStream inter = new TaskDefinitionLanguage.DataStream();
                 inter.name = name + "_0";
@@ -405,6 +434,29 @@ public class DocumentationGenerator {
             case Polygon: {
                 TaskDefinitionLanguage.Operation out = new TaskDefinitionLanguage.Operation();
                 out.verb = PolygonJSONOutputOperation.VERB;
+                out.name = "output_" + dsNum.incrementAndGet();
+                out.inputs = new TaskDefinitionLanguage.OpStreams();
+                out.inputs.positionalNames = new String[]{name};
+                out.outputs = new TaskDefinitionLanguage.OpStreams();
+                out.outputs.positionalNames = new String[]{name + "_output"};
+
+                ops.add(out);
+
+                TaskDefinitionLanguage.DataStream output = new TaskDefinitionLanguage.DataStream();
+                output.name = name + "_output";
+                if (columns != null) {
+                    output.output = new TaskDefinitionLanguage.StreamDesc();
+                    output.output.columns = columns.toArray(new String[0]);
+                    output.output.delimiter = ",";
+                }
+
+                streams.add(output);
+                tees.add(name + "_output");
+                break;
+            }
+            case Track: {
+                TaskDefinitionLanguage.Operation out = new TaskDefinitionLanguage.Operation();
+                out.verb = TrackGPXOutputOperation.VERB;
                 out.name = "output_" + dsNum.incrementAndGet();
                 out.inputs = new TaskDefinitionLanguage.OpStreams();
                 out.inputs.positionalNames = new String[]{name};

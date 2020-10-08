@@ -51,6 +51,10 @@ public class TaskDescriptionLanguage {
          */
         Point,
         /**
+         * For RDDs consisting of Track objects
+         */
+        Track,
+        /**
          * For RDDs consisting of Polygon objects
          */
         Polygon,
