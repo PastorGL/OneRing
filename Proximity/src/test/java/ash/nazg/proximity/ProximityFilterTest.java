@@ -7,6 +7,7 @@ package ash.nazg.proximity;
 import ash.nazg.commons.TextUtil;
 import ash.nazg.spark.TestRunner;
 import net.sf.geographiclib.Geodesic;
+import net.sf.geographiclib.GeodesicMask;
 import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
@@ -45,7 +46,7 @@ public class ProximityFilterTest {
             List<Point> prox = ret.get("geometries").collect();
             for (Point e : evs) {
                 for (Point x : prox) {
-                    double dist = Geodesic.WGS84.Inverse(e.getY(), e.getX(), x.getY(), x.getX()).s12;
+                    double dist = Geodesic.WGS84.Inverse(e.getY(), e.getX(), x.getY(), x.getX(), GeodesicMask.DISTANCE).s12;
                     assertTrue(dist > 30000.D);
                 }
             }

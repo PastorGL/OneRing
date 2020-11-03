@@ -4,19 +4,21 @@ import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
-import ash.nazg.spatial.functions.GPXExtensions;
-import io.jenetics.jpx.Track;
-import io.jenetics.jpx.TrackSegment;
-import io.jenetics.jpx.WayPoint;
+import ash.nazg.spatial.SegmentedTrack;
+import ash.nazg.spatial.TrackSegment;
 import net.sf.geographiclib.Geodesic;
+import net.sf.geographiclib.GeodesicMask;
+import org.apache.hadoop.io.DoubleWritable;
+import org.apache.hadoop.io.MapWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.Point;
+import scala.Tuple2;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import java.util.*;
 
 import static ash.nazg.spatial.config.ConfigurationParameters.*;
@@ -24,15 +26,15 @@ import static ash.nazg.spatial.config.ConfigurationParameters.*;
 @SuppressWarnings("unused")
 public class TrackStatsOperation extends Operation {
     public static final String VERB = "trackStats";
-    @Description("Pin distance calculation for entire track to its first point")
-    public static final String OP_DISTANCE_PIN = "distance.pin";
-    @Description("By default, do not pin")
-    public static final Boolean DEF_DISTANCE_PIN = false;
+    @Description("Track RDD to calculate the statistics")
+    public static final String RDD_INPUT_TRACKS = "tracks";
+    @Description("Optional Point RDD to pin tracks with same userid against")
+    public static final String RDD_INPUT_PINS = "pins";
 
     private String inputName;
     private String outputName;
 
-    private Boolean pinDistance;
+    private String pinsName;
 
     @Override
     @Description("Take a Track RDD and augment its properties with statistics")
@@ -43,22 +45,28 @@ public class TrackStatsOperation extends Operation {
     @Override
     public TaskDescriptionLanguage.Operation description() {
         return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(OP_DISTANCE_PIN, Boolean.class, DEF_DISTANCE_PIN)
-                },
+                null,
 
                 new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Track},
-                                false
-                        )
+                        new TaskDescriptionLanguage.NamedStream[]{
+                                new TaskDescriptionLanguage.NamedStream(RDD_INPUT_PINS,
+                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Point},
+                                        false
+                                ),
+                                new TaskDescriptionLanguage.NamedStream(RDD_INPUT_TRACKS,
+                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Track},
+                                        false
+                                )
+                        }
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Track},
-                                new String[]{GEN_USERID, GEN_POINTS, GEN_TRACKID, GEN_DURATION, GEN_RANGE, GEN_DISTANCE}
-                        )
+                        new TaskDescriptionLanguage.NamedStream[]{
+                                new TaskDescriptionLanguage.NamedStream(RDD_OUTPUT_TRACKS,
+                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Track},
+                                        new String[]{GEN_USERID, GEN_POINTS, GEN_TRACKID, GEN_DURATION, GEN_RANGE, GEN_DISTANCE}
+                                )
+                        }
                 )
         );
     }
@@ -67,103 +75,141 @@ public class TrackStatsOperation extends Operation {
     public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
         super.configure(properties, variables);
 
-        inputName = describedProps.inputs.get(0);
-        outputName = describedProps.outputs.get(0);
-
-        pinDistance = describedProps.defs.getTyped(OP_DISTANCE_PIN);
+        inputName = describedProps.namedInputs.get(RDD_INPUT_TRACKS);
+        pinsName = describedProps.namedInputs.get(RDD_INPUT_PINS);
+        outputName = describedProps.namedOutputs.get(RDD_OUTPUT_TRACKS);
     }
 
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
-        final boolean _pinDistance = pinDistance;
+        final boolean pinDistance = input.get(pinsName) != null;
 
-        JavaRDD<Track> output = ((JavaRDD<Track>) input.get(inputName))
+        JavaPairRDD<Point, SegmentedTrack> inp;
+
+        if (pinDistance) {
+            JavaPairRDD<Text, Point> pins = ((JavaRDD<Point>) input.get(pinsName))
+                    .mapPartitionsToPair(it -> {
+                        List<Tuple2<Text, Point>> result = new ArrayList<>();
+
+                        Text useridAttr = new Text("_userid");
+
+                        while (it.hasNext()) {
+                            Point next = it.next();
+
+                            result.add(new Tuple2<>((Text) ((MapWritable) next.getUserData()).get(useridAttr), next));
+                        }
+
+                        return result.iterator();
+                    });
+
+            JavaPairRDD<Text, SegmentedTrack> tracks = ((JavaRDD<SegmentedTrack>) input.get(inputName))
+                    .mapPartitionsToPair(it -> {
+                        List<Tuple2<Text, SegmentedTrack>> result = new ArrayList<>();
+
+                        Text useridAttr = new Text("_userid");
+
+                        while (it.hasNext()) {
+                            SegmentedTrack next = it.next();
+
+                            result.add(new Tuple2<>((Text) ((MapWritable) next.getUserData()).get(useridAttr), next));
+                        }
+
+                        return result.iterator();
+                    });
+
+            inp = pins.join(tracks)
+                    .mapToPair(Tuple2::_2);
+        } else {
+            inp = ((JavaRDD<SegmentedTrack>) input.get(inputName))
+                    .mapToPair(t -> new Tuple2<>(null, t));
+        }
+
+        final GeometryFactory geometryFactory = new GeometryFactory();
+
+        JavaRDD<SegmentedTrack> output = inp
                 .mapPartitions(it -> {
+                    List<SegmentedTrack> result = new ArrayList<>();
+
+                    Text tsAttr = new Text("_ts");
+                    Text durationAttr = new Text(GEN_DURATION);
                     Text distanceAttr = new Text(GEN_DISTANCE);
                     Text pointsAttr = new Text(GEN_POINTS);
-
-                    List<Track> result = new ArrayList<>();
-
-                    DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
-                    final DocumentBuilder b = f.newDocumentBuilder();
+                    Text rangeAttr = new Text(GEN_RANGE);
 
                     while (it.hasNext()) {
-                        Track next = it.next();
-                        Track.Builder aug = Track.builder();
+                        Tuple2<Point, SegmentedTrack> o = it.next();
 
-                        WayPoint start = null;
+                        SegmentedTrack trk = o._2;
 
+                        Point start = null;
+                        int numSegs = trk.getNumGeometries();
+                        TrackSegment[] segs = new TrackSegment[numSegs];
                         int augPoints = 0;
                         double augDistance = 0.D;
                         double augRange = 0.D;
                         long augDuration = 0L;
-                        for (TrackSegment seg : next) {
-                            TrackSegment.Builder augSeg = TrackSegment.builder();
+                        for (int j = 0; j < numSegs; j++) {
+                            TrackSegment augSeg;
 
-                            List<WayPoint> wayPoints = seg.getPoints();
-                            int segPoints = wayPoints.size();
+                            TrackSegment seg = (TrackSegment) trk.getGeometryN(j);
+                            Geometry[] wayPoints = seg.geometries();
+                            int segPoints = wayPoints.length;
                             double segDistance = 0.D;
                             double segRange = 0.D;
                             long segDuration = 0L;
 
-                            WayPoint prev;
-                            int s = 1;
-                            int d = 0;
-                            if (_pinDistance) {
+                            Point prev;
+                            if (pinDistance) {
                                 if (start == null) {
-                                    start = wayPoints.get(0);
-                                    prev = wayPoints.get(1);
-                                    s = 2;
-                                    d = -1;
-
-                                    augSeg.points(wayPoints.subList(1, wayPoints.size()));
-                                } else {
-                                    prev = wayPoints.get(0);
-
-                                    augSeg.points(wayPoints);
+                                    start = o._1;
                                 }
+                                prev = (Point) wayPoints[0];
                             } else {
-                                start = wayPoints.get(0);
+                                start = (Point) wayPoints[0];
                                 prev = start;
-
-                                augSeg.points(wayPoints);
                             }
-                            for (int i = s; i < segPoints; i++) {
-                                WayPoint point = wayPoints.get(i);
 
-                                segDuration += point.getTime().get().toEpochSecond() - prev.getTime().get().toEpochSecond();
-                                segDistance += Geodesic.WGS84.Inverse(prev.getLatitude().doubleValue(), prev.getLongitude().doubleValue(),
-                                        point.getLatitude().doubleValue(), point.getLongitude().doubleValue()).s12;
-                                segRange = Math.max(segRange, Geodesic.WGS84.Inverse(start.getLatitude().doubleValue(), start.getLongitude().doubleValue(),
-                                        point.getLatitude().doubleValue(), point.getLongitude().doubleValue()).s12);
+                            for (int i = 1; i < segPoints; i++) {
+                                Point point = (Point) wayPoints[i];
+
+                                MapWritable props = (MapWritable) point.getUserData();
+                                MapWritable prevProps = (MapWritable) prev.getUserData();
+
+                                segDuration += ((DoubleWritable) props.get(tsAttr)).get() - ((DoubleWritable) prevProps.get(tsAttr)).get();
+                                segDistance += Geodesic.WGS84.Inverse(prev.getY(), prev.getX(),
+                                        point.getY(), point.getX(), GeodesicMask.DISTANCE).s12;
+                                segRange = Math.max(segRange, Geodesic.WGS84.Inverse(start.getY(), start.getX(),
+                                        point.getY(), point.getX(), GeodesicMask.DISTANCE).s12);
                                 prev = point;
                             }
+
+                            augSeg = new TrackSegment(wayPoints, geometryFactory);
 
                             augDuration += segDuration;
                             augDistance += segDistance;
                             augRange = Math.max(augRange, segRange);
-                            augPoints += segPoints + d;
+                            augPoints += segPoints;
 
-                            Document segProps = seg.getExtensions().orElseGet(b::newDocument);
-                            Element segPropsEl = GPXExtensions.getOrCreate(segProps);
-                            GPXExtensions.appendExt(segPropsEl, GEN_DURATION, segDuration);
-                            GPXExtensions.appendExt(segPropsEl, GEN_DISTANCE, segDistance);
-                            GPXExtensions.appendExt(segPropsEl, GEN_POINTS, segPoints + d);
-                            GPXExtensions.appendExt(segPropsEl, GEN_RANGE, segRange);
-                            augSeg.extensions(segProps);
+                            MapWritable segProps = (MapWritable) seg.getUserData();
+                            segProps.put(durationAttr, new Text(String.valueOf(segDuration)));
+                            segProps.put(distanceAttr, new Text(String.valueOf(segDistance)));
+                            segProps.put(pointsAttr, new Text(String.valueOf(segPoints)));
+                            segProps.put(rangeAttr, new Text(String.valueOf(segRange)));
+                            augSeg.setUserData(segProps);
 
-                            aug.addSegment(augSeg.build());
+                            segs[j] = augSeg;
                         }
 
-                        Document augProps = next.getExtensions().orElseGet(b::newDocument);
-                        Element augPropsEl = GPXExtensions.getOrCreate(augProps);
-                        GPXExtensions.appendExt(augPropsEl, GEN_DURATION, augDuration);
-                        GPXExtensions.appendExt(augPropsEl, GEN_DISTANCE, augDistance);
-                        GPXExtensions.appendExt(augPropsEl, GEN_POINTS, augPoints);
-                        GPXExtensions.appendExt(augPropsEl, GEN_RANGE, augRange);
-                        aug.extensions(augProps);
+                        SegmentedTrack aug = new SegmentedTrack(segs, geometryFactory);
 
-                        result.add(aug.build());
+                        MapWritable augProps = (MapWritable) trk.getUserData();
+                        augProps.put(durationAttr, new Text(String.valueOf(augDuration)));
+                        augProps.put(distanceAttr, new Text(String.valueOf(augDistance)));
+                        augProps.put(pointsAttr, new Text(String.valueOf(augPoints)));
+                        augProps.put(rangeAttr, new Text(String.valueOf(augRange)));
+                        aug.setUserData(augProps);
+
+                        result.add(aug);
                     }
 
                     return result.iterator();

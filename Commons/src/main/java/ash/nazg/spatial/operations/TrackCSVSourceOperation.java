@@ -1,31 +1,29 @@
 package ash.nazg.spatial.operations;
 
-import ash.nazg.commons.functions.KeyCountPerPartitionFunction;
 import ash.nazg.commons.functions.TrackComparator;
 import ash.nazg.commons.functions.TrackPartitioner;
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
+import ash.nazg.spatial.SegmentedTrack;
+import ash.nazg.spatial.TrackSegment;
 import ash.nazg.spatial.config.ConfigurationParameters;
-import ash.nazg.spatial.functions.GPXExtensions;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
-import io.jenetics.jpx.Track;
-import io.jenetics.jpx.TrackSegment;
-import io.jenetics.jpx.WayPoint;
+import org.apache.hadoop.io.DoubleWritable;
+import org.apache.hadoop.io.MapWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 import org.apache.spark.broadcast.Broadcast;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.Point;
 import scala.Tuple2;
 import scala.Tuple4;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -96,7 +94,7 @@ public class TrackCSVSourceOperation extends Operation {
         List<String> outColumns = Arrays.asList(dataStreamsProps.outputColumns.get(outputName));
         outputColumns = inputColumns.entrySet().stream()
                 .filter(c -> (outColumns.size() == 0) || outColumns.contains(c.getKey()))
-                .collect(Collectors.toMap(c -> c.getKey().replaceFirst("^[^.]+\\.", ""), Map.Entry::getValue));;
+                .collect(Collectors.toMap(c -> c.getKey().replaceFirst("^[^.]+\\.", ""), Map.Entry::getValue));
 
         String prop;
 
@@ -155,23 +153,43 @@ public class TrackCSVSourceOperation extends Operation {
                 .repartitionAndSortWithinPartitions(new TrackPartitioner(_numPartitions), new TrackComparator()) // pre-sort by timestamp
                 ;
 
-        Broadcast<HashMap<Integer, Integer>> num = ctx.broadcast(new KeyCountPerPartitionFunction<Tuple4<Double, Double, Text, Text>>()
-                .call(signals));
+        HashMap<Integer, Integer> useridCountPerPartition = new HashMap<>(signals
+                .mapPartitionsWithIndex((idx, it) -> {
+                    List<Tuple2<Integer, Integer>> num = new ArrayList<>();
 
-        JavaRDD<Track> output = signals.mapPartitionsWithIndex((idx, it) -> {
+                    Set<Text> userids = new HashSet<>();
+                    while (it.hasNext()) {
+                        Text userid = it.next()._1._1;
+                        userids.add(userid);
+                    }
+
+                    num.add(new Tuple2<>(idx, userids.size()));
+
+                    return num.iterator();
+                }, true)
+                .mapToPair(t -> t)
+                .collectAsMap()
+        );
+
+        Broadcast<HashMap<Integer, Integer>> num = ctx.broadcast(useridCountPerPartition);
+
+        final GeometryFactory geometryFactory = new GeometryFactory();
+
+        JavaRDD<SegmentedTrack> output = signals.mapPartitionsWithIndex((idx, it) -> {
             int useridCount = num.getValue().get(idx);
             boolean isSegmented = (_trackColumn != null);
 
-            Object[] result = new Object[useridCount];
+            Text useridAttr = new Text(GEN_USERID);
+            Text trackidAttr = new Text(GEN_TRACKID);
+            Text tsAttr = new Text("_ts");
 
             Map<Text, Integer> useridOrd = new HashMap<>();
-
-            DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
-            final DocumentBuilder b = f.newDocumentBuilder();
 
             CSVParser parser = new CSVParserBuilder().withSeparator(_inputDelimiter).build();
 
             Text[] userids = new Text[useridCount];
+            List<MapWritable>[] allSegProps = new List[useridCount];
+            List<List<Point>>[] allPoints = new List[useridCount];
             int n = 0;
             while (it.hasNext()) {
                 Tuple2<Tuple2<Text, Double>, Tuple4<Double, Double, Text, Text>> line = it.next();
@@ -188,86 +206,86 @@ public class TrackCSVSourceOperation extends Operation {
                     n++;
                 }
 
-                List<TrackSegment.Builder> segments = (List<TrackSegment.Builder>) result[current];
-                if (segments == null) {
-                    segments = new ArrayList<>();
-                    result[current] = segments;
+                List<MapWritable> segProps = allSegProps[current];
+                List<List<Point>> trackPoints = allPoints[current];
+                if (segProps == null) {
+                    segProps = new ArrayList<>();
+                    allSegProps[current] = segProps;
+                    trackPoints = new ArrayList<>();
+                    allPoints[current] = trackPoints;
                 }
 
-                TrackSegment.Builder segment;
+                List<Point> segPoints;
                 String trackId = null;
                 if (isSegmented) {
                     trackId = line._2._3().toString();
 
                     String lastTrackId = null;
-                    TrackSegment.Builder lastSegment = null;
-                    if (segments.size() != 0) {
-                        lastSegment = segments.get(segments.size() - 1);
-                        List<WayPoint> points = lastSegment.points();
-                        lastTrackId = points.get(points.size() - 1).getComment().get();
+                    MapWritable lastSegment;
+                    if (segProps.size() != 0) {
+                        lastSegment = segProps.get(segProps.size() - 1);
+                        lastTrackId = lastSegment.get(trackidAttr).toString();
                     }
 
                     if (trackId.equals(lastTrackId)) {
-                        segment = lastSegment;
+                        segPoints = trackPoints.get(trackPoints.size() - 1);
                     } else {
-                        segment = TrackSegment.builder();
+                        MapWritable props = new MapWritable();
+                        props.put(useridAttr, userid);
+                        props.put(trackidAttr, new Text(trackId));
 
-                        Document segProps = b.newDocument();
-                        Element segPropsEl = GPXExtensions.getOrCreate(segProps);
-                        GPXExtensions.appendExt(segPropsEl, GEN_USERID, userid.toString());
-                        GPXExtensions.appendExt(segPropsEl, GEN_TRACKID, trackId);
-                        segment.extensions(segProps);
-
-                        segments.add(segment);
+                        segProps.add(props);
+                        segPoints = new ArrayList<>();
+                        trackPoints.add(segPoints);
                     }
                 } else {
-                    if (segments.size() == 0) {
-                        segment = TrackSegment.builder();
+                    if (segProps.size() == 0) {
+                        MapWritable props = new MapWritable();
+                        props.put(useridAttr, userid);
 
-                        Document segProps = b.newDocument();
-                        Element segPropsEl = GPXExtensions.getOrCreate(segProps);
-                        GPXExtensions.appendExt(segPropsEl, GEN_USERID, userid.toString());
-                        segment.extensions(segProps);
-
-                        segments.add(segment);
+                        segProps.add(props);
+                        segPoints = new ArrayList<>();
+                        trackPoints.add(segPoints);
                     } else {
-                        segment = segments.get(0);
+                        segPoints = trackPoints.get(0);
                     }
                 }
 
-                Document pointProps = b.newDocument();
-                Element pointPropsEl = GPXExtensions.getOrCreate(pointProps);
+                Point point = geometryFactory.createPoint(new Coordinate(line._2._2(), line._2._1()));
+                MapWritable pointProps = new MapWritable();
                 String[] row = parser.parseLine(line._2._4().toString());
                 for (Map.Entry<String, Integer> col : _outputColumns.entrySet()) {
-                    GPXExtensions.appendExt(pointPropsEl, col.getKey(), new Text(row[col.getValue()]));
+                    pointProps.put(new Text(col.getKey()), new Text(row[col.getValue()]));
                 }
+                pointProps.put(tsAttr, new DoubleWritable(line._1._2));
+                point.setUserData(pointProps);
 
-                segment.addPoint(WayPoint.builder()
-                        .lat(line._2._1())
-                        .lon(line._2._2())
-                        .time(line._1._2.longValue())
-                        .cmt(trackId) // cache track segment ID in GPX 'comment'
-                        .extensions(pointProps)
-                        .build()
-                );
+                segPoints.add(point);
             }
+
+            List<SegmentedTrack> result = new ArrayList<>(useridCount);
 
             for (n = 0; n < useridCount; n++) {
                 Text userid = userids[n];
-                List<TrackSegment.Builder> r = (List<TrackSegment.Builder>) result[n];
 
-                Track.Builder trk = Track.builder();
-                trk.segments(r.stream().map(TrackSegment.Builder::build).collect(Collectors.toList()));
+                List<List<Point>> points = allPoints[n];
+                TrackSegment[] segments = new TrackSegment[points.size()];
+                for (int i = 0; i < points.size(); i++) {
+                    List<Point> segPoints = points.get(i);
+                    segments[i] = new TrackSegment(segPoints.toArray(new Point[0]), geometryFactory);
+                    segments[i].setUserData(allSegProps[n].get(i));
+                }
 
-                Document trkProps = b.newDocument();
-                Element trkPropsEl = GPXExtensions.getOrCreate(trkProps);
-                GPXExtensions.appendExt(trkPropsEl, GEN_USERID, userid.toString());
-                trk.extensions(trkProps);
+                SegmentedTrack trk = new SegmentedTrack(segments, geometryFactory);
 
-                result[n] = trk.build();
+                MapWritable props = new MapWritable();
+                props.put(useridAttr, userid);
+                trk.setUserData(props);
+
+                result.add(trk);
             }
 
-            return Arrays.stream(result).map(t -> (Track) t).iterator();
+            return result.iterator();
         }, true);
 
         return Collections.singletonMap(outputName, output);

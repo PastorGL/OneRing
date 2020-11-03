@@ -4,13 +4,22 @@ import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
+import ash.nazg.spatial.SegmentedTrack;
+import ash.nazg.spatial.TrackSegment;
 import io.jenetics.jpx.GPX;
 import io.jenetics.jpx.Track;
+import io.jenetics.jpx.WayPoint;
+import org.apache.hadoop.io.DoubleWritable;
+import org.apache.hadoop.io.MapWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.Point;
 
 import java.util.*;
+
+import static ash.nazg.spatial.config.ConfigurationParameters.GEN_USERID;
 
 @SuppressWarnings("unused")
 public class TrackGPXOutputOperation extends Operation {
@@ -56,17 +65,40 @@ public class TrackGPXOutputOperation extends Operation {
 
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
-        JavaRDD<Text> output = ((JavaRDD<Track>) input.get(inputName))
+        JavaRDD<Text> output = ((JavaRDD<SegmentedTrack>) input.get(inputName))
                 .mapPartitions(it -> {
                     List<Text> result = new ArrayList<>();
 
-                    while (it.hasNext()) {
-                        Track trk = it.next();
+                    final Text tsAttr = new Text("_ts");
+                    final Text useridAttr = new Text(GEN_USERID);
+                    GPX.Writer writer = GPX.writer();
 
-                        GPX.Writer writer = GPX.writer();
+                    while (it.hasNext()) {
+                        SegmentedTrack trk = it.next();
+
                         GPX.Builder gpx = GPX.builder();
                         gpx.creator("OneRing");
-                        gpx.addTrack(trk);
+                        Track.Builder trkBuilder = Track.builder();
+
+                        for (Geometry g : trk) {
+                            TrackSegment ts = (TrackSegment) g;
+                            io.jenetics.jpx.TrackSegment.Builder segBuilder = io.jenetics.jpx.TrackSegment.builder();
+
+                            for (Geometry gg : ts) {
+                                Point p = (Point) gg;
+                                WayPoint.Builder wp = WayPoint.builder();
+                                wp.lat(p.getY());
+                                wp.lon(p.getX());
+                                wp.time((long) ((DoubleWritable) ((MapWritable) p.getUserData()).get(tsAttr)).get() * 1000L);
+
+                                segBuilder.addPoint(wp.build());
+                            }
+
+                            trkBuilder.addSegment(segBuilder.build());
+                        }
+
+                        trkBuilder.name(((MapWritable) trk.getUserData()).get(useridAttr).toString());
+                        gpx.addTrack(trkBuilder.build());
 
                         result.add(new Text(writer.toString(gpx.build())));
                     }

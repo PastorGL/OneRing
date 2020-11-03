@@ -10,6 +10,7 @@ import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
 import ash.nazg.spatial.SpatialUtils;
 import net.sf.geographiclib.Geodesic;
+import net.sf.geographiclib.GeodesicMask;
 import org.apache.hadoop.io.DoubleWritable;
 import org.apache.hadoop.io.MapWritable;
 import org.apache.hadoop.io.Text;
@@ -220,12 +221,12 @@ public class AreaCoversOperation extends Operation {
         public int compare(Envelope e1, Envelope e2) {
             double e1d = Geodesic.WGS84.Inverse(
                     (e1.getMaxY() + e1.getMinY()) / 2, (e1.getMaxX() + e1.getMinX()) / 2,
-                    e1.getMaxY(), e1.getMaxX()
+                    e1.getMaxY(), e1.getMaxX(), GeodesicMask.DISTANCE
             ).s12;
 
             double e2d = Geodesic.WGS84.Inverse(
                     (e2.getMaxY() + e2.getMinY()) / 2, (e2.getMaxX() + e2.getMinX()) / 2,
-                    e2.getMaxY(), e2.getMaxX()
+                    e2.getMaxY(), e2.getMaxX(), GeodesicMask.DISTANCE
             ).s12;
 
             return Double.compare(e1d, e2d);

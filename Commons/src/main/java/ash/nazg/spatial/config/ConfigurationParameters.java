@@ -39,6 +39,11 @@ public final class ConfigurationParameters {
     @Description("Polygon perimeter")
     public static final String GEN_PERIMETER = "_perimeter";
 
+    @Description("Track and/or track segments output")
+    public static final String RDD_OUTPUT_TRACKS = "tracks";
+    @Description("Point data output")
+    public static final String RDD_OUTPUT_POINTS = "points";
+
     @Description("Track or segment duration, seconds")
     public static final String GEN_DURATION = "_duration";
     @Description("Track or segment length, meters")

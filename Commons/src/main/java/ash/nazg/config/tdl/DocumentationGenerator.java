@@ -423,6 +423,29 @@ public class DocumentationGenerator {
 
                 TaskDefinitionLanguage.DataStream output = new TaskDefinitionLanguage.DataStream();
                 output.name = name + "_output";
+                if (columns != null) {
+                    output.output = new TaskDefinitionLanguage.StreamDesc();
+                    output.output.columns = columns.toArray(new String[0]);
+                    output.output.delimiter = ",";
+                }
+
+                streams.add(output);
+                tees.add(name + "_output");
+                break;
+            }
+            case Track: {
+                TaskDefinitionLanguage.Operation out = new TaskDefinitionLanguage.Operation();
+                out.verb = TrackGPXOutputOperation.VERB;
+                out.name = "output_" + dsNum.incrementAndGet();
+                out.inputs = new TaskDefinitionLanguage.OpStreams();
+                out.inputs.positionalNames = new String[]{name};
+                out.outputs = new TaskDefinitionLanguage.OpStreams();
+                out.outputs.positionalNames = new String[]{name + "_output"};
+
+                ops.add(out);
+
+                TaskDefinitionLanguage.DataStream output = new TaskDefinitionLanguage.DataStream();
+                output.name = name + "_output";
                 output.output = new TaskDefinitionLanguage.StreamDesc();
                 output.output.columns = new String[]{name + ".lat", name + ".lon", name + ".radius",};
                 output.output.delimiter = ",";

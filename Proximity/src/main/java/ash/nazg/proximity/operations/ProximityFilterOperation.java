@@ -10,6 +10,7 @@ import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
 import ash.nazg.spatial.SpatialUtils;
 import net.sf.geographiclib.Geodesic;
+import net.sf.geographiclib.GeodesicMask;
 import org.apache.hadoop.io.DoubleWritable;
 import org.apache.hadoop.io.MapWritable;
 import org.apache.hadoop.io.Text;
@@ -205,7 +206,7 @@ public class ProximityFilterOperation extends Operation {
                                     double pLat = ((DoubleWritable) poiProperties.get(latAttr)).get();
                                     double pLon = ((DoubleWritable) poiProperties.get(lonAttr)).get();
 
-                                    double distance = Geodesic.WGS84.Inverse(signalLat, signalLon, pLat, pLon).s12;
+                                    double distance = Geodesic.WGS84.Inverse(signalLat, signalLon, pLat, pLon, GeodesicMask.DISTANCE).s12;
 
                                     //check if poi falls into radius
                                     if (distance <= poi._2) {

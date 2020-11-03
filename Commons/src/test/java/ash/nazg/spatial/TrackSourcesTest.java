@@ -46,7 +46,7 @@ public class TrackSourcesTest {
                     pts.size()
             );
             for (String pt : pts) {
-                String [] p = pt.split("\t");
+                String[] p = pt.split("\t");
                 assertEquals("a1", p[0]);
                 assertEquals(8, p.length);
             }

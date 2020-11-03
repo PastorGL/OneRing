@@ -4,20 +4,23 @@ import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
+import ash.nazg.spatial.SegmentedTrack;
+import ash.nazg.spatial.TrackSegment;
 import com.opencsv.CSVWriter;
-import io.jenetics.jpx.Track;
-import io.jenetics.jpx.TrackSegment;
-import io.jenetics.jpx.WayPoint;
+import org.apache.hadoop.io.MapWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
-import org.w3c.dom.Document;
-import org.w3c.dom.NodeList;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.Point;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.StringWriter;
 import java.util.*;
+
+import static ash.nazg.spatial.config.ConfigurationParameters.RDD_OUTPUT_POINTS;
+import static ash.nazg.spatial.config.ConfigurationParameters.RDD_OUTPUT_TRACKS;
 
 @SuppressWarnings("unused")
 public class TrackCSVOutputOperation extends Operation {
@@ -27,10 +30,6 @@ public class TrackCSVOutputOperation extends Operation {
     public static final String OP_OUTPUT_MODE = "tracks.mode";
     @Description("By default, output both Tracks' and Track segments' data")
     public static final OutputMode DEF_OUTPUT_MODE = OutputMode.BOTH;
-    @Description("Track and/or track segments output")
-    public static final String RDD_OUTPUT_TRACKS = "tracks";
-    @Description("Point data output")
-    public static final String RDD_OUTPUT_POINTS = "points";
 
     private String inputName;
     private String outputTracks;
@@ -94,7 +93,7 @@ public class TrackCSVOutputOperation extends Operation {
 
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
-        JavaRDD<Track> tracks = (JavaRDD<Track>) input.get(inputName);
+        JavaRDD<SegmentedTrack> tracks = (JavaRDD<SegmentedTrack>) input.get(inputName);
         Map<String, JavaRDDLike> retMap = new HashMap<>();
 
         if (outputTracks != null) {
@@ -107,29 +106,24 @@ public class TrackCSVOutputOperation extends Operation {
                         List<Text> ret = new ArrayList<>();
 
                         while (it.hasNext()) {
-                            Track next = it.next();
+                            SegmentedTrack next = it.next();
 
-                            List<Document> exts = new ArrayList<>();
+                            List<MapWritable> props = new ArrayList<>();
                             if (_outputMode != OutputMode.SEGMENTS) {
-                                if (next.getExtensions().isPresent()) {
-                                    exts.add(next.getExtensions().get());
-                                }
+                                props.add((MapWritable) next.getUserData());
                             }
                             if (_outputMode != OutputMode.TRACKS) {
-                                next.getSegments().forEach(s -> {
-                                    if (s.getExtensions().isPresent()) {
-                                        exts.add(s.getExtensions().get());
-                                    }
-                                });
+                                for (Geometry g : next.geometries()) {
+                                    props.add((MapWritable) g.getUserData());
+                                }
                             }
 
-                            for (Document t : exts) {
+                            for (MapWritable t : props) {
                                 String[] out = new String[_outputColumnsStats.size()];
 
                                 int i = 0;
                                 for (String column : _outputColumnsStats) {
-                                    NodeList elementsByTagName = t.getElementsByTagName(column);
-                                    out[i++] = (elementsByTagName.getLength() == 0) ? null : elementsByTagName.item(0).getTextContent();
+                                    out[i++] = t.get(new Text(column)).toString();
                                 }
 
                                 StringWriter buffer = new StringWriter();
@@ -160,18 +154,19 @@ public class TrackCSVOutputOperation extends Operation {
                         final DocumentBuilder b = f.newDocumentBuilder();
 
                         while (it.hasNext()) {
-                            Track next = it.next();
+                            SegmentedTrack next = it.next();
 
-                            for (TrackSegment s : next) {
-                                for (WayPoint p : s) {
-                                    Document t = p.getExtensions().orElseGet(b::newDocument);
+                            for (Geometry g : next.geometries()) {
+                                TrackSegment s = (TrackSegment) g;
+                                for (Geometry gg : s.geometries()) {
+                                    Point p = (Point) gg;
+                                    MapWritable t = (MapWritable) p.getUserData();
 
                                     String[] out = new String[_outputColumnsPoints.size()];
 
                                     int i = 0;
                                     for (String column : _outputColumnsPoints) {
-                                        NodeList elementsByTagName = t.getElementsByTagName(column);
-                                        out[i++] = (elementsByTagName.getLength() == 0) ? null : elementsByTagName.item(0).getTextContent();
+                                        out[i++] = t.get(new Text(column)).toString();
                                     }
 
                                     StringWriter buffer = new StringWriter();
