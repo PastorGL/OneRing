@@ -107,7 +107,7 @@ public class QueryListenerImpl extends QueryBaseListener {
                 // column_name equality_op STRING_LITERAL
                 TerminalNode stringLiteral = atomicExpr.STRING_LITERAL();
                 if (equalityOp != null && stringLiteral != null) {
-                    addPropGetter(propName);
+                    where.add(Expressions.getString(propName));
 
                     String rv = stripStringQuotes(stringLiteral.getText());
                     if (equalityOp.EQ() != null || equalityOp.EQ2() != null) {
@@ -121,9 +121,9 @@ public class QueryListenerImpl extends QueryBaseListener {
 
                 // column_name equality_op NUMERIC_LITERAL
                 if (equalityOp != null && numericLiteral != null) {
-                    addPropGetter(propName);
+                    where.add(Expressions.getNumber(propName));
 
-                    Double rv = new Double(numericLiteral.getText());
+                    double rv = Double.parseDouble(numericLiteral.getText());
                     if (equalityOp.EQ() != null || equalityOp.EQ2() != null) {
                         where.add(Expressions.numericEqual(rv));
                     }
@@ -135,9 +135,9 @@ public class QueryListenerImpl extends QueryBaseListener {
 
                 // column_name comparison_op NUMERIC_LITERAL
                 if (comparisonOp != null && numericLiteral != null) {
-                    addPropGetter(propName);
+                    where.add(Expressions.getNumber(propName));
 
-                    Double rv = new Double(numericLiteral.getText());
+                    double rv = Double.parseDouble(numericLiteral.getText());
                     if (comparisonOp.GT() != null) {
                         where.add(Expressions.numericGreater(rv));
                     }
@@ -172,13 +172,13 @@ public class QueryListenerImpl extends QueryBaseListener {
                         pattern = pattern.substring(1, lastSlash);
                     }
 
-                    addPropGetter(propName);
+                    where.add(Expressions.getString(propName));
 
                     where.add(Expressions.stringRegex(regexFlags, pattern));
                 }
 
                 if (atomicExpr.K_NULL() != null) {
-                    addPropGetter(propName);
+                    where.add(Expressions.getString(propName));
 
                     if (atomicExpr.K_NOT() != null) {
                         where.add(Expressions.isNotNull());
@@ -194,17 +194,17 @@ public class QueryListenerImpl extends QueryBaseListener {
                 QueryParser.Logic_opContext logicOp = (QueryParser.Logic_opContext) whereExpr;
 
                 if (logicOp.K_NOT() != null) {
-                    addStackGetter(1);
+                    where.add(Expressions.stackGetter(1));
 
                     where.add(Expressions.not());
                 }
                 if (logicOp.K_AND() != null) {
-                    addStackGetter(2);
+                    where.add(Expressions.stackGetter(2));
 
                     where.add(Expressions.and());
                 }
                 if (logicOp.K_OR() != null) {
-                    addStackGetter(2);
+                    where.add(Expressions.stackGetter(2));
 
                     where.add(Expressions.or());
                 }
@@ -247,14 +247,6 @@ public class QueryListenerImpl extends QueryBaseListener {
             string = string.substring(1, string.length() - 1);
         }
         return string;
-    }
-
-    private void addPropGetter(String prop) {
-        where.add(Expressions.propGetter(prop));
-    }
-
-    private void addStackGetter(int num) {
-        where.add(Expressions.stackGetter(num));
     }
 
     public List<Expressions.QueryExpr> getQuery() {

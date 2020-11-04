@@ -6,7 +6,10 @@ import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
 import ash.nazg.spatial.SegmentedTrack;
 import ash.nazg.spatial.TrackSegment;
-import ash.nazg.spatial.functions.*;
+import ash.nazg.spatial.functions.Expressions;
+import ash.nazg.spatial.functions.QueryLexer;
+import ash.nazg.spatial.functions.QueryListenerImpl;
+import ash.nazg.spatial.functions.QueryParser;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -184,46 +187,44 @@ public class SpatialToolboxOperation extends Operation {
         }
 
         public boolean matches(MapWritable props) {
-            List<Boolean> stack = new ArrayList<>();
-
             if (query.isEmpty()) {
                 return true;
             }
 
-            String prop = null;
-            List<Boolean> stackPortion = null;
+            Deque<Boolean> stack = new LinkedList<>();
+            Deque<Boolean> top = null;
+            Object prop = null;
             for (Expressions.QueryExpr qe : query) {
                 if (qe instanceof Expressions.PropGetter) {
-                    Object o = ((Expressions.PropGetter) qe).get(props);
-                    prop = (o == null) ? null : o.toString();
+                    prop = ((Expressions.PropGetter) qe).get(props);
                     continue;
                 }
                 if (qe instanceof Expressions.StackGetter) {
-                    stackPortion = ((Expressions.StackGetter) qe).eval(stack);
+                    top = ((Expressions.StackGetter) qe).eval(stack);
                     continue;
                 }
                 if (qe instanceof Expressions.StringExpr) {
-                    stack.add(((Expressions.StringExpr) qe).eval(prop));
+                    stack.push(((Expressions.StringExpr) qe).eval((String) prop));
                     continue;
                 }
                 if (qe instanceof Expressions.NumericExpr) {
-                    stack.add((prop != null) && ((Expressions.NumericExpr) qe).eval(new Double(prop)));
+                    stack.push(((Expressions.NumericExpr) qe).eval((Double) prop));
                     continue;
                 }
                 if (qe instanceof Expressions.LogicBinaryExpr) {
-                    stack.add(((Expressions.LogicBinaryExpr) qe).eval(stackPortion.get(0), stackPortion.get(1)));
+                    stack.push(((Expressions.LogicBinaryExpr) qe).eval(top.pop(), top.pop()));
                     continue;
                 }
                 if (qe instanceof Expressions.LogicUnaryExpr) {
-                    stack.add(((Expressions.LogicUnaryExpr) qe).eval(stackPortion.get(0)));
+                    stack.push(((Expressions.LogicUnaryExpr) qe).eval(top.pop()));
                     continue;
                 }
                 if (qe instanceof Expressions.NullExpr) {
-                    stack.add(((Expressions.NullExpr) qe).eval(prop));
+                    stack.push(((Expressions.NullExpr) qe).eval(prop));
                 }
             }
 
-            return stack.get(stack.size() - 1);
+            return stack.pop();
         }
     }
 }

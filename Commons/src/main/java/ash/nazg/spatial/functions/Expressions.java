@@ -2,9 +2,11 @@ package ash.nazg.spatial.functions;
 
 import org.apache.hadoop.io.MapWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.Writable;
 
 import java.io.Serializable;
-import java.util.List;
+import java.util.Deque;
+import java.util.LinkedList;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
@@ -15,28 +17,28 @@ public final class Expressions {
         return (r) -> (r != null) && p.matcher(r).matches();
     }
 
-    public static NumericExpr numericGreater(final Double rv) {
+    public static NumericExpr numericGreater(final double rv) {
         return (r) -> (r != null) && (r > rv);
     }
 
-    public static NumericExpr numericGreaterEq(final Double rv) {
+    public static NumericExpr numericGreaterEq(final double rv) {
         return (r) -> (r != null) && (r >= rv);
     }
 
-    public static NumericExpr numericLess(final Double rv) {
+    public static NumericExpr numericLess(final double rv) {
         return (r) -> (r != null) && (r < rv);
     }
 
-    public static NumericExpr numericLessEq(final Double rv) {
+    public static NumericExpr numericLessEq(final double rv) {
         return (r) -> (r != null) && (r >= rv);
     }
 
-    public static NumericExpr numericEqual(final Double rv) {
-        return (r) -> (r != null) && (r.doubleValue() == rv);
+    public static NumericExpr numericEqual(final double rv) {
+        return (r) -> (r != null) && (r == rv);
     }
 
-    public static NumericExpr numericUnequal(final Double rv) {
-        return (r) -> (r != null) && (r.doubleValue() != rv);
+    public static NumericExpr numericUnequal(final double rv) {
+        return (r) -> (r != null) && (r != rv);
     }
 
     public static StringExpr stringEqual(final String rv) {
@@ -67,12 +69,28 @@ public final class Expressions {
         return (a, b) -> a || b;
     }
 
-    public static PropGetter propGetter(final String prop) {
-        return (r) -> r.get(new Text(prop));
+    public static PropGetter getString(final String prop) {
+        return (r) -> {
+            Writable raw = r.get(new Text(prop));
+            return (raw != null) ? raw.toString() : null;
+        };
+    }
+
+    public static PropGetter getNumber(final String prop) {
+        return (r) -> {
+            Writable raw = r.get(new Text(prop));
+            return (raw != null) ? new Double(raw.toString()) : null;
+        };
     }
 
     public static StackGetter stackGetter(final int num) {
-        return (r) -> r.subList(r.size() - num, r.size());
+        return (stack) -> {
+            Deque<Boolean> top = new LinkedList<>();
+            for (int i = 0; i < num; i++) {
+                top.push(stack.pop());
+            }
+            return top;
+        };
     }
 
     public interface QueryExpr extends Serializable {
@@ -100,7 +118,7 @@ public final class Expressions {
 
     @FunctionalInterface
     public interface StackGetter extends QueryExpr {
-        List<Boolean> eval(List<Boolean> r);
+        Deque<Boolean> eval(Deque<Boolean> r);
     }
 
     @FunctionalInterface
