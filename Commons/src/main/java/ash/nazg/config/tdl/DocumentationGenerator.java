@@ -303,9 +303,9 @@ public class DocumentationGenerator {
 
                 break;
             }
-            case Polygon: {
+            case Track: {
                 TaskDefinitionLanguage.Operation src = new TaskDefinitionLanguage.Operation();
-                src.verb = PolygonJSONSourceOperation.VERB;
+                src.verb = TrackGPXSourceOperation.VERB;
                 src.name = "source_" + dsNum.incrementAndGet();
                 src.inputs = new TaskDefinitionLanguage.OpStreams();
                 src.inputs.positionalNames = new String[]{"source_" + dsNum};
@@ -317,7 +317,7 @@ public class DocumentationGenerator {
                 TaskDefinitionLanguage.DataStream input = new TaskDefinitionLanguage.DataStream();
                 input.name = "source_" + dsNum;
                 input.input = new TaskDefinitionLanguage.StreamDesc();
-                input.input.path = "proto://full/path/to/source_" + dsNum + "/*.json";
+                input.input.path = "proto://full/path/to/source_" + dsNum + "/*.gpx";
                 input.input.partCount = "100500";
 
                 streams.add(input);
@@ -335,9 +335,9 @@ public class DocumentationGenerator {
 
                 break;
             }
-            case Track: {
+            case Polygon: {
                 TaskDefinitionLanguage.Operation src = new TaskDefinitionLanguage.Operation();
-                src.verb = TrackGPXSourceOperation.VERB;
+                src.verb = PolygonJSONSourceOperation.VERB;
                 src.name = "source_" + dsNum.incrementAndGet();
                 src.inputs = new TaskDefinitionLanguage.OpStreams();
                 src.inputs.positionalNames = new String[]{"source_" + dsNum};
@@ -349,7 +349,7 @@ public class DocumentationGenerator {
                 TaskDefinitionLanguage.DataStream input = new TaskDefinitionLanguage.DataStream();
                 input.name = "source_" + dsNum;
                 input.input = new TaskDefinitionLanguage.StreamDesc();
-                input.input.path = "proto://full/path/to/source_" + dsNum + "/*.gpx";
+                input.input.path = "proto://full/path/to/source_" + dsNum + "/*.json";
                 input.input.partCount = "100500";
 
                 streams.add(input);
@@ -457,29 +457,6 @@ public class DocumentationGenerator {
             case Polygon: {
                 TaskDefinitionLanguage.Operation out = new TaskDefinitionLanguage.Operation();
                 out.verb = PolygonJSONOutputOperation.VERB;
-                out.name = "output_" + dsNum.incrementAndGet();
-                out.inputs = new TaskDefinitionLanguage.OpStreams();
-                out.inputs.positionalNames = new String[]{name};
-                out.outputs = new TaskDefinitionLanguage.OpStreams();
-                out.outputs.positionalNames = new String[]{name + "_output"};
-
-                ops.add(out);
-
-                TaskDefinitionLanguage.DataStream output = new TaskDefinitionLanguage.DataStream();
-                output.name = name + "_output";
-                if (columns != null) {
-                    output.output = new TaskDefinitionLanguage.StreamDesc();
-                    output.output.columns = columns.toArray(new String[0]);
-                    output.output.delimiter = ",";
-                }
-
-                streams.add(output);
-                tees.add(name + "_output");
-                break;
-            }
-            case Track: {
-                TaskDefinitionLanguage.Operation out = new TaskDefinitionLanguage.Operation();
-                out.verb = TrackGPXOutputOperation.VERB;
                 out.name = "output_" + dsNum.incrementAndGet();
                 out.inputs = new TaskDefinitionLanguage.OpStreams();
                 out.inputs.positionalNames = new String[]{name};
