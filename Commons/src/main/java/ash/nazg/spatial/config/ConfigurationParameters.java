@@ -48,8 +48,6 @@ public final class ConfigurationParameters {
     public static final String GEN_DURATION = "_duration";
     @Description("Track or segment length, meters")
     public static final String GEN_DISTANCE = "_distance";
-    @Description("Track or segment range from the base point, meters")
-    public static final String GEN_RANGE = "_range";
     @Description("Number of track or segment points")
     public static final String GEN_POINTS = "_points";
     @Description("Track User ID")

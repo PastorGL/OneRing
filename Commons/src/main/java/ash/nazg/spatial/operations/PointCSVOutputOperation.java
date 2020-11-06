@@ -84,7 +84,7 @@ public class PointCSVOutputOperation extends Operation {
 
                         int i = 0;
                         for (String column : _outputColumns) {
-                            out[i++] = t.get(new Text(column)).toString();
+                            out[i++] = String.valueOf(t.get(new Text(column)));
                         }
 
                         StringWriter buffer = new StringWriter();

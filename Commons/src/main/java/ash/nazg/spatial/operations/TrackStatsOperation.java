@@ -26,15 +26,21 @@ import static ash.nazg.spatial.config.ConfigurationParameters.*;
 @SuppressWarnings("unused")
 public class TrackStatsOperation extends Operation {
     public static final String VERB = "trackStats";
+
     @Description("Track RDD to calculate the statistics")
     public static final String RDD_INPUT_TRACKS = "tracks";
-    @Description("Optional Point RDD to pin tracks with same userid against")
+    @Description("Optional Point RDD to pin tracks with same _userid property against (for pinning.mode=INPUT_PINS)")
     public static final String RDD_INPUT_PINS = "pins";
+    @Description("Track pinning mode for _radius calculation")
+    public static final String OP_PINNING_MODE = "pinning.mode";
+    @Description("By default, pin to points supplied by an external input")
+    public static final PinningMode DEF_PINNING_MODE = PinningMode.INPUT_PINS;
 
     private String inputName;
     private String outputName;
 
     private String pinsName;
+    private PinningMode pinningMode;
 
     @Override
     @Description("Take a Track RDD and augment its properties with statistics")
@@ -45,7 +51,9 @@ public class TrackStatsOperation extends Operation {
     @Override
     public TaskDescriptionLanguage.Operation description() {
         return new TaskDescriptionLanguage.Operation(verb(),
-                null,
+                new TaskDescriptionLanguage.DefBase[]{
+                        new TaskDescriptionLanguage.Definition(OP_PINNING_MODE, PinningMode.class, DEF_PINNING_MODE),
+                },
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.NamedStream[]{
@@ -64,7 +72,7 @@ public class TrackStatsOperation extends Operation {
                         new TaskDescriptionLanguage.NamedStream[]{
                                 new TaskDescriptionLanguage.NamedStream(RDD_OUTPUT_TRACKS,
                                         new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Track},
-                                        new String[]{GEN_USERID, GEN_POINTS, GEN_TRACKID, GEN_DURATION, GEN_RANGE, GEN_DISTANCE}
+                                        new String[]{GEN_USERID, GEN_POINTS, GEN_TRACKID, GEN_DURATION, GEN_RADIUS, GEN_DISTANCE}
                                 )
                         }
                 )
@@ -77,16 +85,17 @@ public class TrackStatsOperation extends Operation {
 
         inputName = describedProps.namedInputs.get(RDD_INPUT_TRACKS);
         pinsName = describedProps.namedInputs.get(RDD_INPUT_PINS);
+
         outputName = describedProps.namedOutputs.get(RDD_OUTPUT_TRACKS);
+
+        pinningMode = describedProps.defs.getTyped(OP_PINNING_MODE);
     }
 
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
-        final boolean pinDistance = input.get(pinsName) != null;
-
         JavaPairRDD<Point, SegmentedTrack> inp;
 
-        if (pinDistance) {
+        if (pinningMode == PinningMode.INPUT_PINS) {
             JavaPairRDD<Text, Point> pins = ((JavaRDD<Point>) input.get(pinsName))
                     .mapPartitionsToPair(it -> {
                         List<Tuple2<Text, Point>> result = new ArrayList<>();
@@ -124,6 +133,8 @@ public class TrackStatsOperation extends Operation {
                     .mapToPair(t -> new Tuple2<>(null, t));
         }
 
+        PinningMode _pinningMode = pinningMode;
+
         final GeometryFactory geometryFactory = new GeometryFactory();
 
         JavaRDD<SegmentedTrack> output = inp
@@ -134,19 +145,19 @@ public class TrackStatsOperation extends Operation {
                     Text durationAttr = new Text(GEN_DURATION);
                     Text distanceAttr = new Text(GEN_DISTANCE);
                     Text pointsAttr = new Text(GEN_POINTS);
-                    Text rangeAttr = new Text(GEN_RANGE);
+                    Text radiusAttr = new Text(GEN_RADIUS);
 
                     while (it.hasNext()) {
                         Tuple2<Point, SegmentedTrack> o = it.next();
 
                         SegmentedTrack trk = o._2;
 
-                        Point start = null;
+                        Point pin = null;
                         int numSegs = trk.getNumGeometries();
                         TrackSegment[] segs = new TrackSegment[numSegs];
                         int augPoints = 0;
                         double augDistance = 0.D;
-                        double augRange = 0.D;
+                        double augRadius = 0.D;
                         long augDuration = 0L;
                         for (int j = 0; j < numSegs; j++) {
                             TrackSegment augSeg;
@@ -155,18 +166,35 @@ public class TrackStatsOperation extends Operation {
                             Geometry[] wayPoints = seg.geometries();
                             int segPoints = wayPoints.length;
                             double segDistance = 0.D;
-                            double segRange = 0.D;
+                            double segRadius = 0.D;
                             long segDuration = 0L;
 
-                            Point prev;
-                            if (pinDistance) {
-                                if (start == null) {
-                                    start = o._1;
+                            Point prev = (Point) wayPoints[0];
+                            switch (_pinningMode) {
+                                case SEGMENT_CENTROIDS: {
+                                    pin = seg.getCentroid();
+                                    break;
                                 }
-                                prev = (Point) wayPoints[0];
-                            } else {
-                                start = (Point) wayPoints[0];
-                                prev = start;
+                                case TRACK_CENTROIDS: {
+                                    if (j == 0) {
+                                        pin = trk.getCentroid();
+                                    }
+                                    break;
+                                }
+                                case SEGMENT_STARTS: {
+                                    pin = (Point) wayPoints[0];
+                                    break;
+                                }
+                                case TRACK_STARTS: {
+                                    if (j == 0) {
+                                        pin = (Point) wayPoints[0];
+                                    }
+                                    break;
+                                }
+                                default: {
+                                    pin = o._1;
+                                    break;
+                                }
                             }
 
                             for (int i = 1; i < segPoints; i++) {
@@ -178,7 +206,7 @@ public class TrackStatsOperation extends Operation {
                                 segDuration += ((DoubleWritable) props.get(tsAttr)).get() - ((DoubleWritable) prevProps.get(tsAttr)).get();
                                 segDistance += Geodesic.WGS84.Inverse(prev.getY(), prev.getX(),
                                         point.getY(), point.getX(), GeodesicMask.DISTANCE).s12;
-                                segRange = Math.max(segRange, Geodesic.WGS84.Inverse(start.getY(), start.getX(),
+                                segRadius = Math.max(segRadius, Geodesic.WGS84.Inverse(pin.getY(), pin.getX(),
                                         point.getY(), point.getX(), GeodesicMask.DISTANCE).s12);
                                 prev = point;
                             }
@@ -187,14 +215,14 @@ public class TrackStatsOperation extends Operation {
 
                             augDuration += segDuration;
                             augDistance += segDistance;
-                            augRange = Math.max(augRange, segRange);
+                            augRadius = Math.max(augRadius, segRadius);
                             augPoints += segPoints;
 
                             MapWritable segProps = (MapWritable) seg.getUserData();
                             segProps.put(durationAttr, new Text(String.valueOf(segDuration)));
                             segProps.put(distanceAttr, new Text(String.valueOf(segDistance)));
                             segProps.put(pointsAttr, new Text(String.valueOf(segPoints)));
-                            segProps.put(rangeAttr, new Text(String.valueOf(segRange)));
+                            segProps.put(radiusAttr, new Text(String.valueOf(segRadius)));
                             augSeg.setUserData(segProps);
 
                             segs[j] = augSeg;
@@ -206,7 +234,7 @@ public class TrackStatsOperation extends Operation {
                         augProps.put(durationAttr, new Text(String.valueOf(augDuration)));
                         augProps.put(distanceAttr, new Text(String.valueOf(augDistance)));
                         augProps.put(pointsAttr, new Text(String.valueOf(augPoints)));
-                        augProps.put(rangeAttr, new Text(String.valueOf(augRange)));
+                        augProps.put(radiusAttr, new Text(String.valueOf(augRadius)));
                         aug.setUserData(augProps);
 
                         result.add(aug);
@@ -218,4 +246,16 @@ public class TrackStatsOperation extends Operation {
         return Collections.singletonMap(outputName, output);
     }
 
+    public enum PinningMode {
+        @Description("Pin TrackSegments by their own centroids")
+        SEGMENT_CENTROIDS,
+        @Description("Pin TrackSegments by parent SegmentedTrack centroid")
+        TRACK_CENTROIDS,
+        @Description("Pin TrackSegments by their own starting points")
+        SEGMENT_STARTS,
+        @Description("Pin TrackSegments by parent SegmentedTrack starting point")
+        TRACK_STARTS,
+        @Description("Pin both SegmentedTracks and TrackSegments by externally supplied pin points")
+        INPUT_PINS
+    }
 }

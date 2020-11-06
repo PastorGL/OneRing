@@ -1,6 +1,7 @@
 package ash.nazg.spatial;
 
 import ash.nazg.spark.TestRunner;
+import org.apache.hadoop.io.MapWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
@@ -40,16 +41,12 @@ public class TrackSourcesTest {
                     rddS.count()
             );
 
-            List<String> pts = ((JavaRDD<Text>) ret.get("points")).collect().stream().map(Text::toString).collect(Collectors.toList());
+            List<MapWritable> pts = ((JavaRDD<Point>) ret.get("points"))
+                    .map(e->(MapWritable)e.getUserData()).collect();
             assertEquals(
                     37,
                     pts.size()
             );
-            for (String pt : pts) {
-                String[] p = pt.split("\t");
-                assertEquals("a1", p[0]);
-                assertEquals(8, p.length);
-            }
         }
     }
 }

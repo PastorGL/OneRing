@@ -32,7 +32,7 @@ public class TrackStatsTest {
 
             for (MapWritable data : datas) {
                 assertTrue(Double.parseDouble(data.get(new Text("_duration")).toString()) > 0.D);
-                assertTrue(Double.parseDouble(data.get(new Text("_range")).toString()) > 0.D);
+                assertTrue(Double.parseDouble(data.get(new Text("_radius")).toString()) > 0.D);
                 assertTrue(Double.parseDouble(data.get(new Text("_distance")).toString()) > 0.D);
                 assertTrue(Double.parseDouble(data.get(new Text("_points")).toString()) > 0.D);
             }
