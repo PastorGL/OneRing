@@ -152,7 +152,8 @@ public class TrackStatsOperation extends Operation {
 
                         SegmentedTrack trk = o._2;
 
-                        Point pin = null;
+                        Point trkPin = null;
+                        Point segPin = null;
                         int numSegs = trk.getNumGeometries();
                         TrackSegment[] segs = new TrackSegment[numSegs];
                         int augPoints = 0;
@@ -172,27 +173,38 @@ public class TrackStatsOperation extends Operation {
                             Point prev = (Point) wayPoints[0];
                             switch (_pinningMode) {
                                 case SEGMENT_CENTROIDS: {
-                                    pin = seg.getCentroid();
+                                    if (j == 0) {
+                                        trkPin = trk.getCentroid();
+                                    }
+                                    segPin = seg.getCentroid();
                                     break;
                                 }
                                 case TRACK_CENTROIDS: {
                                     if (j == 0) {
-                                        pin = trk.getCentroid();
+                                        trkPin = trk.getCentroid();
+                                        segPin = trkPin;
                                     }
                                     break;
                                 }
                                 case SEGMENT_STARTS: {
-                                    pin = (Point) wayPoints[0];
+                                    segPin = (Point) wayPoints[0];
+                                    if (j == 0) {
+                                        trkPin = segPin;
+                                    }
                                     break;
                                 }
                                 case TRACK_STARTS: {
                                     if (j == 0) {
-                                        pin = (Point) wayPoints[0];
+                                        trkPin = (Point) wayPoints[0];
+                                        segPin = trkPin;
                                     }
                                     break;
                                 }
                                 default: {
-                                    pin = o._1;
+                                    if (j == 0) {
+                                        trkPin = o._1;
+                                        segPin = trkPin;
+                                    }
                                     break;
                                 }
                             }
@@ -206,7 +218,9 @@ public class TrackStatsOperation extends Operation {
                                 segDuration += ((DoubleWritable) props.get(tsAttr)).get() - ((DoubleWritable) prevProps.get(tsAttr)).get();
                                 segDistance += Geodesic.WGS84.Inverse(prev.getY(), prev.getX(),
                                         point.getY(), point.getX(), GeodesicMask.DISTANCE).s12;
-                                segRadius = Math.max(segRadius, Geodesic.WGS84.Inverse(pin.getY(), pin.getX(),
+                                segRadius = Math.max(segRadius, Geodesic.WGS84.Inverse(segPin.getY(), segPin.getX(),
+                                        point.getY(), point.getX(), GeodesicMask.DISTANCE).s12);
+                                augRadius = Math.max(augRadius, Geodesic.WGS84.Inverse(trkPin.getY(), trkPin.getX(),
                                         point.getY(), point.getX(), GeodesicMask.DISTANCE).s12);
                                 prev = point;
                             }
@@ -215,7 +229,6 @@ public class TrackStatsOperation extends Operation {
 
                             augDuration += segDuration;
                             augDistance += segDistance;
-                            augRadius = Math.max(augRadius, segRadius);
                             augPoints += segPoints;
 
                             MapWritable segProps = (MapWritable) seg.getUserData();
