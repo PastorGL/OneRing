@@ -7,15 +7,16 @@ package ash.nazg.simplefilters.operations;
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 
 import java.util.*;
 
+import static ash.nazg.simplefilters.config.ConfigurationParameters.*;
+
 @SuppressWarnings("unused")
 public class ExactMatchFilterOperation extends MatchFilterOperation {
-    @Description("Column to match a value")
-    public static final String DS_MATCH_COLUMN = "match.column";
     @Description("Values to match any of them")
     public static final String OP_MATCH_VALUES = "match.values";
 
@@ -34,22 +35,30 @@ public class ExactMatchFilterOperation extends MatchFilterOperation {
     public TaskDescriptionLanguage.Operation description() {
         return new TaskDescriptionLanguage.Operation(verb(),
                 new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(DS_MATCH_COLUMN),
+                        new TaskDescriptionLanguage.Definition(DS_SOURCE_MATCH_COLUMN),
                         new TaskDescriptionLanguage.Definition(OP_MATCH_VALUES, String[].class),
                 },
 
                 new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
-                                true
-                        )
+                        new TaskDescriptionLanguage.NamedStream[]{
+                                new TaskDescriptionLanguage.NamedStream(RDD_INPUT_SOURCE,
+                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                        true
+                                )
+                        }
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Passthru},
-                                false
-                        )
+                        new TaskDescriptionLanguage.NamedStream[]{
+                                new TaskDescriptionLanguage.NamedStream(RDD_OUTPUT_MATCHED,
+                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                        true
+                                ),
+                                new TaskDescriptionLanguage.NamedStream(RDD_OUTPUT_EVICTED,
+                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                        false
+                                ),
+                        }
                 )
         );
     }
@@ -58,30 +67,27 @@ public class ExactMatchFilterOperation extends MatchFilterOperation {
     public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
         super.configure(properties, variables);
 
-        inputName = describedProps.inputs.get(0);
-        outputName = describedProps.outputs.get(0);
-
-        inputDelimiter = dataStreamsProps.inputDelimiter(inputName);
-
-        Map<String, Integer> inputColumns = dataStreamsProps.inputColumns.get(inputName);
-
-        String prop;
-        prop = describedProps.defs.getTyped(DS_MATCH_COLUMN);
-        matchColumn = inputColumns.get(prop);
-
         matchSet = describedProps.defs.getTyped(OP_MATCH_VALUES);
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
-        JavaRDD<Object> out = ((JavaRDD<Object>) input.get(inputName))
-                .mapPartitions(new MatchFunction(
+        JavaPairRDD<Boolean, Object> matched = ((JavaRDD<Object>) input.get(inputSourceName))
+                .mapPartitionsToPair(new MatchFunction(
                         ctx.broadcast(new HashSet<>(Arrays.asList(matchSet))),
-                        inputDelimiter,
+                        inputSourceDelimiter,
                         matchColumn
                 ));
 
-        return Collections.singletonMap(outputName, out);
+        if (outputEvictedName != null) {
+            Map<String, JavaRDDLike> ret = new HashMap<>();
+            ret.put(outputMatchedName, matched.filter(t -> t._1).values());
+            ret.put(outputEvictedName, matched.filter(t -> !t._1).values());
+
+            return Collections.unmodifiableMap(ret);
+        } else {
+            return Collections.singletonMap(outputMatchedName, matched.filter(t -> t._1).values());
+        }
     }
 }

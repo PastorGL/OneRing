@@ -3,7 +3,6 @@ package ash.nazg.simplefilters.operations;
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
-import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVWriter;
@@ -20,19 +19,12 @@ import java.util.*;
 import static ash.nazg.simplefilters.config.ConfigurationParameters.*;
 
 @SuppressWarnings("unused")
-public class SplitMatchOperation extends Operation {
+public class SplitMatchOperation extends MatchFilterOperation {
     public static final String VERB = "splitMatch";
 
     private String inputValuesName;
     private char inputValuesDelimiter;
     private int valuesColumn;
-
-    private char inputSourceDelimiter;
-    private String inputSourceName;
-    private int matchColumn;
-
-    private String outputMatchedName;
-    private String outputEvictedName;
 
     private char outputDelimiter;
     private int[] outputCols;
@@ -74,7 +66,7 @@ public class SplitMatchOperation extends Operation {
                                         true
                                 ),
                                 new TaskDescriptionLanguage.NamedStream(RDD_OUTPUT_EVICTED,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Passthru},
+                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
                                         false
                                 ),
                         }
@@ -88,19 +80,11 @@ public class SplitMatchOperation extends Operation {
 
         inputValuesName = describedProps.namedInputs.get(RDD_INPUT_VALUES);
         inputValuesDelimiter = dataStreamsProps.inputDelimiter(inputValuesName);
-        inputSourceName = describedProps.namedInputs.get(RDD_INPUT_SOURCE);
-        inputSourceDelimiter = dataStreamsProps.inputDelimiter(inputSourceName);
-
-        outputMatchedName = describedProps.namedOutputs.get(RDD_OUTPUT_MATCHED);
-        outputEvictedName = describedProps.namedOutputs.get(RDD_OUTPUT_EVICTED);
 
         Map<String, Integer> inputSourceColumns = dataStreamsProps.inputColumns.get(inputSourceName);
         Map<String, Integer> inputValuesColumns = dataStreamsProps.inputColumns.get(inputValuesName);
 
         String prop;
-
-        prop = describedProps.defs.getTyped(DS_SOURCE_MATCH_COLUMN);
-        matchColumn = inputSourceColumns.get(prop);
 
         prop = describedProps.defs.getTyped(DS_VALUES_MATCH_COLUMN);
         valuesColumn = inputValuesColumns.get(prop);

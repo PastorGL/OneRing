@@ -8,28 +8,42 @@ import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
-import org.apache.spark.api.java.function.FlatMapFunction;
+import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.broadcast.Broadcast;
+import scala.Tuple2;
 
 import java.util.*;
 
+import static ash.nazg.simplefilters.config.ConfigurationParameters.*;
+
 public abstract class MatchFilterOperation extends Operation {
-    protected String inputName;
-    protected char inputDelimiter;
+    protected char inputSourceDelimiter;
+    protected String inputSourceName;
     protected int matchColumn;
-    protected String outputName;
+
+    protected String outputMatchedName;
+    protected String outputEvictedName;
 
     @Override
     public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
         super.configure(properties, variables);
 
-        outputName = describedProps.outputs.get(0);
+        inputSourceName = describedProps.namedInputs.get(RDD_INPUT_SOURCE);
+        inputSourceDelimiter = dataStreamsProps.inputDelimiter(inputSourceName);
+
+        outputMatchedName = describedProps.namedOutputs.get(RDD_OUTPUT_MATCHED);
+        outputEvictedName = describedProps.namedOutputs.get(RDD_OUTPUT_EVICTED);
+
+        Map<String, Integer> inputSourceColumns = dataStreamsProps.inputColumns.get(inputSourceName);
+
+        String prop = describedProps.defs.getTyped(DS_SOURCE_MATCH_COLUMN);
+        matchColumn = inputSourceColumns.get(prop);
     }
 
-    public static class MatchFunction implements FlatMapFunction<Iterator<Object>, Object> {
-        private char inputDelimiter;
-        private Broadcast<HashSet<String>> bMatchSet;
-        private int matchColumn;
+    public static class MatchFunction implements PairFlatMapFunction<Iterator<Object>, Boolean, Object> {
+        private final char inputDelimiter;
+        private final Broadcast<HashSet<String>> bMatchSet;
+        private final int matchColumn;
 
         public MatchFunction(Broadcast<HashSet<String>> bMatchSet, char inputDelimiter, int matchColumn) {
             this.inputDelimiter = inputDelimiter;
@@ -38,20 +52,19 @@ public abstract class MatchFilterOperation extends Operation {
         }
 
         @Override
-        public Iterator<Object> call(Iterator<Object> it) throws Exception {
+        public Iterator<Tuple2<Boolean, Object>> call(Iterator<Object> it) throws Exception {
             CSVParser parser = new CSVParserBuilder().withSeparator(inputDelimiter).build();
 
             HashSet<String> _matchSet = bMatchSet.getValue();
 
-            List<Object> ret = new ArrayList<>();
+            List<Tuple2<Boolean, Object>> ret = new ArrayList<>();
             while (it.hasNext()) {
                 Object v = it.next();
                 String l = v instanceof String ? (String) v : String.valueOf(v);
 
                 String m = parser.parseLine(l)[matchColumn];
-                if (_matchSet.contains(m)) {
-                    ret.add(v);
-                }
+
+                ret.add(new Tuple2<>(_matchSet.contains(m), v));
             }
 
             return ret.iterator();

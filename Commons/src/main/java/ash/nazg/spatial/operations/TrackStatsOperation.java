@@ -72,7 +72,7 @@ public class TrackStatsOperation extends Operation {
                         new TaskDescriptionLanguage.NamedStream[]{
                                 new TaskDescriptionLanguage.NamedStream(RDD_OUTPUT_TRACKS,
                                         new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Track},
-                                        new String[]{GEN_USERID, GEN_POINTS, GEN_TRACKID, GEN_DURATION, GEN_RADIUS, GEN_DISTANCE}
+                                        new String[]{GEN_POINTS, GEN_DURATION, GEN_RADIUS, GEN_DISTANCE}
                                 )
                         }
                 )

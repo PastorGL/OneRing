@@ -46,7 +46,7 @@ public class PolygonStatsOperation extends Operation {
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
                                 new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Polygon},
-                                true
+                                new String[]{GEN_PERIMETER, GEN_AREA}
                         )
                 )
         );

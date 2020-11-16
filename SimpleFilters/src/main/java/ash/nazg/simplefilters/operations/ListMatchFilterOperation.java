@@ -9,6 +9,7 @@ import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
+import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 
@@ -53,10 +54,16 @@ public class ListMatchFilterOperation extends MatchFilterOperation {
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Passthru},
-                                false
-                        )
+                        new TaskDescriptionLanguage.NamedStream[]{
+                                new TaskDescriptionLanguage.NamedStream(RDD_OUTPUT_MATCHED,
+                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                        true
+                                ),
+                                new TaskDescriptionLanguage.NamedStream(RDD_OUTPUT_EVICTED,
+                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                        false
+                                ),
+                        }
                 )
         );
     }
@@ -65,22 +72,13 @@ public class ListMatchFilterOperation extends MatchFilterOperation {
     public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
         super.configure(properties, variables);
 
-        inputName = describedProps.namedInputs.get(RDD_INPUT_SOURCE);
-        inputDelimiter = dataStreamsProps.inputDelimiter(inputName);
-
-        Map<String, Integer> inputColumns = dataStreamsProps.inputColumns.get(inputName);
-
-        String prop;
-        prop = describedProps.defs.getTyped(DS_SOURCE_MATCH_COLUMN);
-        matchColumn = inputColumns.get(prop);
-
         inputValuesName = describedProps.namedInputs.get(RDD_INPUT_VALUES);
         inputValuesDelimiter = dataStreamsProps.inputDelimiter(inputValuesName);
 
-        inputColumns = dataStreamsProps.inputColumns.get(inputValuesName);
+        Map<String, Integer> inputValuesColumns = dataStreamsProps.inputColumns.get(inputValuesName);
 
-        prop = describedProps.defs.getTyped(DS_VALUES_MATCH_COLUMN);
-        valuesColumn = inputColumns.get(prop);
+        String prop = describedProps.defs.getTyped(DS_VALUES_MATCH_COLUMN);
+        valuesColumn = inputValuesColumns.get(prop);
     }
 
     @Override
@@ -109,13 +107,21 @@ public class ListMatchFilterOperation extends MatchFilterOperation {
                 .distinct()
                 .collect();
 
-        JavaRDD<Object> out = ((JavaRDD<Object>) input.get(inputName))
-                .mapPartitions(new MatchFunction(
+        JavaPairRDD<Boolean, Object> matched = ((JavaRDD<Object>) input.get(inputSourceName))
+                .mapPartitionsToPair(new MatchFunction(
                         ctx.broadcast(new HashSet<>(matchSet)),
-                        inputDelimiter,
+                        inputSourceDelimiter,
                         matchColumn
                 ));
 
-        return Collections.singletonMap(outputName, out);
+        if (outputEvictedName != null) {
+            Map<String, JavaRDDLike> ret = new HashMap<>();
+            ret.put(outputMatchedName, matched.filter(t -> t._1).values());
+            ret.put(outputEvictedName, matched.filter(t -> !t._1).values());
+
+            return Collections.unmodifiableMap(ret);
+        } else {
+            return Collections.singletonMap(outputMatchedName, matched.filter(t -> t._1).values());
+        }
     }
 }
