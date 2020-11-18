@@ -84,7 +84,7 @@ public class PolygonH3SourceOperation extends Operation {
         for (int i = 0; i < inputColumnsRaw.length; i++) {
             inputCols.put(inputColumnsRaw[i], i);
         }
-        List<String> outs = Arrays.stream(dataStreamsProps.outputColumns.get(inputName))
+        List<String> outs = Arrays.stream(dataStreamsProps.outputColumns.get(outputName))
                 .map(c -> c.replaceFirst("^" + inputName + "\\.", ""))
                 .collect(Collectors.toList());
         Map<Integer, String> outputCols = new HashMap<>();
@@ -104,6 +104,7 @@ public class PolygonH3SourceOperation extends Operation {
         final char _delimiter = delimiter;
         final Map<String, Integer> _outputColumns = outputColumns;
         final GeometryFactory geometryFactory = new GeometryFactory();
+        final int _hashColumn = hashColumn;
 
         JavaRDD<Polygon> output = rdd.mapPartitions(it -> {
             List<Polygon> ret = new ArrayList<>();
@@ -122,7 +123,7 @@ public class PolygonH3SourceOperation extends Operation {
                     props.put(new Text(e.getKey()), new Text(_columns[e.getValue()]));
                 }
 
-                Long hash = new Long(_columns[hashColumn]);
+                long hash = Long.parseUnsignedLong(_columns[_hashColumn], 16);
                 List<GeoCoord> geo = h3.h3ToGeoBoundary(hash);
                 geo.add(geo.get(0));
 

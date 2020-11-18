@@ -43,7 +43,7 @@ public class TrackStatsOperation extends Operation {
     private PinningMode pinningMode;
 
     @Override
-    @Description("Take a Track RDD and augment its properties with statistics")
+    @Description("Take a Track RDD and augment its Points', TrackSegments' and SegmentedTracks' properties with statistics")
     public String verb() {
         return VERB;
     }
@@ -170,7 +170,6 @@ public class TrackStatsOperation extends Operation {
                             double segRadius = 0.D;
                             long segDuration = 0L;
 
-                            Point prev = (Point) wayPoints[0];
                             switch (_pinningMode) {
                                 case SEGMENT_CENTROIDS: {
                                     if (j == 0) {
@@ -209,8 +208,11 @@ public class TrackStatsOperation extends Operation {
                                 }
                             }
 
-                            for (int i = 1; i < segPoints; i++) {
-                                Point point = (Point) wayPoints[i];
+                            double pntRadius;
+                            Point prev = (Point) wayPoints[0];
+                            for (int i = 0; i < segPoints; i++) {
+                                Geometry wayPoint = wayPoints[i];
+                                Point point = (Point) wayPoint;
 
                                 MapWritable props = (MapWritable) point.getUserData();
                                 MapWritable prevProps = (MapWritable) prev.getUserData();
@@ -218,10 +220,25 @@ public class TrackStatsOperation extends Operation {
                                 segDuration += ((DoubleWritable) props.get(tsAttr)).get() - ((DoubleWritable) prevProps.get(tsAttr)).get();
                                 segDistance += Geodesic.WGS84.Inverse(prev.getY(), prev.getX(),
                                         point.getY(), point.getX(), GeodesicMask.DISTANCE).s12;
-                                segRadius = Math.max(segRadius, Geodesic.WGS84.Inverse(segPin.getY(), segPin.getX(),
-                                        point.getY(), point.getX(), GeodesicMask.DISTANCE).s12);
+
+                                pntRadius = Geodesic.WGS84.Inverse(segPin.getY(), segPin.getX(),
+                                        point.getY(), point.getX(), GeodesicMask.DISTANCE).s12;
+                                props.put(radiusAttr, new Text(String.valueOf(pntRadius)));
+                                segRadius = Math.max(segRadius, pntRadius);
+
                                 augRadius = Math.max(augRadius, Geodesic.WGS84.Inverse(trkPin.getY(), trkPin.getX(),
                                         point.getY(), point.getX(), GeodesicMask.DISTANCE).s12);
+
+                                if ((_pinningMode == PinningMode.SEGMENT_CENTROIDS) || (_pinningMode == PinningMode.SEGMENT_STARTS)) {
+                                    props.put(durationAttr, new Text(String.valueOf(segDuration)));
+                                    props.put(distanceAttr, new Text(String.valueOf(segDistance)));
+                                    props.put(pointsAttr, new Text(String.valueOf(i + 1)));
+                                } else {
+                                    props.put(durationAttr, new Text(String.valueOf(augDuration + segDuration)));
+                                    props.put(distanceAttr, new Text(String.valueOf(augDistance + segDistance)));
+                                    props.put(pointsAttr, new Text(String.valueOf(augPoints + i + 1)));
+                                }
+
                                 prev = point;
                             }
 

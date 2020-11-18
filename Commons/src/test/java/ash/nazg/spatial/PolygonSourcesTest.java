@@ -14,9 +14,9 @@ import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 
-public class PolygonJSONSourceTest {
+public class PolygonSourcesTest {
     @Test
-    public void sourceTest() throws Exception {
+    public void polygonJsonSourceTest() throws Exception {
         try (TestRunner underTest = new TestRunner("/config.json.polygons.properties")) {
 
             Map<String, JavaRDDLike> ret = underTest.go();
@@ -26,7 +26,20 @@ public class PolygonJSONSourceTest {
                     1,
                     rddS.count()
             );
+        }
+    }
 
+    @Test
+    public void polygonH3SourceTest() throws Exception {
+        try (TestRunner underTest = new TestRunner("/config.h3.polygons.properties")) {
+
+            Map<String, JavaRDDLike> ret = underTest.go();
+
+            JavaRDD<Polygon> rddS = (JavaRDD<Polygon>) ret.get("polygons");
+            assertEquals(
+                    10,
+                    rddS.count()
+            );
         }
     }
 }

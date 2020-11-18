@@ -68,17 +68,17 @@ public class TrackPointOutputOperation extends Operation {
 
                         for (Geometry g : next.geometries()) {
                             TrackSegment s = (TrackSegment) g;
-                            MapWritable st = (MapWritable) s.getUserData();
 
-                            MapWritable rt = new MapWritable(tt);
-                            rt.putAll(st);
+                            MapWritable st = new MapWritable(tt);
+                            st.putAll((MapWritable) s.getUserData());
 
                             for (Geometry gg : s.geometries()) {
                                 Point p = (Point) gg;
-                                MapWritable pt = (MapWritable) p.getUserData();
-                                rt.putAll(pt);
 
-                                p.setUserData(rt);
+                                MapWritable pt = new MapWritable(st);
+                                pt.putAll((MapWritable) p.getUserData());
+
+                                p.setUserData(pt);
                                 ret.add(p);
                             }
                         }
