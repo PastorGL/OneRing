@@ -10,7 +10,6 @@ import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.datetime.functions.FilterByDateDefinition;
 import ash.nazg.datetime.functions.FilterByDateFunction;
 import ash.nazg.spark.Operation;
-import ash.nazg.config.OperationConfig;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVWriter;
@@ -18,7 +17,7 @@ import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 import org.apache.spark.storage.StorageLevel;
-import org.spark_project.guava.primitives.Ints;
+import org.sparkproject.guava.primitives.Ints;
 
 import java.io.StringWriter;
 import java.util.*;

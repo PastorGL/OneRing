@@ -63,6 +63,12 @@ public abstract class WrapperConfigBuilder {
                 }
             }
         }.parse(options, args);
+
+        if (commandLine.hasOption("help")) {
+            new HelpFormatter().printHelp("One Ring CLI utility", options);
+
+            System.exit(0);
+        }
     }
 
     protected Properties loadConfig(String source, JavaSparkContext context, String prefix) {

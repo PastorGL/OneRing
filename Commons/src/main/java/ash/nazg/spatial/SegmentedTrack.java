@@ -34,7 +34,7 @@ public class SegmentedTrack extends GeometryCollection implements Lineal, Iterab
         return (new BoundaryOp(this)).getBoundary();
     }
 
-    public Geometry reverse() {
+    public GeometryCollection reverse() {
         int nLines = geometries.length;
         TrackSegment[] revSegments = new TrackSegment[nLines];
         for (int i = 0; i < geometries.length; i++) {

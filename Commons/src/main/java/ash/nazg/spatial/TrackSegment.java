@@ -31,7 +31,7 @@ public class TrackSegment extends GeometryCollection implements Lineal, Iterable
         return (new BoundaryOp(this)).getBoundary();
     }
 
-    public Geometry reverse() {
+    public GeometryCollection reverse() {
         int nLines = geometries.length;
         Point[] revPoints = new Point[nLines];
         for (int i = 0; i < geometries.length; i++) {

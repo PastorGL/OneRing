@@ -17,7 +17,6 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
-import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import scala.Tuple2;
@@ -39,13 +38,13 @@ public class DistWrapper extends WrapperBase {
     public DistWrapper(JavaSparkContext context, WrapperConfig config, boolean local) {
         super(context, config);
         this.local = local;
-        
+
         settings = DistCpSettings.fromConfig(wrapperConfig);
     }
 
     // from, to, group, ?sink
     private void distCpCmd(List<Tuple4<String, String, String, String>> list) {
-        JavaRDD<Tuple4<String, String, String, String>> srcDestGroups = context.parallelize(list, list.size());
+        JavaRDD<Tuple4<String, String, String, String>> srcDestGroups = context.parallelize(list);
 
         // sink?, dest -> files
         Map<Tuple2<String, String>, List<String>> discoveredFiles = srcDestGroups
@@ -88,11 +87,10 @@ public class DistWrapper extends WrapperBase {
 
         CopyFilesFunction cff = new CopyFilesFunction(deleteOnSuccess, codec, sinkInfo);
 
-        SparkContext sc = context.sc();
-        int numOfExecutors = local ? 1 : sc.statusTracker().getExecutorInfos().length - 1;
-
         List<Tuple3<List<String>, String, String>> regrouped = new ArrayList<>();
 
+        int numOfExecutors = local ? 1 : (int) Math.ceil(Integer.parseInt(context.getConf().get("spark.executor.instances", "20")) * 0.8);
+        numOfExecutors = Math.max(numOfExecutors, 1);
         for (Map.Entry<Tuple2<String, String>, List<String>> group : discoveredFiles.entrySet()) {
             int desiredNumber = numOfExecutors;
 

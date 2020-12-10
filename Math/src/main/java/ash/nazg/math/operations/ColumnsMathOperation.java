@@ -7,14 +7,13 @@ package ash.nazg.math.operations;
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
-import ash.nazg.math.functions.columns.*;
-import ash.nazg.spark.Operation;
-import ash.nazg.config.OperationConfig;
 import ash.nazg.math.config.CalcFunction;
 import ash.nazg.math.config.ConfigurationParameters;
+import ash.nazg.math.functions.columns.*;
+import ash.nazg.spark.Operation;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
-import org.spark_project.guava.primitives.Ints;
+import org.sparkproject.guava.primitives.Ints;
 
 import java.util.*;
 

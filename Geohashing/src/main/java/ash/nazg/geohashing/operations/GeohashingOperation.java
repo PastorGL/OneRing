@@ -15,7 +15,7 @@ import com.opencsv.CSVWriter;
 import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
-import org.spark_project.guava.primitives.Ints;
+import org.sparkproject.guava.primitives.Ints;
 import scala.Tuple2;
 import scala.Tuple3;
 

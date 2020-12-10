@@ -5,12 +5,11 @@
 package ash.nazg.storage.output;
 
 import ash.nazg.config.DataStreamsConfig;
-import ash.nazg.config.PropertiesConfig;
-import ash.nazg.config.tdl.Description;
-import com.google.common.collect.Iterators;
 import ash.nazg.config.WrapperConfig;
+import ash.nazg.config.tdl.Description;
 import ash.nazg.storage.JDBCAdapter;
 import ash.nazg.storage.OutputAdapter;
+import org.sparkproject.guava.collect.Iterators;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import org.apache.spark.api.java.JavaRDD;
