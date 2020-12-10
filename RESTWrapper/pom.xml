@@ -7,11 +7,11 @@
     <parent>
         <groupId>ash.nazg</groupId>
         <artifactId>OneRing</artifactId>
-        <version>2.4.0</version>
+        <version>2.5.0</version>
     </parent>
 
     <artifactId>RESTWrapper</artifactId>
-    <version>2.4.0</version>
+    <version>2.5.0</version>
     <packaging>jar</packaging>
 
     <properties>
@@ -233,7 +233,7 @@
         <dependency><!-- DO NOT MOVE THIS DEPENDENCY HIGHER -->
             <groupId>ash.nazg</groupId>
             <artifactId>TaskWrapper</artifactId>
-            <version>2.4.0</version>
+            <version>2.5.0</version>
             <exclusions><!-- DO NOT ALTER EXCLUSIONS -->
                 <exclusion>
                     <groupId>org.glassfish.jersey.containers</groupId>
@@ -267,7 +267,7 @@
         <dependency>
             <groupId>ash.nazg</groupId>
             <artifactId>Commons</artifactId>
-            <version>2.4.0</version>
+            <version>2.5.0</version>
             <type>test-jar</type>
             <scope>test</scope>
             <exclusions><!-- DO NOT ALTER EXCLUSIONS -->
