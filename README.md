@@ -7,7 +7,7 @@ Historically One Ring has been aimed at GIS processing, but of course it can als
 There are the docs:
 
 * [How to build](BUILD.md) executable JARs of One Ring utilities
-* [How to write](CONFIGURE.md) the Process' Template
+* [How to write](CONFIGURE.md) the Process' Template — that is a most important and most complex step
 * [How to execute](EXECUTE.md) it locally and in the Amazon's EMR
 * [How to extend](EXTEND.md) One Ring with your own Operations
 
