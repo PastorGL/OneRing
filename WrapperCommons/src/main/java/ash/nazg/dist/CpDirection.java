@@ -22,9 +22,11 @@ public enum CpDirection {
 
     public static CpDirection parse(Object v) {
         switch (String.valueOf(v).toLowerCase()) {
+            case "result" :
             case "from": {
                 return FROM_CLUSTER;
             }
+            case "source" :
             case "to": {
                 return TO_CLUSTER;
             }
