@@ -33,7 +33,7 @@ public class ProximityFilterTest {
 
             List<Text> sample = resultRDD.collect();
             for (Text s : sample) {
-                double dist = new Double(s.toString().split(",", 5)[4]);
+                double dist = new Double(s.toString().split(",", 6)[5]);
                 assertTrue(dist <= 30000.D);
             }
 
