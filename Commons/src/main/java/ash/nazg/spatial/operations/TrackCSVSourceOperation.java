@@ -220,7 +220,7 @@ public class TrackCSVSourceOperation extends Operation {
                 }
 
                 List<Point> segPoints;
-                String trackId = null;
+                String trackId;
                 if (isSegmented) {
                     trackId = line._2._3().toString();
 

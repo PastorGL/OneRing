@@ -91,39 +91,49 @@ public class TrackGPXSourceOperation extends Operation {
 
             MapWritable props;
             for (Track g : gpx.getTracks()) {
-                List<TrackSegment> ts = new ArrayList<>();
+                Text userid = new Text(g.getName().orElse(UUID.randomUUID().toString()));
 
                 List<io.jenetics.jpx.TrackSegment> segments = g.getSegments();
-                for (int i = 0, segmentsSize = segments.size(); i < segmentsSize; i++) {
-                    List<Point> p = new ArrayList<>();
+                int segmentsSize = segments.size();
+                TrackSegment[] ts = new TrackSegment[segmentsSize];
 
+                for (int i = 0; i < segmentsSize; i++) {
                     io.jenetics.jpx.TrackSegment t = segments.get(i);
-                    for (WayPoint wp : t.getPoints()) {
+
+                    List<WayPoint> points = t.getPoints();
+                    int pointsSize = points.size();
+                    Point[] p = new Point[pointsSize];
+
+                    for (int j = 0; j < pointsSize; j++) {
+                        WayPoint wp = points.get(j);
                         Point pt = geometryFactory.createPoint(new Coordinate(wp.getLongitude().doubleValue(), wp.getLatitude().doubleValue()));
 
                         props = new MapWritable();
-                        props.put(tsAttr, new DoubleWritable(wp.getTime().get().toEpochSecond()));
+                        props.put(tsAttr, new DoubleWritable(wp.getTime().isPresent() ? wp.getTime().get().toEpochSecond() : j));
                         pt.setUserData(props);
 
-                        p.add(pt);
+                        p[j] = pt;
                     }
 
-                    TrackSegment seg = new TrackSegment(p.toArray(new Point[0]), geometryFactory);
+                    TrackSegment seg = new TrackSegment(p, geometryFactory);
 
                     props = new MapWritable();
                     props.put(trackidAttr, new Text(Integer.toString(i)));
+                    props.put(useridAttr, userid);
                     seg.setUserData(props);
 
-                    ts.add(seg);
+                    ts[i] = seg;
                 }
 
-                SegmentedTrack st = new SegmentedTrack(ts.toArray(new TrackSegment[0]), geometryFactory);
+                if (segmentsSize > 0) {
+                    SegmentedTrack st = new SegmentedTrack(ts, geometryFactory);
 
-                props = new MapWritable();
-                props.put(useridAttr, new Text(g.getName().get()));
-                st.setUserData(props);
+                    props = new MapWritable();
+                    props.put(useridAttr, userid);
+                    st.setUserData(props);
 
-                result.add(st);
+                    result.add(st);
+                }
             }
 
             return result.iterator();

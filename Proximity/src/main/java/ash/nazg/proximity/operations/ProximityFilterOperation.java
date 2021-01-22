@@ -30,10 +30,15 @@ import static ash.nazg.proximity.config.ConfigurationParameters.*;
 
 @SuppressWarnings("unused")
 public class ProximityFilterOperation extends Operation {
+    @Description("By default, create a distinct copy of a signal for each POI it encounters in the proximity radius")
+    public static final Boolean DEF_ENCOUNTER_ONCE = false;
+
     public static final String VERB = "proximityFilter";
 
     private String inputSignalsName;
     private String inputPoisName;
+
+    private Boolean once;
 
     private String outputSignalsName;
     private String outputEvictedName;
@@ -48,7 +53,9 @@ public class ProximityFilterOperation extends Operation {
     @Override
     public TaskDescriptionLanguage.Operation description() {
         return new TaskDescriptionLanguage.Operation(verb(),
-                null,
+                new TaskDescriptionLanguage.DefBase[]{
+                        new TaskDescriptionLanguage.Definition(OP_ENCOUNTER_ONCE, Boolean.class, DEF_ENCOUNTER_ONCE)
+                },
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.NamedStream[]{
@@ -72,7 +79,8 @@ public class ProximityFilterOperation extends Operation {
                                         new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Point},
                                         false
                                 ),
-                                new TaskDescriptionLanguage.NamedStream(RDD_OUTPUT_EVICTED,
+                                new TaskDescriptionLanguage.NamedStream(
+                                        RDD_OUTPUT_EVICTED,
                                         new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Point},
                                         false
                                 ),
@@ -88,6 +96,8 @@ public class ProximityFilterOperation extends Operation {
         inputSignalsName = describedProps.namedInputs.get(RDD_INPUT_SIGNALS);
         inputPoisName = describedProps.namedInputs.get(RDD_INPUT_POIS);
 
+        once = describedProps.defs.getTyped(OP_ENCOUNTER_ONCE);
+
         outputSignalsName = describedProps.namedOutputs.get(RDD_OUTPUT_SIGNALS);
         outputEvictedName = describedProps.namedOutputs.get(RDD_OUTPUT_EVICTED);
     }
@@ -97,17 +107,16 @@ public class ProximityFilterOperation extends Operation {
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         final String _inputSignalsName = inputSignalsName;
         final String _inputPoisName = inputPoisName;
+        boolean _once = once;
 
         JavaRDD<Point> inputSignals = (JavaRDD<Point>) input.get(inputSignalsName);
 
         JavaRDD<Point> inputPois = (JavaRDD<Point>) input.get(inputPoisName);
 
-        final SpatialUtils spatialUtils = new SpatialUtils();
-
         // Get POIs radii
-        JavaRDD<Tuple2<MapWritable, Double>> poiRadii = inputPois
+        JavaRDD<Tuple2<Double, Point>> poiRadii = inputPois
                 .mapPartitions(it -> {
-                    List<Tuple2<MapWritable, Double>> result = new ArrayList<>();
+                    List<Tuple2<Double, Point>> result = new ArrayList<>();
 
                     Text radiusAttr = new Text("_radius");
 
@@ -117,68 +126,52 @@ public class ProximityFilterOperation extends Operation {
                         MapWritable properties = (MapWritable) o.getUserData();
 
                         double radius = ((DoubleWritable) properties.get(radiusAttr)).get();
-                        result.add(new Tuple2<>(properties, radius));
+                        result.add(new Tuple2<>(radius, o));
                     }
 
                     return result.iterator();
                 });
 
-        final double _maxRadius = poiRadii
-                .map(t -> t._2)
+        final double maxRadius = poiRadii
+                .map(t -> t._1)
                 .max(Comparator.naturalOrder());
 
-        // hash -> props, radius
-        JavaPairRDD<Long, Tuple2<MapWritable, Double>> hashedPois = poiRadii
-                .mapPartitionsToPair(it -> {
-                    List<Tuple2<Long, Tuple2<MapWritable, Double>>> result = new ArrayList<>();
+        final SpatialUtils spatialUtils = new SpatialUtils(maxRadius);
 
-                    Text latAttr = new Text("_center_lat");
-                    Text lonAttr = new Text("_center_lon");
+        // hash -> radius, poi
+        JavaPairRDD<Long, Tuple2<Double, Point>> hashedPois = poiRadii
+                .mapPartitionsToPair(it -> {
+                    List<Tuple2<Long, Tuple2<Double, Point>>> result = new ArrayList<>();
 
                     while (it.hasNext()) {
-                        Tuple2<MapWritable, Double> o = it.next();
-
-                        MapWritable properties = o._1;
+                        Tuple2<Double, Point> o = it.next();
 
                         result.add(new Tuple2<>(
-                                spatialUtils.getHash(
-                                        ((DoubleWritable) properties.get(latAttr)).get(),
-                                        ((DoubleWritable) properties.get(lonAttr)).get(),
-                                        _maxRadius
-                                ),
-                                new Tuple2<>(properties, o._2))
+                                spatialUtils.getHash(o._2.getY(), o._2.getX()),
+                                new Tuple2<>(o._1, o._2))
                         );
                     }
 
                     return result.iterator();
                 });
 
-        Map<Long, Iterable<Tuple2<MapWritable, Double>>> hashedPoisMap = hashedPois
+        Map<Long, Iterable<Tuple2<Double, Point>>> hashedPoisMap = hashedPois
                 .groupByKey()
                 .collectAsMap();
 
         // Broadcast hashed POIs
-        Broadcast<HashMap<Long, Iterable<Tuple2<MapWritable, Double>>>> broadcastHashedPois = ctx
+        Broadcast<HashMap<Long, Iterable<Tuple2<Double, Point>>>> broadcastHashedPois = ctx
                 .broadcast(new HashMap<>(hashedPoisMap));
-
-        final Set<Long> poiHashes = new HashSet<>(hashedPoisMap.keySet());
-
-        // Get hash coverage
-        final Set<Long> poiCoverage = poiHashes.stream()
-                .flatMap(hash -> spatialUtils.getNeighbours(hash, _maxRadius).stream())
-                .collect(Collectors.toSet());
 
         final GeometryFactory geometryFactory = new GeometryFactory();
 
         // Filter signals by hash coverage
         JavaPairRDD<Boolean, Point> signals = inputSignals
                 .mapPartitionsToPair(it -> {
-                    HashMap<Long, Iterable<Tuple2<MapWritable, Double>>> pois = broadcastHashedPois.getValue();
+                    HashMap<Long, Iterable<Tuple2<Double, Point>>> pois = broadcastHashedPois.getValue();
 
                     List<Tuple2<Boolean, Point>> result = new ArrayList<>();
 
-                    Text latAttr = new Text("_center_lat");
-                    Text lonAttr = new Text("_center_lon");
                     Text distanceAttr = new Text("_distance");
 
                     while (it.hasNext()) {
@@ -187,38 +180,38 @@ public class ProximityFilterOperation extends Operation {
 
                         MapWritable signalProperties = (MapWritable) signal.getUserData();
 
-                        double signalLat = ((DoubleWritable) signalProperties.get(latAttr)).get();
-                        double signalLon = ((DoubleWritable) signalProperties.get(lonAttr)).get();
-                        long signalHash = spatialUtils.getHash(
-                                signalLat,
-                                signalLon,
-                                _maxRadius
-                        );
+                        double signalLat = signal.getY();
+                        double signalLon = signal.getX();
+                        long signalHash = spatialUtils.getHash(signalLat, signalLon);
 
-                        if (poiCoverage.contains(signalHash)) {
-                            List<Long> neighbours = spatialUtils.getNeighbours(signalHash, _maxRadius);
-                            neighbours.retainAll(poiHashes);
+                        List<Long> neighood = spatialUtils.getNeighbours(signalHash);
 
-                            for (long hash : neighbours) {
-                                for (Tuple2<MapWritable, Double> poi : pois.get(hash)) {
-                                    MapWritable poiProperties = poi._1;
-
-                                    double pLat = ((DoubleWritable) poiProperties.get(latAttr)).get();
-                                    double pLon = ((DoubleWritable) poiProperties.get(lonAttr)).get();
-
-                                    double distance = Geodesic.WGS84.Inverse(signalLat, signalLon, pLat, pLon, GeodesicMask.DISTANCE).s12;
+                        once:
+                        for (Long hash : neighood) {
+                            if (pois.containsKey(hash)) {
+                                for (Tuple2<Double, Point> poi : pois.get(hash)) {
+                                    double distance = Geodesic.WGS84.Inverse(signalLat, signalLon, poi._2.getY(), poi._2.getX(), GeodesicMask.DISTANCE).s12;
 
                                     //check if poi falls into radius
-                                    if (distance <= poi._2) {
-                                        MapWritable properties = new MapWritable();
-                                        poiProperties.forEach((k, v) -> properties.put(new Text(_inputPoisName + "." + k), new Text(String.valueOf(v))));
-                                        properties.putAll(signalProperties);
-                                        properties.put(distanceAttr, new DoubleWritable(distance));
+                                    if (distance <= poi._1) {
+                                        if (_once) {
+                                            result.add(new Tuple2<>(true, signal));
+                                        } else {
+                                            MapWritable poiProperties = (MapWritable) poi._2.getUserData();
+                                            MapWritable properties = new MapWritable();
+                                            poiProperties.forEach((k, v) -> properties.put(new Text(_inputPoisName + "." + k), new Text(String.valueOf(v))));
+                                            properties.putAll(signalProperties);
+                                            properties.put(distanceAttr, new DoubleWritable(distance));
 
-                                        Point point = geometryFactory.createPoint(new Coordinate(signalLon, signalLat));
-                                        point.setUserData(properties);
-                                        result.add(new Tuple2<>(true, point));
+                                            Point point = geometryFactory.createPoint(new Coordinate(signalLon, signalLat));
+                                            point.setUserData(properties);
+                                            result.add(new Tuple2<>(true, point));
+                                        }
                                         added = true;
+                                    }
+
+                                    if (_once && added) {
+                                        break once;
                                     }
                                 }
                             }

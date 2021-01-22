@@ -21,18 +21,21 @@ import org.apache.spark.broadcast.Broadcast;
 import org.locationtech.jts.geom.*;
 import scala.Tuple2;
 
-import java.io.Serializable;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static ash.nazg.proximity.config.ConfigurationParameters.*;
 
 @SuppressWarnings("unused")
 public class AreaCoversOperation extends Operation {
+    @Description("By default, create a distinct copy of a signal for each area it encounters inside")
+    public static final Boolean DEF_ENCOUNTER_ONCE = false;
+
     public static final String VERB = "areaCovers";
 
     private String inputGeometriesName;
     private String inputSignalsName;
+
+    private Boolean once;
 
     private String outputSignalsName;
     private String outputEvictedName;
@@ -47,7 +50,9 @@ public class AreaCoversOperation extends Operation {
     @Override
     public TaskDescriptionLanguage.Operation description() {
         return new TaskDescriptionLanguage.Operation(verb(),
-                null,
+                new TaskDescriptionLanguage.DefBase[]{
+                        new TaskDescriptionLanguage.Definition(OP_ENCOUNTER_ONCE, Boolean.class, DEF_ENCOUNTER_ONCE)
+                },
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.NamedStream[]{
@@ -86,6 +91,8 @@ public class AreaCoversOperation extends Operation {
         inputGeometriesName = describedProps.namedInputs.get(RDD_INPUT_GEOMETRIES);
         inputSignalsName = describedProps.namedInputs.get(RDD_INPUT_SIGNALS);
 
+        once = describedProps.defs.getTyped(OP_ENCOUNTER_ONCE);
+
         outputSignalsName = describedProps.namedOutputs.get(RDD_OUTPUT_SIGNALS);
         outputEvictedName = describedProps.namedOutputs.get(RDD_OUTPUT_EVICTED);
     }
@@ -95,19 +102,22 @@ public class AreaCoversOperation extends Operation {
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         String _inputGeometriesName = inputGeometriesName;
         String _inputSignalsName = inputSignalsName;
+        boolean _once = once;
 
         JavaRDD<Polygon> geometriesInput = (JavaRDD<Polygon>) input.get(inputGeometriesName);
 
-        Envelope maxEnvelope = geometriesInput
-                .map(Geometry::getEnvelopeInternal)
-                .max(new EnvelopeComparator());
+        final double maxRadius = geometriesInput
+                .mapToDouble(poly -> {
+                    Envelope ei = poly.getEnvelopeInternal();
 
-        final double _maxRadius = Geodesic.WGS84.Inverse(
-                (maxEnvelope.getMaxY() + maxEnvelope.getMinY()) / 2, (maxEnvelope.getMaxX() + maxEnvelope.getMinX()) / 2,
-                maxEnvelope.getMaxY(), maxEnvelope.getMaxX()
-        ).s12;
+                    return Geodesic.WGS84.Inverse(
+                            (ei.getMaxY() + ei.getMinY()) / 2, (ei.getMaxX() + ei.getMinX()) / 2,
+                            ei.getMaxY(), ei.getMaxX(), GeodesicMask.DISTANCE
+                    ).s12;
+                })
+                .max(Comparator.naturalOrder());
 
-        final SpatialUtils spatialUtils = new SpatialUtils();
+        final SpatialUtils spatialUtils = new SpatialUtils(maxRadius);
 
         JavaPairRDD<Long, Polygon> hashedGeometries = geometriesInput
                 .mapPartitionsToPair(it -> {
@@ -122,18 +132,12 @@ public class AreaCoversOperation extends Operation {
                         MapWritable properties = (MapWritable) o.getUserData();
 
                         result.add(new Tuple2<>(
-                                spatialUtils.getHash(
-                                        ((DoubleWritable) properties.get(latAttr)).get(),
-                                        ((DoubleWritable) properties.get(lonAttr)).get(),
-                                        _maxRadius
-                                ),
-                                o)
+                                spatialUtils.getHash(((DoubleWritable) properties.get(latAttr)).get(), ((DoubleWritable) properties.get(lonAttr)).get()), o)
                         );
                     }
 
                     return result.iterator();
                 });
-
 
         JavaRDD<Point> inputSignals = (JavaRDD<Point>) input.get(inputSignalsName);
 
@@ -141,16 +145,9 @@ public class AreaCoversOperation extends Operation {
                 .groupByKey()
                 .collectAsMap();
 
-        // Broadcast hashed centroids
+        // Broadcast hashed polys
         Broadcast<HashMap<Long, Iterable<Polygon>>> broadcastHashedGeometries = ctx
                 .broadcast(new HashMap<>(hashedGeometriesMap));
-
-        final Set<Long> geometryHashes = new HashSet<>(hashedGeometriesMap.keySet());
-
-        // Get hash coverage
-        final Set<Long> geometryCoverage = geometryHashes.stream()
-                .flatMap(hash -> spatialUtils.getNeighbours(hash, _maxRadius).stream())
-                .collect(Collectors.toSet());
 
         final GeometryFactory geometryFactory = new GeometryFactory();
 
@@ -161,38 +158,39 @@ public class AreaCoversOperation extends Operation {
 
                     List<Tuple2<Boolean, Point>> result = new ArrayList<>();
 
-                    Text latAttr = new Text("_center_lat");
-                    Text lonAttr = new Text("_center_lon");
-
                     while (it.hasNext()) {
                         Point signal = it.next();
                         boolean added = false;
 
                         MapWritable signalProperties = (MapWritable) signal.getUserData();
 
-                        double signalLat = ((DoubleWritable) signalProperties.get(latAttr)).get();
-                        double signalLon = ((DoubleWritable) signalProperties.get(lonAttr)).get();
-                        long signalHash = spatialUtils.getHash(
-                                signalLat,
-                                signalLon,
-                                _maxRadius
-                        );
+                        double signalLat = signal.getY();
+                        double signalLon = signal.getX();
+                        long signalHash = spatialUtils.getHash(signalLat, signalLon);
 
-                        if (geometryCoverage.contains(signalHash)) {
-                            List<Long> neighbours = spatialUtils.getNeighbours(signalHash, _maxRadius);
-                            neighbours.retainAll(geometryHashes);
+                        List<Long> neighood = spatialUtils.getNeighbours(signalHash);
 
-                            for (long hash : neighbours) {
+                        once:
+                        for (Long hash : neighood) {
+                            if (geometries.containsKey(hash)) {
                                 for (Polygon geometry : geometries.get(hash)) {
                                     if (signal.within(geometry)) {
-                                        MapWritable properties = new MapWritable();
-                                        ((MapWritable) geometry.getUserData()).forEach((k, v) -> properties.put(new Text(_inputGeometriesName + "." + k), new Text(String.valueOf(v))));
-                                        properties.putAll(signalProperties);
+                                        if (_once) {
+                                            result.add(new Tuple2<>(true, signal));
+                                        } else {
+                                            MapWritable properties = new MapWritable();
+                                            ((MapWritable) geometry.getUserData()).forEach((k, v) -> properties.put(new Text(_inputGeometriesName + "." + k), new Text(String.valueOf(v))));
+                                            properties.putAll(signalProperties);
 
-                                        Point point = geometryFactory.createPoint(new Coordinate(signalLon, signalLat));
-                                        point.setUserData(properties);
-                                        result.add(new Tuple2<>(true, point));
+                                            Point point = geometryFactory.createPoint(new Coordinate(signalLon, signalLat));
+                                            point.setUserData(properties);
+                                            result.add(new Tuple2<>(true, point));
+                                        }
                                         added = true;
+                                    }
+
+                                    if (_once && added) {
+                                        break once;
                                     }
                                 }
                             }
@@ -214,22 +212,6 @@ public class AreaCoversOperation extends Operation {
             return Collections.unmodifiableMap(ret);
         } else {
             return Collections.singletonMap(outputSignalsName, signals.filter(t -> t._1).values());
-        }
-    }
-
-    public static class EnvelopeComparator implements Comparator<Envelope>, Serializable {
-        public int compare(Envelope e1, Envelope e2) {
-            double e1d = Geodesic.WGS84.Inverse(
-                    (e1.getMaxY() + e1.getMinY()) / 2, (e1.getMaxX() + e1.getMinX()) / 2,
-                    e1.getMaxY(), e1.getMaxX(), GeodesicMask.DISTANCE
-            ).s12;
-
-            double e2d = Geodesic.WGS84.Inverse(
-                    (e2.getMaxY() + e2.getMinY()) / 2, (e2.getMaxX() + e2.getMinX()) / 2,
-                    e2.getMaxY(), e2.getMaxX(), GeodesicMask.DISTANCE
-            ).s12;
-
-            return Double.compare(e1d, e2d);
         }
     }
 }
