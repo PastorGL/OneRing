@@ -8,13 +8,16 @@ import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
+import org.apache.hadoop.io.MapWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
+import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Polygon;
 import org.wololo.jts2geojson.GeoJSONWriter;
 
 import java.util.*;
+import java.util.function.Function;
 
 @SuppressWarnings("unused")
 public class PolygonJSONOutputOperation extends Operation {
@@ -66,9 +69,29 @@ public class PolygonJSONOutputOperation extends Operation {
 
                     List<Text> result = new ArrayList<>();
 
+                    Function<Coordinate[], double[][]> convert = (Coordinate[] coordinates) -> {
+                        double[][] array = new double[coordinates.length][];
+                        for (int i = 0; i < coordinates.length; i++) {
+                            array[i] = new double[] { coordinates[i].x, coordinates[i].y };
+                        }
+                        return array;
+                    };
+
                     while (it.hasNext()) {
                         Polygon poly = it.next();
-                        result.add(new Text(wr.write(poly).toString()));
+
+                        int size = poly.getNumInteriorRing() + 1;
+                        double[][][] rings = new double[size][][];
+                        rings[0] = convert.apply(poly.getExteriorRing().getCoordinates());
+                        for (int i = 0; i < size - 1; i++) {
+                            rings[i + 1] = convert.apply(poly.getInteriorRingN(i).getCoordinates());
+                        }
+
+                        MapWritable props = (MapWritable) poly.getUserData();
+                        Map<String, Object> featureProps = new HashMap<>();
+                        props.forEach((k, v) -> featureProps.put(k.toString(), v.toString()));
+
+                        result.add(new Text(new org.wololo.geojson.Feature(new org.wololo.geojson.Polygon(rings), featureProps).toString()));
                     }
 
                     return result.iterator();
