@@ -17,7 +17,11 @@ public class SpatialUtils implements Serializable {
 
     private static H3Core h3 = null;
 
-    private double radius = Double.NEGATIVE_INFINITY;
+    private double radius;
+
+    public SpatialUtils(double radius) {
+        setupH3(radius);
+    }
 
     private void setupH3(double radius) {
         try {
@@ -41,15 +45,11 @@ public class SpatialUtils implements Serializable {
         }
     }
 
-    public List<Long> getNeighbours(long h3index, double radius) {
-        setupH3(radius);
-
+    public List<Long> getNeighbours(long h3index) {
         return h3.kRing(h3index, recursion);
     }
 
-    public long getHash(double lat, double lon, double radius) {
-        setupH3(radius);
-
+    public long getHash(double lat, double lon) {
         return h3.geoToH3(lat, lon, resolution);
     }
 }

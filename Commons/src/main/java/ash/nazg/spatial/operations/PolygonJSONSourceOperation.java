@@ -8,10 +8,25 @@ import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
-import ash.nazg.spatial.functions.PolygonGeoJSONMapper;
+import org.apache.hadoop.io.DoubleWritable;
+import org.apache.hadoop.io.MapWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.MultiPolygon;
+import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.Polygon;
+import org.wololo.geojson.Feature;
+import org.wololo.geojson.FeatureCollection;
+import org.wololo.geojson.GeoJSON;
+import org.wololo.geojson.GeoJSONFactory;
+import org.wololo.jts2geojson.GeoJSONReader;
 
 import java.util.*;
+import java.util.stream.Collectors;
+
+import static ash.nazg.spatial.config.ConfigurationParameters.*;
 
 @SuppressWarnings("unused")
 public class PolygonJSONSourceOperation extends Operation {
@@ -56,13 +71,69 @@ public class PolygonJSONSourceOperation extends Operation {
         inputName = describedProps.inputs.get(0);
 
         outputName = describedProps.outputs.get(0);
-        outputColumns = Arrays.asList(dataStreamsProps.outputColumns.get(outputName));
+        outputColumns = Arrays.asList(dataStreamsProps.outputColumns.get(outputName)).stream()
+                .map(c -> c.replaceFirst("^[^.]+\\.", ""))
+                .collect(Collectors.toList());
     }
 
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
-        JavaRDDLike rdd = input.get(inputName);
+        final List<String> _outputColumns = outputColumns;
 
-        return Collections.singletonMap(outputName, rdd.flatMap(new PolygonGeoJSONMapper(outputColumns)));
+        JavaRDD<Polygon> output = ((JavaRDD<Object>) input.get(inputName))
+                .flatMap(line -> {
+                    List<Polygon> result = new ArrayList<>();
+                    GeoJSONReader reader = new GeoJSONReader();
+
+                    GeoJSON json = GeoJSONFactory.create(String.valueOf(line));
+
+                    List<Feature> features = null;
+                    if (json instanceof Feature) {
+                        features = Collections.singletonList((Feature) json);
+                    } else if (json instanceof FeatureCollection) {
+                        features = Arrays.asList(((FeatureCollection) json).getFeatures());
+                    }
+
+                    if (features != null) {
+                        Text latAttr = new Text(GEN_CENTER_LAT);
+                        Text lonAttr = new Text(GEN_CENTER_LON);
+
+                        for (Feature feature : features) {
+                            Geometry geometry = reader.read(feature.getGeometry());
+
+                            MapWritable properties = new MapWritable();
+
+                            feature.getProperties().entrySet().stream()
+                                    .filter(e -> (_outputColumns.size() == 0) || _outputColumns.contains(e.getKey()))
+                                    .forEach(e -> properties.put(new Text(e.getKey()), new Text(String.valueOf(e.getValue()))));
+
+                            List<Geometry> geometries = new ArrayList<>();
+
+                            if (geometry instanceof Polygon) {
+                                geometries.add(geometry);
+                            } else if (geometry instanceof MultiPolygon) {
+                                for (int i = 0; i < geometry.getNumGeometries(); i++) {
+                                    geometries.add(geometry.getGeometryN(i));
+                                }
+                            }
+
+                            for (Geometry polygon : geometries) {
+                                MapWritable props = new MapWritable();
+
+                                props.putAll(properties);
+                                Point centroid = polygon.getCentroid();
+                                props.put(latAttr, new DoubleWritable(centroid.getY()));
+                                props.put(lonAttr, new DoubleWritable(centroid.getX()));
+
+                                polygon.setUserData(props);
+                                result.add((Polygon) polygon);
+                            }
+                        }
+                    }
+
+                    return result.iterator();
+                });
+
+        return Collections.singletonMap(outputName, output);
     }
 }

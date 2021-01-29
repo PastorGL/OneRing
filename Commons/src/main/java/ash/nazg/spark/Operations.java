@@ -22,8 +22,7 @@ public class Operations {
             availableOperations = new HashMap<>();
 
             try (ScanResult scanResult = new ClassGraph()
-                    .enableClassInfo()
-                    .whitelistPackages(Packages.getRegisteredPackages().keySet().toArray(new String[0]))
+                    .acceptPackages(Packages.getRegisteredPackages().keySet().toArray(new String[0]))
                     .scan()) {
 
                 ClassInfoList operationClasses = scanResult.getSubclasses(Operation.class.getTypeName());

@@ -18,8 +18,7 @@ public class Main {
 
         try {
             configBuilder.addRequiredOption("c", "config", true, "Config file");
-            configBuilder.addOption("d", "direction", true, "Copy direction. Can be 'from', 'to', or 'nop' to just validate the config file and exit");
-            configBuilder.addOption("o", "output", true, "Path to output distcp.ini");
+            configBuilder.addOption("d", "direction", true, "Copy direction. Can be 'from', 'to', or 'nop' to just validate the config file and exit");;
 
             configBuilder.setCommandLine(args);
 
@@ -48,7 +47,6 @@ public class Main {
             context.hadoopConfiguration().set(FileInputFormat.INPUT_DIR_RECURSIVE, Boolean.TRUE.toString());
 
             WrapperConfig config = configBuilder.build(context);
-            configBuilder.overrideFromCommandLine("distcp.ini", "o");
             configBuilder.overrideFromCommandLine("distcp.wrap", "d");
             configBuilder.overrideFromCommandLine("distcp.store", "S");
 

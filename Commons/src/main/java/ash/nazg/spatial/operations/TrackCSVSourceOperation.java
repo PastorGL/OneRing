@@ -1,3 +1,7 @@
+/**
+ * Copyright (C) 2020 Locomizer team and Contributors
+ * This project uses New BSD license with do no evil clause. For full text, check the LICENSE file in the root directory.
+ */
 package ash.nazg.spatial.operations;
 
 import ash.nazg.commons.functions.TrackComparator;
@@ -216,7 +220,7 @@ public class TrackCSVSourceOperation extends Operation {
                 }
 
                 List<Point> segPoints;
-                String trackId = null;
+                String trackId;
                 if (isSegmented) {
                     trackId = line._2._3().toString();
 

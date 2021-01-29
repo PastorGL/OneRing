@@ -6,10 +6,10 @@ package ash.nazg.rest.endpoints;
 
 import ash.nazg.config.tdl.TaskDefinitionLanguage;
 import ash.nazg.rest.service.TaskService;
-import org.hibernate.validator.constraints.NotEmpty;
 
 import javax.inject.Inject;
 import javax.validation.Valid;
+import javax.validation.constraints.NotEmpty;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;

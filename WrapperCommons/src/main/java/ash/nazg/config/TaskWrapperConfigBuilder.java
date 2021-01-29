@@ -16,6 +16,7 @@ import java.util.Properties;
 public class TaskWrapperConfigBuilder extends WrapperConfigBuilder {
     public TaskWrapperConfigBuilder() {
         options = new Options()
+                .addOption("h", "help", false, "Print a list of command line options and exit")
                 .addOption("x", "task", true, "Task prefix in the config file")
                 .addOption("V", "variables", true, "name=value pairs of substitution variables for the Spark config encoded as Base64")
                 .addOption("v", "variablesFile", true, "Path to variables file, name=value pairs per each line")

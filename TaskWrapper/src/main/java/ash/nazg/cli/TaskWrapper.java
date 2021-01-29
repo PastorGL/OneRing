@@ -56,7 +56,7 @@ public class TaskWrapper extends TaskRunnerWrapper {
         Set<String> teeNames = new HashSet<>();
         for (String tee : tees) {
             if (tee.endsWith("*")) {
-                if (settings.wrapperStorePath == null) {
+                if (settings.fromCluster && (settings.wrapperStorePath == null)) {
                     throw new InvalidConfigValueException("A call of configuration with wildcard task.tee.output must" +
                             " have wrapper store path set");
                 }
@@ -77,7 +77,7 @@ public class TaskWrapper extends TaskRunnerWrapper {
         }
 
         List<String> paths = null;
-        if (settings.fromCluster && (settings.wrapperStorePath != null)) {
+        if (settings.fromCluster) {
             paths = new ArrayList<>();
         }
 
@@ -88,13 +88,11 @@ public class TaskWrapper extends TaskRunnerWrapper {
                 String path = wrapperConfig.outputPath(teeName);
 
                 OutputAdapter outputAdapter = Adapters.output(path);
-                if ((outputAdapter instanceof HadoopAdapter) && settings.fromCluster) {
+                if (settings.fromCluster && (outputAdapter instanceof HadoopAdapter)) {
                     if (Adapters.PATH_PATTERN.matcher(path).matches()) {
                         path = settings.outputDir + "/" + teeName;
 
-                        if (settings.wrapperStorePath != null) {
-                            paths.add(path);
-                        }
+                        paths.add(path);
                     } else {
                         throw new InvalidConfigValueException("Output path '" + path + "' of the output '" + teeName + "' must have a protocol specification and point to a subdirectory");
                     }
@@ -107,7 +105,7 @@ public class TaskWrapper extends TaskRunnerWrapper {
             }
         }
 
-        if (settings.fromCluster && (settings.wrapperStorePath != null)) {
+        if (settings.fromCluster) {
             OutputAdapter outputList = Adapters.output(settings.wrapperStorePath);
             outputList.setProperties("_default", wrapperConfig);
             outputList.save(settings.wrapperStorePath + "/outputs", context.parallelize(paths, 1));

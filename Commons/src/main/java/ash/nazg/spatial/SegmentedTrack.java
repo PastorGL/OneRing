@@ -1,3 +1,7 @@
+/**
+ * Copyright (C) 2020 Locomizer team and Contributors
+ * This project uses New BSD license with do no evil clause. For full text, check the LICENSE file in the root directory.
+ */
 package ash.nazg.spatial;
 
 import org.locationtech.jts.geom.Geometry;
@@ -34,7 +38,7 @@ public class SegmentedTrack extends GeometryCollection implements Lineal, Iterab
         return (new BoundaryOp(this)).getBoundary();
     }
 
-    public Geometry reverse() {
+    public GeometryCollection reverse() {
         int nLines = geometries.length;
         TrackSegment[] revSegments = new TrackSegment[nLines];
         for (int i = 0; i < geometries.length; i++) {

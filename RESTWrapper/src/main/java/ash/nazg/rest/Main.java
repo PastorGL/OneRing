@@ -28,10 +28,12 @@ import static io.github.pastorgl.rest.init.GlobalConfig.PROPERTY_SERVER_PORT;
 
 public class Main {
     public static void main(String... args) throws Exception {
+        String appPackage = Main.class.getPackage().getName();
+
         ResourceConfig resourceConfig = new ResourceConfig()
                 .register(new WadlFeature())
-                .property(ServerProperties.BV_SEND_ERROR_IN_RESPONSE, true)
-                ;
+                .property(ServerProperties.PROVIDER_PACKAGES, appPackage)
+                .property(ServerProperties.BV_SEND_ERROR_IN_RESPONSE, true);
 
         OneRingRestConfig config = new OneRingRestConfig();
 
@@ -47,7 +49,7 @@ public class Main {
         Properties properties = config.getProperties();
         JerseyConfiguration configuration = JerseyConfiguration.builder()
                 .withResourceConfig(resourceConfig)
-                .addPackage("ash.nazg.rest")
+                .addPackage(appPackage)
                 .addHost(properties.getProperty(PROPERTY_SERVER_INTERFACE), Integer.parseInt(properties.getProperty(PROPERTY_SERVER_PORT)))
                 .build();
 

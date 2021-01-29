@@ -4,10 +4,11 @@
  */
 package ash.nazg.rest.endpoints;
 
+import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.rest.service.PackageService;
-import org.hibernate.validator.constraints.NotEmpty;
 
 import javax.inject.Inject;
+import javax.validation.constraints.NotEmpty;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -31,16 +32,23 @@ public class PackageEndpoint {
     }
 
     @GET
-    @Path("{name}")
+    @Path("{name}/listOperation")
     @Produces(MediaType.APPLICATION_JSON)
-    public List<String> packageOperations(@PathParam("name") @NotEmpty String name) {
-        return packageService.getPackage(name);
+    public List<String> packageOperationList(@PathParam("name") @NotEmpty String name) {
+        return packageService.getOperationList(name);
     }
 
     @GET
-    @Path("{name}.md")
-    @Produces("text/markdown")
-    public String packageDoc(@PathParam("name") @NotEmpty String name) {
-        return packageService.getPackageDoc(name);
+    @Path("{name}/operation")
+    @Produces(MediaType.APPLICATION_JSON)
+    public List<TaskDescriptionLanguage.Operation> packageOperations(@PathParam("name") @NotEmpty String name) {
+        return packageService.getOperations(name);
+    }
+
+    @GET
+    @Path("{name}/listAdapter")
+    @Produces(MediaType.APPLICATION_JSON)
+    public List<String> packageAdapters(@PathParam("name") @NotEmpty String name) {
+        return packageService.getPackageAdapters(name);
     }
 }

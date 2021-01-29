@@ -151,7 +151,7 @@ public class H3CompactCoverageOperation extends Operation {
 
                             if (!properties.containsKey(hashAttr)) {
                                 List<GeoCoord> gco = new ArrayList<>();
-                                LinearRing shell = (LinearRing) p.getExteriorRing();
+                                LinearRing shell = p.getExteriorRing();
                                 for (Coordinate c : shell.getCoordinates()) {
                                     gco.add(new GeoCoord(c.y, c.x));
                                 }
@@ -161,7 +161,7 @@ public class H3CompactCoverageOperation extends Operation {
                                 List<List<GeoCoord>> gci = new ArrayList<>();
                                 for (int i = p.getNumInteriorRing(); i > 0; ) {
                                     List<GeoCoord> gcii = new ArrayList<>();
-                                    LinearRing hole = (LinearRing) p.getInteriorRingN(--i);
+                                    LinearRing hole = p.getInteriorRingN(--i);
 
                                     if (_level != _maxLevel) {
                                         holes.add(hole);

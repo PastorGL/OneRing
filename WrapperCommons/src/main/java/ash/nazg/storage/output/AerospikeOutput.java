@@ -6,15 +6,14 @@ package ash.nazg.storage.output;
 
 import ash.nazg.config.DataStreamsConfig;
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.PropertiesConfig;
+import ash.nazg.config.WrapperConfig;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.storage.AerospikeAdapter;
+import ash.nazg.storage.OutputAdapter;
 import com.aerospike.client.AerospikeClient;
 import com.aerospike.client.Bin;
 import com.aerospike.client.Key;
-import com.google.common.collect.Iterators;
-import ash.nazg.config.WrapperConfig;
-import ash.nazg.storage.OutputAdapter;
+import org.sparkproject.guava.collect.Iterators;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import org.apache.spark.api.java.JavaPairRDD;
