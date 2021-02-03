@@ -20,17 +20,7 @@ public class SpatialUtils implements Serializable {
     private double radius;
 
     public SpatialUtils(double radius) {
-        setupH3(radius);
-    }
-
-    private void setupH3(double radius) {
-        try {
-            if (h3 == null) {
-                h3 = H3Core.newInstance();
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        setupH3();
 
         if (this.radius != radius) {
             for (int i = 15; ; i--) {
@@ -45,11 +35,25 @@ public class SpatialUtils implements Serializable {
         }
     }
 
+    private void setupH3() {
+        try {
+            if (h3 == null) {
+                h3 = H3Core.newInstance();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public List<Long> getNeighbours(long h3index) {
+        setupH3();
+
         return h3.kRing(h3index, recursion);
     }
 
     public long getHash(double lat, double lon) {
+        setupH3();
+
         return h3.geoToH3(lat, lon, resolution);
     }
 }
