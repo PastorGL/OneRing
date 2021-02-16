@@ -1,3 +1,5 @@
+### Contribution Guidelines
+
 If you want to contribute, please refer to a list of [One Ring issues](https://github.com/PastorGL/OneRing/issues) first.
 
 An issue for your most desired feature may have already been created by someone, but if it has not, you're free to create one. Do not attach any assignees, labels, projects and so on, just provide a detailed explanation of its use case and write a simple initial specification.
