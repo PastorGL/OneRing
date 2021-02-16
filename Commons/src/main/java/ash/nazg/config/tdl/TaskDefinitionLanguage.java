@@ -46,6 +46,10 @@ public class TaskDefinitionLanguage {
         @JsonProperty(value = "output")
         @JsonInclude(JsonInclude.Include.NON_EMPTY)
         public Properties output;
+
+        @JsonProperty(value = "metrics")
+        @JsonInclude(JsonInclude.Include.NON_EMPTY)
+        public Properties metrics;
     }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)

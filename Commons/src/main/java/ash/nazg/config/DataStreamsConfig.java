@@ -140,11 +140,11 @@ public class DataStreamsConfig extends PropertiesConfig {
         return getDsOutputDelimiter();
     }
 
-    public char inputDelimiter(String input) {
+    public Character inputDelimiter(String input) {
         return inputDelimiters.get(input);
     }
 
-    public char outputDelimiter(String output) {
+    public Character outputDelimiter(String output) {
         return outputDelimiters.get(output);
     }
 }

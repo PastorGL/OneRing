@@ -29,6 +29,7 @@ public class Main {
         try {
             configBuilder.addOption("c", "config", true, "Config file (JSON or .ini format)");
             configBuilder.addOption("o", "output", true, "Output path");
+            configBuilder.addOption("D", "wrapperMetricsPath", true, "Path where to store data stream metrics, if needed");
 
             configBuilder.setCommandLine(args);
 
@@ -58,6 +59,7 @@ public class Main {
             WrapperConfig config = configBuilder.build(context);
             configBuilder.overrideFromCommandLine(DS_OUTPUT_PATH, "o");
             configBuilder.overrideFromCommandLine("distcp.store", "S");
+            configBuilder.overrideFromCommandLine("task.metrics.store", "D");
 
             new TaskWrapper(context, config)
                     .go();

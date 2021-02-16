@@ -10,10 +10,7 @@ import ash.nazg.config.OperationConfig;
 import org.apache.spark.api.java.JavaRDDLike;
 import org.apache.spark.api.java.JavaSparkContext;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 
 public abstract class Operation implements OpInfo {
     protected JavaSparkContext ctx;
@@ -35,22 +32,22 @@ public abstract class Operation implements OpInfo {
         dataStreamsProps = describedProps.configure(config, variables);
     }
 
-    protected static List<JavaRDDLike> getMatchingInputs(Map<String, JavaRDDLike> map, String keys) {
+    protected static List<String> getMatchingInputs(Collection<String> inputNames, String keys) {
         String[] templates = keys.split(",");
 
-        List<JavaRDDLike> ds = new ArrayList<>();
+        List<String> ds = new ArrayList<>();
 
         for (String template : templates) {
             if (template.endsWith("*")) {
                 template = template.substring(0, template.length() - 2);
 
-                for (String key : map.keySet()) {
+                for (String key : inputNames) {
                     if (key.startsWith(template)) {
-                        ds.add(map.get(key));
+                        ds.add(key);
                     }
                 }
-            } else if (map.containsKey(template)) {
-                ds.add(map.get(template));
+            } else if (inputNames.contains(template)) {
+                ds.add(template);
             }
         }
 

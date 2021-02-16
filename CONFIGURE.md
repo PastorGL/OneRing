@@ -447,7 +447,6 @@ Input DataStreams of an entire Process come from the outside world, and output D
 There are following Storage Adapters currently implemented:
 * Hadoop (fallback, uses all protocols available in your Spark environment, i.e. `file:`, `hdfs:`, `s3:` and so on),
 * S3 Direct (any S3-compatible storage with a protocol of `s3d:`),
-* Aerospike (`aero:`),
 * JDBC (`jdbc:`).
 
 The fallback Hadoop Adapter is called if and only if another Adapter doesn't recognize the protocol of the path.
@@ -466,9 +465,5 @@ JDBC Adapter Parameters are:
 * `input.jdbc.user` and `output.jdbc.user` with no default.
 * `input.jdbc.password` and `output.jdbc.password` with no default.
 * `output.jdbc.batch.size` for output batch size, default is '500'.
-
-Aerospike Adapter Parameters are:
-* `input|output.aerospike.host` defaults to 'localhost'.
-* `input|output.aerospike.port` defaults to '3000'.
 
 This concludes the configuration of One Ring CLI for a single Process. After you've assembled a library of basic Processes, you'll may want to know [how to compose](COMPOSE.md) them into larger workflows.

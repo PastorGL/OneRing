@@ -8,7 +8,6 @@ import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
-import ash.nazg.config.OperationConfig;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVWriter;
@@ -47,9 +46,9 @@ public class WeightedSumOperation extends Operation {
     public static final String VERB = "weightedSum";
 
     private static final Map<String, Integer> KNOWN_COLUMNS = new HashMap<String, Integer>() {{
-       put(GEN_WEIGHTED_SUM, -1);
-       put(GEN_TOTAL_VALUE, -2);
-       put(GEN_TOTAL_COUNT, -3);
+        put(GEN_WEIGHTED_SUM, -1);
+        put(GEN_TOTAL_VALUE, -2);
+        put(GEN_TOTAL_COUNT, -3);
     }};
 
     private List<String> inputNames;
@@ -91,7 +90,9 @@ public class WeightedSumOperation extends Operation {
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
                                 new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
-                                new ArrayList<String>(KNOWN_COLUMNS.keySet()) {{add(GEN_PAYLOAD_PREFIX);}}
+                                new ArrayList<String>(KNOWN_COLUMNS.keySet()) {{
+                                    add(GEN_PAYLOAD_PREFIX);
+                                }}
                         )
                 )
         );
@@ -205,7 +206,7 @@ public class WeightedSumOperation extends Operation {
         final char _outputDelimiter = outputDelimiter;
         final int[] _outputColumns = outputCols;
 
-        List<JavaPairRDD> inputs = new ArrayList<>();
+        List<JavaPairRDD<Payload, Tuple2<Long, Double>>> inputs = new ArrayList<>();
         for (String inputName : inputNames) {
             final char inputDelimiter = inputDelimiters.get(inputName);
             final int countColumn = countColumns.get(inputName);
@@ -214,8 +215,8 @@ public class WeightedSumOperation extends Operation {
                     .mapToInt(e -> e)
                     .toArray();
 
-            for (JavaRDDLike objectJavaRDD : getMatchingInputs(input, inputName)) {
-                JavaPairRDD<Payload, Tuple2<Long, Double>> namedInput = ((JavaRDD<Object>)objectJavaRDD)
+            for (String inp : getMatchingInputs(input.keySet(), inputName)) {
+                JavaPairRDD<Payload, Tuple2<Long, Double>> namedInput = ((JavaRDD<Object>) input.get(inp))
                         .mapPartitionsToPair(it -> {
                             List<Tuple2<Payload, Tuple2<Long, Double>>> result = new ArrayList<>();
 
@@ -246,7 +247,7 @@ public class WeightedSumOperation extends Operation {
         }
 
         JavaPairRDD<Payload, Tuple2<Long, Double>> inputsUnion = ctx
-                .union(inputs.toArray(new JavaPairRDD[0]));
+                .<Payload, Tuple2<Long, Double>>union(inputs.toArray(new JavaPairRDD[0]));
 
         JavaPairRDD<Payload, Tuple2<Long, Double>> weightedSums = inputsUnion
                 .mapToPair(t -> new Tuple2<>(t._1, new Tuple2<>(t._2._1, t._2._1 * t._2._2)))

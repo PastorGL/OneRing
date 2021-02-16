@@ -8,7 +8,6 @@ import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
-import ash.nazg.config.OperationConfig;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
@@ -72,64 +71,65 @@ public class UnionOperation extends Operation {
 
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
-        List<JavaRDDLike> inputs = getMatchingInputs(input, rawInput);
+        List<String> inputs = getMatchingInputs(input.keySet(), rawInput);
 
         JavaRDD<Object> output = null;
+        List<JavaPairRDD<Object, Integer>> paired = new ArrayList<>();
+        final int inpNumber = inputs.size();
+        for (int i = 0; i < inpNumber; i++) {
+            JavaRDDLike inp = input.get(inputs.get(i));
+            final Integer ii = i;
 
-        if (unionSpec != UnionSpec.CONCAT) {
-            List<JavaPairRDD<Object, Integer>> paired = new ArrayList<>();
-            final int inpNumber = inputs.size();
-            for (int i = 0; i < inpNumber; i++) {
-                JavaRDDLike inp = inputs.get(i);
-                final Integer ii = i;
+            paired.add(inp.mapToPair(v -> new Tuple2<>(v, ii)));
+        }
 
-                paired.add(inp.mapToPair(v -> new Tuple2<>(v, ii)));
+        JavaPairRDD<Object, Integer> union = ctx.<Object, Integer>union(paired.toArray(new JavaPairRDD[0]));
+        switch (unionSpec) {
+            case XOR: {
+                output = union
+                        .groupByKey()
+                        .mapValues(it -> {
+                            final Set<Integer> inpSet = new HashSet<>();
+                            final int[] count = new int[1];
+                            it.forEach(i -> {
+                                inpSet.add(i);
+                                count[0]++;
+                            });
+
+                            if (inpSet.size() > 1) {
+                                return 0;
+                            } else {
+                                return count[0];
+                            }
+                        })
+                        .flatMap(t -> Stream.generate(() -> t._1).limit(t._2).iterator());
+                break;
             }
-
-            switch (unionSpec) {
-                case XOR: {
-                    output = ((JavaPairRDD<Object, Integer>) ctx.<Object, Object>union(paired.toArray(new JavaPairRDD[0])))
-                            .groupByKey()
-                            .mapValues(it -> {
-                                final Set<Integer> inpSet = new HashSet<>();
-                                final int[] count = new int[1];
-                                it.forEach(i -> {
-                                    inpSet.add(i);
-                                    count[0]++;
-                                });
-
-                                if (inpSet.size() > 1) {
-                                    return 0;
-                                } else {
-                                    return count[0];
-                                }
-                            })
-                            .flatMap(t -> Stream.generate(() -> t._1).limit(t._2).iterator());
-                    break;
-                }
-                case AND: {
-                    output = ((JavaPairRDD<Object, Integer>) ctx.<Object, Object>union(paired.toArray(new JavaPairRDD[0])))
-                            .groupByKey()
-                            .mapValues(it -> {
-                                Iterator<Integer> iter = it.iterator();
-                                Set<Integer> inpSet = new HashSet<>();
-                                int count = 0;
-                                while (iter.hasNext()) {
-                                    inpSet.add(iter.next());
-                                    count++;
-                                }
-                                if (inpSet.size() < inpNumber) {
-                                    return 0;
-                                } else {
-                                    return count;
-                                }
-                            })
-                            .flatMap(t -> Stream.generate(() -> t._1).limit(t._2).iterator());
-                    break;
-                }
+            case AND: {
+                output = union
+                        .groupByKey()
+                        .mapValues(it -> {
+                            Iterator<Integer> iter = it.iterator();
+                            Set<Integer> inpSet = new HashSet<>();
+                            int count = 0;
+                            while (iter.hasNext()) {
+                                inpSet.add(iter.next());
+                                count++;
+                            }
+                            if (inpSet.size() < inpNumber) {
+                                return 0;
+                            } else {
+                                return count;
+                            }
+                        })
+                        .flatMap(t -> Stream.generate(() -> t._1).limit(t._2).iterator());
+                break;
             }
-        } else {
-            output = ctx.union(inputs.toArray(new JavaRDD[0]));
+            case CONCAT: {
+                output = union
+                        .keys();
+                break;
+            }
         }
 
         return Collections.singletonMap(outputName, output);
