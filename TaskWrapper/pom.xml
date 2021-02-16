@@ -205,7 +205,6 @@
                                             <include>org.wololo</include>
                                             <include>io.github.classgraph</include>
                                             <include>com.github.alexmojaki</include>
-                                            <include>com.aerospike</include>
                                             <include>net.sf.geographiclib</include>
                                             <include>commons-cli</include>
                                             <include>com.uber</include>

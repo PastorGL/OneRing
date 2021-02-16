@@ -12,12 +12,22 @@ import ash.nazg.storage.Adapters;
 import ash.nazg.storage.HadoopAdapter;
 import ash.nazg.storage.InputAdapter;
 import ash.nazg.storage.OutputAdapter;
+import org.apache.log4j.Logger;
 import org.apache.spark.api.java.JavaRDDLike;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.scheduler.SparkListener;
+import org.apache.spark.scheduler.SparkListenerStageCompleted;
+import org.apache.spark.scheduler.StageInfo;
+import org.apache.spark.storage.RDDInfo;
 
 import java.util.*;
+import java.util.stream.Collectors;
+
+import static scala.collection.JavaConverters.seqAsJavaList;
 
 public class TaskWrapper extends TaskRunnerWrapper {
+    private static final Logger LOG = Logger.getLogger(TaskWrapper.class);
+
     protected DistCpSettings settings;
 
     protected Map<String, JavaRDDLike> result;
@@ -31,6 +41,31 @@ public class TaskWrapper extends TaskRunnerWrapper {
     }
 
     public void go() throws Exception {
+        final Map<String, Long> recordsRead = new HashMap<>();
+        final Map<String, Long> recordsWritten = new HashMap<>();
+
+        context.sc().addSparkListener(new SparkListener() {
+            @Override
+            public void onStageCompleted(SparkListenerStageCompleted stageCompleted) {
+                StageInfo stageInfo = stageCompleted.stageInfo();
+
+                long rR = stageInfo.taskMetrics().inputMetrics().recordsRead();
+                long rW = stageInfo.taskMetrics().outputMetrics().recordsWritten();
+                List<RDDInfo> infos = seqAsJavaList(stageInfo.rddInfos());
+                List<String> rddNames = infos.stream()
+                        .map(RDDInfo::name)
+                        .filter(Objects::nonNull)
+                        .filter(n -> n.startsWith("one-ring:"))
+                        .collect(Collectors.toList());
+                if (rR > 0) {
+                    rddNames.forEach(name -> recordsRead.compute(name.substring(14), (n, r) -> (r == null) ? rR : rR + r));
+                }
+                if (rW > 0) {
+                    rddNames.forEach(name -> recordsWritten.compute(name.substring(13), (n, w) -> (w == null) ? rW : rW + w));
+                }
+            }
+        });
+
         List<String> sinks = wrapperConfig.getInputSink();
         for (String sink : sinks) {
             String path = wrapperConfig.inputPath(sink);
@@ -45,7 +80,9 @@ public class TaskWrapper extends TaskRunnerWrapper {
             inputAdapter.setContext(context);
             inputAdapter.setProperties(sink, wrapperConfig);
 
-            result.put(sink, inputAdapter.load(path));
+            JavaRDDLike inputRdd = inputAdapter.load(path);
+            inputRdd.rdd().setName("one-ring:sink:" + sink);
+            result.put(sink, inputRdd);
         }
 
         processTaskChain(result);
@@ -82,9 +119,10 @@ public class TaskWrapper extends TaskRunnerWrapper {
         }
 
         for (String teeName : teeNames) {
-            JavaRDDLike rdd = result.get(teeName);
+            JavaRDDLike outputRdd = result.get(teeName);
 
-            if (rdd != null) {
+            if (outputRdd != null) {
+                outputRdd.rdd().setName("one-ring:tee:" + teeName);
                 String path = wrapperConfig.outputPath(teeName);
 
                 OutputAdapter outputAdapter = Adapters.output(path);
@@ -101,7 +139,7 @@ public class TaskWrapper extends TaskRunnerWrapper {
                 }
 
                 outputAdapter.setProperties(teeName, wrapperConfig);
-                outputAdapter.save(path, rdd);
+                outputAdapter.save(path, outputRdd);
             }
         }
 
@@ -110,5 +148,22 @@ public class TaskWrapper extends TaskRunnerWrapper {
             outputList.setProperties("_default", wrapperConfig);
             outputList.save(settings.wrapperStorePath + "/outputs", context.parallelize(paths, 1));
         }
+
+        List<String> metricsLog = new ArrayList<>();
+        metrics.forEach((ds, m) -> {
+            metricsLog.add("Metrics of data stream '" + ds + "'");
+            m.forEach((k, v) -> metricsLog.add(k + ": " + v));
+        });
+        metricsLog.forEach(LOG::info);
+
+        String metricsStorePath = wrapperConfig.metricsStorePath();
+        if (metricsStorePath != null) {
+            OutputAdapter outputList = Adapters.output(metricsStorePath);
+            outputList.setProperties("_default", wrapperConfig);
+            outputList.save(metricsStorePath, context.parallelize(metricsLog, 1));
+        }
+
+        recordsRead.forEach((key, value) -> LOG.info("One Ring sink '" + key + "': " + value + " record(s) read"));
+        recordsWritten.forEach((key, value) -> LOG.info("One Ring tee '" + key + "': " + value + " records(s) written"));
     }
 }

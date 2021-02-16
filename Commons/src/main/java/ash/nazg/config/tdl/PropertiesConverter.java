@@ -271,6 +271,7 @@ public class PropertiesConverter {
         task.distcp = taskConfig.getLayerProperties(DISTCP_PREFIX);
         task.input = taskConfig.getLayerProperties(INPUT_PREFIX);
         task.output = taskConfig.getLayerProperties(OUTPUT_PREFIX);
+        task.metrics = taskConfig.getLayerProperties(TASK_METRICS_PREFIX);
 
         return task;
     }
@@ -393,6 +394,9 @@ public class PropertiesConverter {
         }
         if (task.output != null) {
             task.output.forEach((k, v) -> properties.put(OUTPUT_PREFIX + k, v));
+        }
+        if (task.metrics != null) {
+            task.metrics.forEach((k, v) -> properties.put(TASK_METRICS_PREFIX + k, v));
         }
 
         if (task.prefix != null) {

@@ -28,6 +28,8 @@ public class WrapperConfig extends PropertiesConfig {
     public static final String OP_PREFIX = "op.";
     public static final String DS_PREFIX = "ds.";
 
+    public static final String TASK_METRICS_PREFIX = "task.metrics.";
+
     public static final String TASK_INPUT_SINK = "task.input.sink";
     public static final String TASK_TEE_OUTPUT = "task.tee.output";
     public static final String TASK_OPERATIONS = "task.operations";
@@ -249,5 +251,9 @@ public class WrapperConfig extends PropertiesConfig {
 
     public char getSinkDelimiter(String sink) {
         return getDataStreamsConfig().inputDelimiter(sink);
+    }
+
+    public String metricsStorePath() {
+        return getLayerProperty(TASK_METRICS_PREFIX, "store", null, null);
     }
 }

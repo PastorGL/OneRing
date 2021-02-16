@@ -46,77 +46,81 @@ public class OperationConfig extends PropertiesConfig {
 
         Map<String, String[]> generatedColumns = new HashMap<>();
 
-        if (opDesc.inputs.positional != null) {
-            String[] ins = getArray(OP_INPUTS_PREFIX + name);
-            if (ins == null) {
-                throw new InvalidConfigValueException("No positional inputs were specified for operation '" + name + "'");
-            }
-
-            List<String> inpList = Arrays.asList(ins);
-
-            if ((opDesc.inputs.positionalMinCount != null) && (inpList.size() < opDesc.inputs.positionalMinCount)) {
-                throw new InvalidConfigValueException("Operation " + name + " must have at least " + opDesc.inputs.positionalMinCount + " positional inputs, but it has " + inpList.size());
-            } else if (inpList.isEmpty()) {
-                throw new InvalidConfigValueException("Operation " + name + " requires positional input(s), but it hasn't been supplied with");
-            }
-
-            inputs.addAll(inpList);
-            allInputs.addAll(inpList);
-
-            if (opDesc.inputs.positional.columnBased) {
-                columnBasedInputs.addAll(inpList);
-            }
-        } else if (opDesc.inputs.named != null) {
-            for (TaskDescriptionLanguage.NamedStream ns : opDesc.inputs.named) {
-                String opInput = getProperty(OP_INPUT_PREFIX + name + "." + ns.name);
-                namedInputs.put(ns.name, opInput);
-                allInputs.add(opInput);
-
-                if (ns.columnBased) {
-                    columnBasedInputs.add(opInput);
+        if (opDesc.inputs != null) {
+            if (opDesc.inputs.positional != null) {
+                String[] ins = getArray(OP_INPUTS_PREFIX + name);
+                if (ins == null) {
+                    throw new InvalidConfigValueException("No positional inputs were specified for operation '" + name + "'");
                 }
-            }
 
-            if (namedInputs.isEmpty()) {
-                throw new InvalidConfigValueException("Operation " + name + " consumes named input(s), but it hasn't been supplied with one");
+                List<String> inpList = Arrays.asList(ins);
+
+                if ((opDesc.inputs.positionalMinCount != null) && (inpList.size() < opDesc.inputs.positionalMinCount)) {
+                    throw new InvalidConfigValueException("Operation " + name + " must have at least " + opDesc.inputs.positionalMinCount + " positional inputs, but it has " + inpList.size());
+                } else if (inpList.isEmpty()) {
+                    throw new InvalidConfigValueException("Operation " + name + " requires positional input(s), but it hasn't been supplied with");
+                }
+
+                inputs.addAll(inpList);
+                allInputs.addAll(inpList);
+
+                if (opDesc.inputs.positional.columnBased) {
+                    columnBasedInputs.addAll(inpList);
+                }
+            } else if (opDesc.inputs.named != null) {
+                for (TaskDescriptionLanguage.NamedStream ns : opDesc.inputs.named) {
+                    String opInput = getProperty(OP_INPUT_PREFIX + name + "." + ns.name);
+                    namedInputs.put(ns.name, opInput);
+                    allInputs.add(opInput);
+
+                    if (ns.columnBased) {
+                        columnBasedInputs.add(opInput);
+                    }
+                }
+
+                if (namedInputs.isEmpty()) {
+                    throw new InvalidConfigValueException("Operation " + name + " consumes named input(s), but it hasn't been supplied with one");
+                }
             }
         }
 
-        if (opDesc.outputs.positional != null) {
-            String[] outs = getArray(OP_OUTPUTS_PREFIX + name);
-            if ((outs == null) || (outs.length == 0)) {
-                throw new InvalidConfigValueException("No positional outputs were specified for operation '" + name + "'");
-            }
+        if (opDesc.outputs != null) {
+            if (opDesc.outputs.positional != null) {
+                String[] outs = getArray(OP_OUTPUTS_PREFIX + name);
+                if ((outs == null) || (outs.length == 0)) {
+                    throw new InvalidConfigValueException("No positional outputs were specified for operation '" + name + "'");
+                }
 
-            List<String> outpList = Arrays.asList(outs);
+                List<String> outpList = Arrays.asList(outs);
 
-            outputs.addAll(outpList);
-            allOutputs.addAll(outpList);
-            if (opDesc.outputs.positional.columnBased) {
-                columnBasedOutputs.addAll(outpList);
+                outputs.addAll(outpList);
+                allOutputs.addAll(outpList);
+                if (opDesc.outputs.positional.columnBased) {
+                    columnBasedOutputs.addAll(outpList);
 
-                if (opDesc.outputs.positional.generatedColumns != null) {
-                    for (String opOutput : outpList) {
-                        generatedColumns.put(opOutput, opDesc.outputs.positional.generatedColumns);
+                    if (opDesc.outputs.positional.generatedColumns != null) {
+                        for (String opOutput : outpList) {
+                            generatedColumns.put(opOutput, opDesc.outputs.positional.generatedColumns);
+                        }
                     }
                 }
-            }
-        } else if (opDesc.outputs.named != null) {
-            for (TaskDescriptionLanguage.NamedStream ns : opDesc.outputs.named) {
-                String opOutput = getProperty(OP_OUTPUT_PREFIX + name + "." + ns.name);
-                namedOutputs.put(ns.name, opOutput);
-                allOutputs.add(opOutput);
-                if (ns.columnBased) {
-                    columnBasedOutputs.add(opOutput);
+            } else if (opDesc.outputs.named != null) {
+                for (TaskDescriptionLanguage.NamedStream ns : opDesc.outputs.named) {
+                    String opOutput = getProperty(OP_OUTPUT_PREFIX + name + "." + ns.name);
+                    namedOutputs.put(ns.name, opOutput);
+                    allOutputs.add(opOutput);
+                    if (ns.columnBased) {
+                        columnBasedOutputs.add(opOutput);
 
-                    if (ns.generatedColumns != null) {
-                        generatedColumns.put(opOutput, ns.generatedColumns);
+                        if (ns.generatedColumns != null) {
+                            generatedColumns.put(opOutput, ns.generatedColumns);
+                        }
                     }
                 }
-            }
 
-            if (namedOutputs.isEmpty()) {
-                throw new InvalidConfigValueException("Operation " + name + " produces named output(s), but it hasn't been configured to emit one");
+                if (namedOutputs.isEmpty()) {
+                    throw new InvalidConfigValueException("Operation " + name + " produces named output(s), but it hasn't been configured to emit one");
+                }
             }
         }
 

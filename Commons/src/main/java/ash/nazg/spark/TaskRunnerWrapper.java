@@ -15,11 +15,14 @@ import org.apache.spark.api.java.JavaSparkContext;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static ash.nazg.config.OperationConfig.OP_DEFINITION_PREFIX;
+import static ash.nazg.config.OperationConfig.OP_INPUTS_PREFIX;
 import static ash.nazg.config.PropertiesConfig.COMMA;
-import static ash.nazg.config.WrapperConfig.DIRECTIVE_SIGIL;
+import static ash.nazg.config.WrapperConfig.*;
 
 public abstract class TaskRunnerWrapper extends WrapperBase {
     public static final String ITER = "ITER";
+    protected Map<String, Map<String, Double>> metrics = new HashMap<>();
 
     public TaskRunnerWrapper(JavaSparkContext context, WrapperConfig wrapperConfig) {
         super(context, wrapperConfig);
@@ -30,6 +33,11 @@ public abstract class TaskRunnerWrapper extends WrapperBase {
         Map<String, OpInfo> ao = Operations.getAvailableOperations();
 
         List<String> opNames = wrapperConfig.getOperations();
+
+        if (wrapperConfig.metricsStorePath() != null) {
+            opNames.add(0, "$METRICS{:sink}");
+            opNames.add("$METRICS{:tee}");
+        }
         for (String name : opNames) {
             if (!name.startsWith(DIRECTIVE_SIGIL)) {
                 String verb = wrapperConfig.getVerb(name);
@@ -136,6 +144,12 @@ public abstract class TaskRunnerWrapper extends WrapperBase {
                         taskVariables.setProperty(variable, value);
                         break;
                     }
+                    case METRICS: {
+                        String scope = (variable.isEmpty()) ? defVal : variable;
+
+                        callMetrics(scope, rdds, taskVariables);
+                        break;
+                    }
                 }
             } else {
                 if (!skip) {
@@ -184,5 +198,52 @@ public abstract class TaskRunnerWrapper extends WrapperBase {
             }
             rdds.putIfAbsent(out, rdd);
         }
+    }
+
+    private void callMetrics(String scope, Map<String, JavaRDDLike> rdds, Properties currentVariables) throws Exception {
+        List<String> target;
+        if ("tee".equals(scope)) {
+            target = wrapperConfig.getTeeOutput();
+        } else if ("sink".equals(scope)) {
+            target = wrapperConfig.getInputSink();
+        } else {
+            target = Arrays.asList(scope.split(COMMA));
+        }
+
+        Map<String, JavaRDDLike> targetScope = new HashMap<>();
+        for (String ds : target) {
+            if (ds.endsWith("*")) {
+                String t = ds.substring(0, ds.length() - 2);
+                for (String name : rdds.keySet()) {
+                    if (name.startsWith(t)) {
+                        targetScope.put(name, rdds.get(name));
+                    }
+                }
+            } else {
+                if (rdds.containsKey(ds)) {
+                    targetScope.put(ds, rdds.get(ds));
+                }
+            }
+        }
+
+        if (targetScope.isEmpty()) {
+            return;
+        }
+
+        String metricsName = "metrics:" + scope;
+        RDDMetricsPseudoOperation metricsOp = new RDDMetricsPseudoOperation() {
+        };
+
+        Properties metricsProps = wrapperConfig.getLayerProperties(DS_PREFIX);
+        metricsProps.setProperty(OP_INPUTS_PREFIX + metricsName, String.join(",", target));
+        Properties metricsLayer = wrapperConfig.getLayerProperties(TASK_METRICS_PREFIX);
+        metricsLayer.forEach((key, value) -> metricsProps.setProperty(OP_DEFINITION_PREFIX + metricsName + "." + key.toString().substring(TASK_METRICS_PREFIX.length()), value.toString()));
+
+        metricsOp.initialize(metricsName, context);
+        metricsOp.configure(metricsProps, currentVariables);
+
+        metricsOp.getResult(targetScope);
+
+        metrics.putAll(metricsOp.getMetrics());
     }
 }

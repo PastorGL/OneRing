@@ -18,11 +18,14 @@ import com.amazonaws.services.s3.model.S3ObjectSummary;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.sparkproject.guava.collect.Iterables;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
@@ -38,7 +41,7 @@ public class S3DirectInput extends S3DirectAdapter implements InputAdapter {
         accessKey = wrapperConfig.getInputProperty("access.key", inputName, null);
         secretKey = wrapperConfig.getInputProperty("secret.key", inputName, null);
 
-        partCount = wrapperConfig.inputParts(inputName);
+        partCount = Math.max(wrapperConfig.inputParts(inputName), 1);
 
         DataStreamsConfig adapterConfig = new DataStreamsConfig(wrapperConfig.getLayerProperties(WrapperConfig.DS_PREFIX), Collections.singleton(inputName), Collections.singleton(inputName), null, null, null);
     }
@@ -49,11 +52,11 @@ public class S3DirectInput extends S3DirectAdapter implements InputAdapter {
     }
 
     @Override
-    public JavaRDDLike load(String path) throws Exception {
+    public JavaRDDLike load(String path) {
         Matcher m = PATTERN.matcher(path);
         m.matches();
         String bucket = m.group(1);
-        String key = m.group(2);
+        String keyPrefix = m.group(2);
 
         AmazonS3ClientBuilder s3ClientBuilder = AmazonS3ClientBuilder.standard()
                 .enableForceGlobalBucketAccess();
@@ -65,19 +68,40 @@ public class S3DirectInput extends S3DirectAdapter implements InputAdapter {
 
         ListObjectsRequest request = new ListObjectsRequest();
         request.setBucketName(bucket);
-        request.setPrefix(key);
+        request.setPrefix(keyPrefix);
 
         List<String> s3FileKeys = s3.listObjects(request).getObjectSummaries().stream()
                 .map(S3ObjectSummary::getKey)
                 .collect(Collectors.toList());
 
-        JavaRDD<Object> rdd = ctx.emptyRDD();
+        final String _accessKey = accessKey;
+        final String _secretKey = secretKey;
+        final String _bucket = bucket;
 
-        for (String k : s3FileKeys) {
-            Stream<String> lines = new BufferedReader(new InputStreamReader(s3.getObject(bucket, k).getObjectContent(), StandardCharsets.UTF_8.name())).lines();
-            rdd = rdd.union(ctx.parallelize(lines.collect(Collectors.toList())));
-        }
+        JavaRDDLike rdd = ctx.parallelize(s3FileKeys, partCount)
+                .mapPartitions(it -> {
+                    AmazonS3ClientBuilder s3cb = AmazonS3ClientBuilder.standard()
+                            .enableForceGlobalBucketAccess();
+                    if ((_accessKey != null) && (_secretKey != null)) {
+                        s3cb.setCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials(_accessKey, _secretKey)));
+                    }
+                    AmazonS3 _s3 = s3cb.build();
 
-        return rdd.repartition(Math.max(partCount, 1));
+                    Stream<String> lines = null;
+                    while (it.hasNext()) {
+                        String key = it.next();
+
+                        Stream<String> file = new BufferedReader(new InputStreamReader(_s3.getObject(_bucket, key).getObjectContent(), StandardCharsets.UTF_8.name())).lines();
+                        if ((lines == null)) {
+                            lines = file;
+                        } else {
+                            lines = Stream.concat(lines, file);
+                        }
+                    }
+
+                    return lines.iterator();
+                });
+
+        return rdd;
     }
 }

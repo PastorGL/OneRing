@@ -5,12 +5,12 @@
 package ash.nazg.dist;
 
 import com.opencsv.CSVWriter;
-import org.apache.commons.io.Charsets;
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.hadoop.ParquetReader;
 
 import java.io.IOException;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 
 public class ParquetRecordInputStream extends RecordInputStream {
     private final ParquetReader<Group> reader;
@@ -41,7 +41,7 @@ public class ParquetRecordInputStream extends RecordInputStream {
                 writer.writeNext(acc, false);
                 writer.close();
 
-                recordBuffer = stringBuffer.toString().getBytes(Charsets.UTF_8);
+                recordBuffer = stringBuffer.toString().getBytes(StandardCharsets.UTF_8);
 
                 position = 0;
                 size = recordBuffer.length;

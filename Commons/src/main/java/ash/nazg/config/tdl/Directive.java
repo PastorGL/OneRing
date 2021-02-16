@@ -9,5 +9,6 @@ public enum Directive {
     ELSE,
     IF,
     END,
-    LET
+    LET,
+    METRICS
 }
