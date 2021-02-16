@@ -197,6 +197,8 @@ task.tee.output=clean_pedestrian/*,auto/*
 
 `task.tee.output` (also required) is a T-connector. Any DataStream referred here can be consumed by Operations as usual, but also will be diverted by Storage Adapters of CLI into the outside storage as well. T-connector can handle prefixed wildcards, by specifying a prefix and an asterisk `*`.
 
+`task.metrics.` sub-layer is discussed in [its own doc](MONITOR.md).
+
 ### Flow Control Directives
 
 `task.operations` could contain flow control directives, to execute any Operation in loops and by very basic conditions. Note again, we don't want to go fully Turing complete, so those directives are just for convenience.
@@ -233,6 +235,8 @@ op.output.match_NI.matched={TYPE}/NI
 
 ds.output.columns.{TYPE}/NI={TYPE}/GB.userid,{TYPE}/GB.lat,{TYPE}/GB.lon,{TYPE}/GB.velocity,{TYPE}/GB.timestamp,{TYPE}/GB.date,{TYPE}/GB.year,{TYPE}/GB.month,{TYPE}/GB.dow,{TYPE}/GB.day,{TYPE}/GB.hour,{TYPE}/GB.minute,{TYPE}/GB.gid
 ```
+
+There is also `$METRICS` directive, discussed in [its own doc](MONITOR.md). 
 
 ### Operation Instances
 

@@ -9,6 +9,7 @@ After you've built the local artifact, as described in the [build how-to](BUILD.
 java -jar ./RestWrapper/target/one-ring-cli.jar -h
 usage: One Ring CLI utility
   -c,--config <arg>            Config file (JSON or .ini format)
+  -D,--metricsStorePath <arg>  Path where to store data stream metrics, if needed
   -h,--help                    Print a list of command line options and exit
   -l,--local                   Run in local mode (its options have no effect otherwise)
   -L,--localCores <arg>        Set cores # for local mode, by default * -- all cores
@@ -33,6 +34,8 @@ usage: One Ring CLI utility
 `-x` sets the current task prefix, if needed. If you're planning to pass `tasks.ini` to your cluster via Spark context, you should use prefixed `tasks.ini` locally too.
 
 `-S` to interface with One Ring Dist, especially if your config has wildcard outputs, as discussed [in a separate doc](DISTCP.md).
+
+`-D` to output data stream metrics, described [in a separate doc](MONITOR.md).
 
 `-V` or `-v` (only if previous switch wasn't specified) to pass Variables to the config.
 

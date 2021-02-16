@@ -1,6 +1,6 @@
-There is an utility in the CLI to merge (or Compose) two or more One Ring Process Templates into one larger Template.
-
 ### One Ring Composer
+
+There is an utility in the CLI to merge (or Compose) two or more One Ring Process Templates into one larger Template.
 
 This action is final and should be performed only when the pipeline of all participating Processes is fully established, as it mangles most of named entities from the composed `tasks.ini`s and emits a much less readable config.
  
