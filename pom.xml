@@ -19,7 +19,6 @@
         <module>Populations</module>
         <module>Proximity</module>
         <module>SimpleFilters</module>
-        <module>AQLSelectEx</module>
         <module>TaskWrapper</module>
         <module>RESTCommons</module>
         <module>RESTWrapper</module>

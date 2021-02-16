@@ -1,6 +1,3 @@
-[submodule "AQLSelectEx"]
-	path = AQLSelectEx
-	url = https://github.com/PastorGL/AQLSelectEx.git
 [submodule "RESTCommons"]
 	path = RESTCommons
 	url = https://github.com/PastorGL/RESTCommons.git
