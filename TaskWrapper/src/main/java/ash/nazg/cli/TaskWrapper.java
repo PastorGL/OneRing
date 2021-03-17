@@ -58,10 +58,10 @@ public class TaskWrapper extends TaskRunnerWrapper {
                         .filter(n -> n.startsWith("one-ring:"))
                         .collect(Collectors.toList());
                 if (rR > 0) {
-                    rddNames.forEach(name -> recordsRead.compute(name.substring(14), (n, r) -> (r == null) ? rR : rR + r));
+                    rddNames.forEach(name -> recordsRead.compute(name, (n, r) -> (r == null) ? rR : rR + r));
                 }
                 if (rW > 0) {
-                    rddNames.forEach(name -> recordsWritten.compute(name.substring(13), (n, w) -> (w == null) ? rW : rW + w));
+                    rddNames.forEach(name -> recordsWritten.compute(name, (n, w) -> (w == null) ? rW : rW + w));
                 }
             }
         });
@@ -98,7 +98,7 @@ public class TaskWrapper extends TaskRunnerWrapper {
                             " have wrapper store path set");
                 }
 
-                String t = tee.substring(0, tee.length() - 2);
+                String t = tee.substring(0, tee.length() - 1);
                 for (String name : rddNames) {
                     if (name.startsWith(t)) {
                         teeNames.add(name);
