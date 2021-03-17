@@ -23,7 +23,7 @@ public abstract class PropertiesConfig {
     public static final String DS_INPUT_DELIMITER = "ds.input.delimiter";
 
     public static final String REP_SEP = ":";
-    public static final Pattern REP_VAR = Pattern.compile("\\{([^}]+?)}");
+    public static final Pattern REP_VAR = Pattern.compile("\\{([A-Z][A-Z_\\d]+?(?::[^{}]*?)?)}");
 
     private final Properties properties = new Properties();
     private Properties overrides = new Properties();
