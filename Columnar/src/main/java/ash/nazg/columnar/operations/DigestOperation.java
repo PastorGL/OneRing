@@ -4,12 +4,10 @@
  */
 package ash.nazg.columnar.operations;
 
-import ash.nazg.columnar.config.ConfigurationParametersDummy;
-import ash.nazg.spark.Operation;
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.OperationConfig;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVWriter;
@@ -36,22 +34,20 @@ public class DigestOperation extends Operation {
 
     private static List<String> KNOWN_COLUMNS = new ArrayList<>();
 
-    private static Class augmented = null;
-
     private Tuple3<Integer, String, String>[] outputCols;
     private String outputName;
     private String inputName;
     private char inputDelimiter;
 
-    public DigestOperation() throws Exception {
-        if (augmented == null) {
+    static {
+        try {
             String digest = MessageDigest.class.getSimpleName();
 
             ClassPool classPool = ClassPool.getDefault();
-            classPool.insertClassPath(new LoaderClassPath(getClass().getClassLoader()));
-            CtClass cpClass = classPool.get(ConfigurationParametersDummy.class.getCanonicalName());
+            ClassLoader classLoader = DigestOperation.class.getClassLoader();
+            classPool.insertClassPath(new LoaderClassPath(classLoader));
             String cpName = DigestOperation.class.getPackage().getName().replace(".operations", ".config") + ".ConfigurationParameters";
-            cpClass.setName(cpName);
+            CtClass cpClass = classPool.makeClass(cpName);
 
             CtClass stringClass = classPool.get(String.class.getCanonicalName());
 
@@ -80,7 +76,8 @@ public class DigestOperation extends Operation {
                 }
             }
 
-            augmented = cpClass.toClass();
+            cpClass.toClass(classLoader, null);
+        } catch (Exception ignore) {
         }
     }
 

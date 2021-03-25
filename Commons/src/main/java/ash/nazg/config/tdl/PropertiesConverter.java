@@ -17,7 +17,7 @@ public class PropertiesConverter {
     public static final String DEFAULT_DS = "_default";
 
     static public TaskDefinitionLanguage.Task toTask(WrapperConfig taskConfig) throws Exception {
-        List<TaskDefinitionLanguage.Operation> opDefs = new ArrayList<>();
+        List<TaskDefinitionLanguage.TaskItem> taskItems = new ArrayList<>();
         Map<String, TaskDefinitionLanguage.DataStream> dsDefs = new HashMap<>();
 
         List<String> sink = taskConfig.getInputSink();
@@ -29,6 +29,8 @@ public class PropertiesConverter {
 
         Properties allOpProperties = taskConfig.getLayerProperties(WrapperConfig.OP_PREFIX, WrapperConfig.DS_PREFIX);
         for (String name : taskConfig.getOperations()) {
+            TaskDefinitionLanguage.TaskItem tiDef;
+
             if (!name.startsWith(DIRECTIVE_SIGIL)) {
                 String verb = taskConfig.getVerb(name);
 
@@ -87,8 +89,6 @@ public class PropertiesConverter {
                     opDef.definitions = defs.toArray(new TaskDefinitionLanguage.Definition[0]);
                     opDef.dynamicDefs = dynDefs.toArray(new TaskDefinitionLanguage.DynamicDef[0]);
                 }
-
-                opDefs.add(opDef);
 
                 Map<String, TaskDefinitionLanguage.DataStream> opDsDefs = new HashMap<>();
 
@@ -239,14 +239,21 @@ public class PropertiesConverter {
                 }
 
                 dsDefs.putAll(opDsDefs);
+
+                tiDef = opDef;
             } else {
-                TaskDefinitionLanguage.Operation opDef = new TaskDefinitionLanguage.Operation();
+                TaskDefinitionLanguage.Directive dirDef = new TaskDefinitionLanguage.Directive();
 
                 DirVarVal dvv = taskConfig.getDirVarVal(name);
 
-                opDef.name = dvv.variable;
-                opDef.verb = dvv.dir.name();
+                dirDef.controlVar = dvv.variable;
+                dirDef.varValue = dvv.value;
+                dirDef.verb = dvv.dir.name();
+
+                tiDef = dirDef;
             }
+
+            taskItems.add(tiDef);
         }
 
         DataStreamsConfig dsc = new DataStreamsConfig(allOpProperties, null, null, tees, null, null);
@@ -261,8 +268,14 @@ public class PropertiesConverter {
 
         dsDefs.put(DEFAULT_DS, defaultDs);
 
+        dsDefs.forEach((k, v) -> {
+            if (sink.contains(k)) {
+                v.input.sinkSchema = taskConfig.getSinkSchema(k);
+            }
+        });
+
         TaskDefinitionLanguage.Task task = new TaskDefinitionLanguage.Task();
-        task.operations = opDefs.toArray(new TaskDefinitionLanguage.Operation[0]);
+        task.taskItems = taskItems.toArray(new TaskDefinitionLanguage.TaskItem[0]);
         task.dataStreams = dsDefs.values().toArray(new TaskDefinitionLanguage.DataStream[0]);
         task.sink = sink.toArray(new String[0]);
         task.tees = tees.toArray(new String[0]);
@@ -293,40 +306,48 @@ public class PropertiesConverter {
     static public Properties toProperties(TaskDefinitionLanguage.Task task, boolean withDefaults) {
         Properties properties = new Properties();
         List<String> opNames = new ArrayList<>();
-        for (TaskDefinitionLanguage.Operation op : task.operations) {
-            String opName = op.name;
-            opNames.add(opName);
+        for (TaskDefinitionLanguage.TaskItem ti : task.taskItems) {
+            if (ti instanceof TaskDefinitionLanguage.Operation) {
+                TaskDefinitionLanguage.Operation op = (TaskDefinitionLanguage.Operation) ti;
 
-            properties.put(OP_OPERATION_PREFIX + opName, op.verb);
+                String opName = op.name;
+                opNames.add(opName);
 
-            if (op.definitions != null) {
-                for (TaskDefinitionLanguage.Definition def : op.definitions) {
-                    if (withDefaults || (def.useDefaults == null) || !def.useDefaults) {
+                properties.put(OP_OPERATION_PREFIX + opName, op.verb);
+
+                if (op.definitions != null) {
+                    for (TaskDefinitionLanguage.Definition def : op.definitions) {
+                        if (withDefaults || (def.useDefaults == null) || !def.useDefaults) {
+                            properties.put(OperationConfig.OP_DEFINITION_PREFIX + opName + "." + def.name, stringify(def.value));
+                        }
+                    }
+                }
+
+                if (op.dynamicDefs != null) {
+                    for (TaskDefinitionLanguage.DynamicDef def : op.dynamicDefs) {
                         properties.put(OperationConfig.OP_DEFINITION_PREFIX + opName + "." + def.name, stringify(def.value));
                     }
                 }
-            }
 
-            if (op.dynamicDefs != null) {
-                for (TaskDefinitionLanguage.DynamicDef def : op.dynamicDefs) {
-                    properties.put(OperationConfig.OP_DEFINITION_PREFIX + opName + "." + def.name, stringify(def.value));
+                if (op.inputs.positionalNames != null) {
+                    properties.put(OperationConfig.OP_INPUTS_PREFIX + opName, String.join(PropertiesConfig.COMMA, op.inputs.positionalNames));
+                } else if (op.inputs.named != null) {
+                    for (TaskDefinitionLanguage.NamedStream in : op.inputs.named) {
+                        properties.put(OperationConfig.OP_INPUT_PREFIX + opName + "." + in.name, in.value);
+                    }
                 }
-            }
 
-            if (op.inputs.positionalNames != null) {
-                properties.put(OperationConfig.OP_INPUTS_PREFIX + opName, String.join(PropertiesConfig.COMMA, op.inputs.positionalNames));
-            } else if (op.inputs.named != null) {
-                for (TaskDefinitionLanguage.NamedStream in : op.inputs.named) {
-                    properties.put(OperationConfig.OP_INPUT_PREFIX + opName + "." + in.name, in.value);
+                if (op.outputs.positionalNames != null) {
+                    properties.put(OperationConfig.OP_OUTPUTS_PREFIX + opName, String.join(PropertiesConfig.COMMA, op.outputs.positionalNames));
+                } else if (op.outputs.named != null) {
+                    for (TaskDefinitionLanguage.NamedStream out : op.outputs.named) {
+                        properties.put(OperationConfig.OP_OUTPUT_PREFIX + opName + "." + out.name, out.value);
+                    }
                 }
-            }
+            } else if (ti instanceof TaskDefinitionLanguage.Directive) {
+                TaskDefinitionLanguage.Directive dir = (TaskDefinitionLanguage.Directive) ti;
 
-            if (op.outputs.positionalNames != null) {
-                properties.put(OperationConfig.OP_OUTPUTS_PREFIX + opName, String.join(PropertiesConfig.COMMA, op.outputs.positionalNames));
-            } else if (op.outputs.named != null) {
-                for (TaskDefinitionLanguage.NamedStream out : op.outputs.named) {
-                    properties.put(OperationConfig.OP_OUTPUT_PREFIX + opName + "." + out.name, out.value);
-                }
+                opNames.add("$" + dir.verb + "{" + dir.controlVar + (dir.varValue != null ? ":" + dir.varValue : "") + "}");
             }
         }
 
@@ -363,6 +384,9 @@ public class PropertiesConverter {
                 }
                 if ((ds.input.delimiter != null) && (ds.input.delimiter.charAt(0) != PropertiesConfig.DEFAULT_DELIMITER)) {
                     properties.put(DataStreamsConfig.DS_INPUT_DELIMITER_PREFIX + dsName, ds.input.delimiter);
+                }
+                if (ds.input.sinkSchema != null) {
+                    properties.put(DS_INPUT_SINK_SCHEMA_PREFIX + dsName, String.join(PropertiesConfig.COMMA, ds.input.sinkSchema));
                 }
             }
 
@@ -411,7 +435,7 @@ public class PropertiesConverter {
     public static TaskDefinitionLanguage.Task composeTasks(Map<String, TaskDefinitionLanguage.Task> tasks, Map<String, Map<String, String>> dsMergeMap, boolean full) {
         TaskDefinitionLanguage.Task composed = new TaskDefinitionLanguage.Task();
         Set<String> allTees = new HashSet<>();
-        List<TaskDefinitionLanguage.Operation> operations = new ArrayList<>();
+        List<TaskDefinitionLanguage.TaskItem> taskItems = new ArrayList<>();
         Map<String, TaskDefinitionLanguage.DataStream> dataStreams = new HashMap<>();
 
         TaskDefinitionLanguage.Task lastTask = null;
@@ -517,59 +541,62 @@ public class PropertiesConverter {
                         .toArray(TaskDefinitionLanguage.DataStream[]::new);
             }
 
-            if (task.operations != null) {
-                task.operations = Arrays.stream(task.operations)
-                        .peek(op -> {
-                            op.name = alias + "_" + op.name;
+            if (task.taskItems != null) {
+                task.taskItems = Arrays.stream(task.taskItems)
+                        .peek(ti -> {
+                            if (ti instanceof TaskDefinitionLanguage.Operation) {
+                                TaskDefinitionLanguage.Operation op = (TaskDefinitionLanguage.Operation) ti;
+                                op.name = alias + "_" + op.name;
 
-                            if (op.definitions != null) {
-                                op.definitions = Arrays.stream(op.definitions)
-                                        .peek(def -> {
-                                            if ((def.useDefaults == null) || !def.useDefaults) {
-                                                if (def.name.endsWith(OperationConfig.COLUMN_SUFFIX)) {
-                                                    String[] c = def.value.split("\\.", 2);
+                                if (op.definitions != null) {
+                                    op.definitions = Arrays.stream(op.definitions)
+                                            .peek(def -> {
+                                                if ((def.useDefaults == null) || !def.useDefaults) {
+                                                    if (def.name.endsWith(OperationConfig.COLUMN_SUFFIX)) {
+                                                        String[] c = def.value.split("\\.", 2);
 
-                                                    def.value = replacer.apply(c[0]) + "." + c[1];
-                                                }
-                                                if (def.name.endsWith(OperationConfig.COLUMNS_SUFFIX)) {
-                                                    String[] cols = def.value.split(COMMA);
-                                                    String[] repl = new String[cols.length];
-                                                    for (int j = 0; j < cols.length; j++) {
-                                                        String col = cols[j];
-                                                        String[] c = col.split("\\.", 2);
-                                                        repl[j] = replacer.apply(c[0]) + "." + c[1];
+                                                        def.value = replacer.apply(c[0]) + "." + c[1];
                                                     }
-                                                    def.value = String.join(COMMA, repl);
+                                                    if (def.name.endsWith(OperationConfig.COLUMNS_SUFFIX)) {
+                                                        String[] cols = def.value.split(COMMA);
+                                                        String[] repl = new String[cols.length];
+                                                        for (int j = 0; j < cols.length; j++) {
+                                                            String col = cols[j];
+                                                            String[] c = col.split("\\.", 2);
+                                                            repl[j] = replacer.apply(c[0]) + "." + c[1];
+                                                        }
+                                                        def.value = String.join(COMMA, repl);
+                                                    }
                                                 }
-                                            }
-                                        })
-                                        .toArray(TaskDefinitionLanguage.Definition[]::new);
-                            }
+                                            })
+                                            .toArray(TaskDefinitionLanguage.Definition[]::new);
+                                }
 
-                            if (op.inputs.positionalNames != null) {
-                                op.inputs.positionalNames = Arrays.stream(op.inputs.positionalNames)
-                                        .map(replacer)
-                                        .toArray(String[]::new);
-                            }
-                            if (op.inputs.named != null) {
-                                op.inputs.named = Arrays.stream(op.inputs.named)
-                                        .peek(in -> in.value = replacer.apply(in.value))
-                                        .toArray(TaskDefinitionLanguage.NamedStream[]::new);
-                            }
-                            if (op.outputs.positionalNames != null) {
-                                op.outputs.positionalNames = Arrays.stream(op.outputs.positionalNames)
-                                        .map(replacer)
-                                        .toArray(String[]::new);
-                            }
-                            if (op.outputs.named != null) {
-                                op.outputs.named = Arrays.stream(op.outputs.named)
-                                        .peek(out -> out.value = replacer.apply(out.value))
-                                        .toArray(TaskDefinitionLanguage.NamedStream[]::new);
+                                if (op.inputs.positionalNames != null) {
+                                    op.inputs.positionalNames = Arrays.stream(op.inputs.positionalNames)
+                                            .map(replacer)
+                                            .toArray(String[]::new);
+                                }
+                                if (op.inputs.named != null) {
+                                    op.inputs.named = Arrays.stream(op.inputs.named)
+                                            .peek(in -> in.value = replacer.apply(in.value))
+                                            .toArray(TaskDefinitionLanguage.NamedStream[]::new);
+                                }
+                                if (op.outputs.positionalNames != null) {
+                                    op.outputs.positionalNames = Arrays.stream(op.outputs.positionalNames)
+                                            .map(replacer)
+                                            .toArray(String[]::new);
+                                }
+                                if (op.outputs.named != null) {
+                                    op.outputs.named = Arrays.stream(op.outputs.named)
+                                            .peek(out -> out.value = replacer.apply(out.value))
+                                            .toArray(TaskDefinitionLanguage.NamedStream[]::new);
+                                }
                             }
                         })
-                        .toArray(TaskDefinitionLanguage.Operation[]::new);
+                        .toArray(TaskDefinitionLanguage.TaskItem[]::new);
 
-                operations.addAll(Arrays.asList(task.operations));
+                taskItems.addAll(Arrays.asList(task.taskItems));
             }
 
             if (i == last) {
@@ -591,7 +618,7 @@ public class PropertiesConverter {
 
         composed.sink = sink.toArray(new String[0]);
         composed.tees = tees.toArray(new String[0]);
-        composed.operations = operations.toArray(new TaskDefinitionLanguage.Operation[0]);
+        composed.taskItems = taskItems.toArray(new TaskDefinitionLanguage.TaskItem[0]);
         composed.dataStreams = dataStreams.values().toArray(new TaskDefinitionLanguage.DataStream[0]);
 
         return composed;

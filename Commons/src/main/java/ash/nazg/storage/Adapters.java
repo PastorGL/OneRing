@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class Adapters {
     public static final Pattern PATH_PATTERN = Pattern.compile("^([^:]+:/*[^/]+)/(.+)");
@@ -26,7 +27,7 @@ public class Adapters {
     static {
         try (ScanResult scanResult = new ClassGraph()
                 .enableClassInfo()
-                .whitelistPackages(Packages.getRegisteredPackages().keySet().toArray(new String[0]))
+                .acceptPackages(Packages.getRegisteredPackages().keySet().toArray(new String[0]))
                 .scan()) {
 
             ClassInfoList iaClasses = scanResult.getClassesImplementing(InputAdapter.class.getTypeName());
@@ -57,7 +58,7 @@ public class Adapters {
 
         try (ScanResult scanResult = new ClassGraph()
                 .enableClassInfo()
-                .whitelistPackages(Packages.getRegisteredPackages().keySet().toArray(new String[0]))
+                .acceptPackages(Packages.getRegisteredPackages().keySet().toArray(new String[0]))
                 .scan()) {
 
             ClassInfoList oaClasses = scanResult.getClassesImplementing(OutputAdapter.class.getTypeName());
@@ -87,7 +88,7 @@ public class Adapters {
         }
     }
 
-    static public Map<String, StorageAdapter> getAvailableStorageAdapters(String pkgName) {
+    static public Map<String, StorageAdapter> getAvailableInputAdapters(String pkgName) {
         Map<String, StorageAdapter> ret = new HashMap<>();
 
         INPUT_ADAPTERS.forEach(e -> {
@@ -95,6 +96,13 @@ public class Adapters {
                 ret.put(e.getClass().getSimpleName(), e);
             }
         });
+
+        return ret;
+    }
+
+    static public Map<String, StorageAdapter> getAvailableOutputAdapters(String pkgName) {
+        Map<String, StorageAdapter> ret = new HashMap<>();
+
         OUTPUT_ADAPTERS.forEach(e -> {
             if (e.getClass().getPackage().getName().equals(pkgName)) {
                 ret.put(e.getClass().getSimpleName(), e);
@@ -102,6 +110,14 @@ public class Adapters {
         });
 
         return ret;
+    }
+
+    static public InputAdapter getInputAdapter(String name) {
+        return INPUT_ADAPTERS.stream().filter(e -> e.getClass().getSimpleName().equals(name)).findFirst().orElse(null);
+    }
+
+    static public OutputAdapter getOutputAdapter(String name) {
+        return OUTPUT_ADAPTERS.stream().filter(e -> e.getClass().getSimpleName().equals(name)).findFirst().orElse(null);
     }
 
     static public InputAdapter input(String path) {

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>One Ring</title>
+    <script src="/js/script.js"></script>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body onload="initPackages();taskNew();">
+<div class="grid-container">
+<div class="cell toolbar"><fieldset><legend>Task</legend><button onclick="taskNew()">New</button> ∙ <button onclick="taskSetCode()">Code</button></fieldset>
+<fieldset><legend>{VARIABLES}</legend><select class="task-vars" id="task-variables"></select><button onclick="taskSetVariables()">Set</button></fieldset>
+<fieldset><legend>Prefix</legend><input oninput="taskSetPrefix()" id='inp-task-prefix' class="task-prefix"></fieldset>
+<fieldset><legend>$DIRECTIVES</legend><button onclick="addNewDir('LET')">LET</button><button onclick="addNewDir('ITER')">ITER</button><button onclick="addNewDir('END')">END</button><button onclick="addNewDir('IF')">IF</button><button onclick="addNewDir('ELSE')">ELSE</button><button onclick="addNewDir('METRICS')">METRICS</button></fieldset>
+<fieldset><legend>Actions</legend><button onclick="taskValidate()">Validate</button> ∙ <button onclick="taskRun()">Run</button><select id="run-where"><option value="local">locally</option><option value="remote/tc">via TeamCity</option></select></fieldset></div>
+<div class="cell sources">
+    Input adapters
+    <ul id="list-inputs"></ul>
+    Operations
+    <ul id="list-operations"></ul>
+    Output adapters
+    <ul id="list-outputs"></ul>
+</div>
+<div id="canvas-task" class="cell canvas task"></div><div id="canvas-ds" class="cell canvas data-streams"></div>
+</div>
+<div class="modal" id="modal"><div class="dialog"><div class="dialog-header"><span class="btn-right"><button id="dialog-button"></button><button id="dialog-cancel" onclick="cancelDialog()"></button></span><span id="dialog-message"></span></div><textarea class="dialog-content" spellcheck="false" id="dialog-text"></textarea></div></div>
+</body>
+</html>

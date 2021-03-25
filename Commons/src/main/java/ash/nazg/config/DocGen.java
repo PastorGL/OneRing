@@ -85,7 +85,17 @@ public class DocGen {
                     }
                 }
 
-                for (Map.Entry<String, StorageAdapter> entry : Adapters.getAvailableStorageAdapters(pkgName).entrySet()) {
+                for (Map.Entry<String, StorageAdapter> entry : Adapters.getAvailableInputAdapters(pkgName).entrySet()) {
+                    String name = entry.getKey();
+                    StorageAdapter adapter = entry.getValue();
+                    try (FileWriter writer = new FileWriter(outputDirectory + "/adapter/" + name + ".md")) {
+                        DocumentationGenerator.adapterDoc(adapter, writer);
+                    } catch (Exception e) {
+                        throw new Exception("Adapter '" + name + "'", e);
+                    }
+                }
+
+                for (Map.Entry<String, StorageAdapter> entry : Adapters.getAvailableOutputAdapters(pkgName).entrySet()) {
                     String name = entry.getKey();
                     StorageAdapter adapter = entry.getValue();
                     try (FileWriter writer = new FileWriter(outputDirectory + "/adapter/" + name + ".md")) {

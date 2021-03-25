@@ -7,11 +7,10 @@ package ash.nazg.math.operations;
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
-import ash.nazg.math.functions.keyed.*;
-import ash.nazg.spark.Operation;
-import ash.nazg.config.OperationConfig;
 import ash.nazg.math.config.CalcFunction;
 import ash.nazg.math.config.ConfigurationParameters;
+import ash.nazg.math.functions.keyed.*;
+import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -90,8 +89,7 @@ public class KeyedMathOperation extends Operation {
                 keyedFunc = new SumFunction(_const);
                 break;
             }
-            case POWERMEAN:
-            case POWER_MEAN: {
+            case POWERMEAN: {
                 Double pow = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
                 if (pow == null) {
                     throw new InvalidConfigValueException("POWERMEAN function of the operation '" + name + "' requires " + ConfigurationParameters.OP_CALC_CONST + " set");
@@ -99,17 +97,12 @@ public class KeyedMathOperation extends Operation {
                 keyedFunc = new PowerMeanFunction(pow);
                 break;
             }
-            case MEAN:
             case AVERAGE: {
                 Double shift = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
                 keyedFunc = new AverageFunction(shift);
                 break;
             }
-            case RMS:
-            case ROOTMEAN:
-            case ROOT_MEAN:
-            case ROOTMEANSQUARE:
-            case ROOT_MEAN_SQUARE: {
+            case RMS: {
                 keyedFunc = new PowerMeanFunction(2.D);
                 break;
             }
@@ -123,14 +116,11 @@ public class KeyedMathOperation extends Operation {
                 keyedFunc = new MaxFunction(ceil);
                 break;
             }
-            case MULTIPLY:
             case MUL: {
                 Double _const = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
                 keyedFunc = new MulFunction(_const);
                 break;
             }
-            case DIVIDE:
-            case PROPORTION:
             case DIV: {
                 Double _const = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
                 keyedFunc = new DivFunction(_const);

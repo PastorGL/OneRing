@@ -10,7 +10,8 @@ import java.util.List;
 public class TaskDocumentationLanguage {
     public static class Package extends Pair {
         public List<Pair> ops = new ArrayList<>();
-        public List<Pair> adapters = new ArrayList<>();
+        public List<Pair> ins = new ArrayList<>();
+        public List<Pair> outs = new ArrayList<>();
 
         public Package(String name, String descr) {
             super(name, descr);
@@ -19,8 +20,11 @@ public class TaskDocumentationLanguage {
         public List<Pair> getOps() {
             return ops;
         }
-        public List<Pair> getAdapters() {
-            return adapters;
+        public List<Pair> getIns() {
+            return ins;
+        }
+        public List<Pair> getOuts() {
+            return outs;
         }
     }
 
@@ -128,6 +132,7 @@ public class TaskDocumentationLanguage {
 
     public static class Input extends Pair {
         public List<String> type;
+        public boolean columnar;
 
         public Input(String name, String descr) {
             super(name, descr);
@@ -135,6 +140,10 @@ public class TaskDocumentationLanguage {
 
         public List<String> getType() {
             return type;
+        }
+
+        public boolean isColumnar() {
+            return columnar;
         }
     }
 

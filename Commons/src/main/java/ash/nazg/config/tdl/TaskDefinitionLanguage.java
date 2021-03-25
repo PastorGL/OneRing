@@ -6,9 +6,11 @@ package ash.nazg.config.tdl;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import javax.validation.constraints.NotEmpty;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 import javax.validation.Valid;
+import javax.validation.constraints.NotEmpty;
 import java.util.Properties;
 
 public class TaskDefinitionLanguage {
@@ -17,7 +19,7 @@ public class TaskDefinitionLanguage {
         @JsonProperty(required = true, value = "op")
         @JsonInclude(JsonInclude.Include.NON_EMPTY)
         @Valid
-        public Operation[] operations;
+        public TaskItem[] taskItems;
 
         @JsonProperty(required = true, value = "ds")
         @JsonInclude(JsonInclude.Include.NON_EMPTY)
@@ -52,8 +54,16 @@ public class TaskDefinitionLanguage {
         public Properties metrics;
     }
 
+    @JsonTypeInfo(use = JsonTypeInfo.Id.DEDUCTION)
+    @JsonSubTypes({@JsonSubTypes.Type(Operation.class), @JsonSubTypes.Type(Directive.class)})
+    public static abstract class TaskItem {
+        @JsonProperty(required = true, value = "verb")
+        @NotEmpty
+        public String verb;
+    }
+
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public static class Operation {
+    public static class Operation extends TaskItem {
         @JsonProperty(value = "definitions")
         @JsonInclude(JsonInclude.Include.NON_EMPTY)
         @Valid
@@ -75,10 +85,15 @@ public class TaskDefinitionLanguage {
         @JsonProperty(required = true, value = "name")
         @NotEmpty
         public String name;
+    }
 
-        @JsonProperty(required = true, value = "verb")
-        @NotEmpty
-        public String verb;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public static class Directive extends TaskItem {
+        @JsonProperty(required = true, value = "variable")
+        public String controlVar;
+
+        @JsonProperty(required = true, value = "value")
+        public String varValue;
     }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -153,5 +168,8 @@ public class TaskDefinitionLanguage {
 
         @JsonProperty(value = "path")
         public String path;
+
+        @JsonProperty(value = "sinkSchema")
+        public String[] sinkSchema;
     }
 }

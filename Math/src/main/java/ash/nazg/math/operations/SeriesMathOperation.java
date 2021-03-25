@@ -103,8 +103,6 @@ public class SeriesMathOperation extends Operation {
                 seriesFunc = new StdDevFunction(inputDelimiter, outputDelimiter, outputCols, calcColumn);
                 break;
             }
-            case FIT:
-            case RENORMALIZE:
             case NORMALIZE: {
                 Double upper = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
                 seriesFunc = new NormalizeFunction(inputDelimiter, outputDelimiter, outputCols, calcColumn, upper);
@@ -148,6 +146,6 @@ public class SeriesMathOperation extends Operation {
         @Description("Calculate Standard Deviation of a value")
         STDDEV,
         @Description("Re-normalize value into a range of 0.." + ConfigurationParameters.OP_CALC_CONST)
-        FIT, @Description("Alias of FIT") RENORMALIZE, @Description("Alias of FIT") NORMALIZE,
+        NORMALIZE,
     }
 }

@@ -10,8 +10,6 @@ import ash.nazg.config.tdl.TaskDefinitionLanguage;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Properties;
 
 @Singleton
@@ -27,41 +25,35 @@ public class TaskService {
         return PropertiesConverter.toProperties(task);
     }
 
-    public List<TaskDefinitionLanguage.Task> validateTasks(String prefixes, Properties props) throws Exception {
-        return toTasks(prefixes, props);
+    public TaskDefinitionLanguage.Task validateTask(String prefix, Properties props) throws Exception {
+        return toTask(prefix, props);
     }
 
-    public List<String> runOnTC(String variables, List<TaskDefinitionLanguage.Task> tasks) throws Exception {
-        return runService.defineTC(tasks, variables);
+    public String runOnTC(String variables, TaskDefinitionLanguage.Task task) throws Exception {
+        return runService.defineTC(task, variables);
     }
 
-    public List<String> runOnTC(String prefixes, String variables, Properties props) throws Exception {
-        return runOnTC(variables, toTasks(prefixes, props));
+    public String runOnTC(String prefix, String variables, Properties props) throws Exception {
+        return runOnTC(variables, toTask(prefix, props));
     }
 
-    public List<String> localRun(String variables, List<TaskDefinitionLanguage.Task> tasks) {
-        return runService.defineLocal(tasks, variables);
+    public String localRun(String variables, TaskDefinitionLanguage.Task task) {
+        return runService.defineLocal(task, variables);
     }
 
-    public List<String> localRun(String prefixes, String variables, Properties props) throws Exception {
-        return localRun(variables, toTasks(prefixes, props));
+    public String localRun(String prefix, String variables, Properties props) throws Exception {
+        return localRun(variables, toTask(prefix, props));
     }
 
     public TaskStatus status(String taskId) throws Exception {
         return runService.status(taskId);
     }
 
-    private List<TaskDefinitionLanguage.Task> toTasks(String prefixes, Properties properties) throws Exception {
-        List<TaskDefinitionLanguage.Task> tasks = new ArrayList<>();
+    private TaskDefinitionLanguage.Task toTask(String prefix, Properties properties) throws Exception {
+        WrapperConfig taskConfig = new WrapperConfig();
+        taskConfig.setPrefix(prefix);
+        taskConfig.setProperties(properties);
 
-        for (String prefix : prefixes.split(",")) {
-            WrapperConfig taskConfig = new WrapperConfig();
-            taskConfig.setPrefix(prefix);
-            taskConfig.setProperties(properties);
-
-            tasks.add(PropertiesConverter.toTask(taskConfig));
-        }
-
-        return tasks;
+        return PropertiesConverter.toTask(taskConfig);
     }
 }

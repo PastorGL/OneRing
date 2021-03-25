@@ -13,15 +13,25 @@ Verb | Description | Examples
 [`${op.name}`](../operation/${op.name}.md) | $op.descr | [JSON](../operation/$op.name/example.json) [.ini](../operation/$op.name/example.ini)
 #end
 #end
-#if( $pkg.adapters.size() > 0 )
+#if( $pkg.ins.size() > 0 )
 
-$H$H Storage Adapters
+    $H$H Input Storage Adapters
 
 Name | Description
 --- | ---
-#foreach( $adapter in $pkg.adapters )
-[`${adapter.name}`](../adapter/${adapter.name}.md) | $adapter.descr
+    #foreach( $adapter in $pkg.ins )
+    [`${adapter.name}`](../adapter/${adapter.name}.md) | $adapter.descr
+    #end
 #end
+#if( $pkg.outs.size() > 0 )
+
+    $H$H Output Storage Adapters
+
+Name | Description
+--- | ---
+    #foreach( $adapter in $pkg.outs )
+    [`${adapter.name}`](../adapter/${adapter.name}.md) | $adapter.descr
+    #end
 #end
 
 [Back to index](../index.md)

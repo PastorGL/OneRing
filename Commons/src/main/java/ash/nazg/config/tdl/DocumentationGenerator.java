@@ -229,7 +229,7 @@ public class DocumentationGenerator {
 
         TaskDefinitionLanguage.Task task = new TaskDefinitionLanguage.Task();
         task.prefix = prefix;
-        task.operations = ops.toArray(new TaskDefinitionLanguage.Operation[0]);
+        task.taskItems = ops.toArray(new TaskDefinitionLanguage.Operation[0]);
         task.dataStreams = streams.toArray(new TaskDefinitionLanguage.DataStream[0]);
         task.sink = sink.toArray(new String[0]);
         task.tees = tees.toArray(new String[0]);
@@ -496,10 +496,21 @@ public class DocumentationGenerator {
     public static void packageDoc(String pkgName, Writer writer) throws Exception {
         String descr = Packages.getRegisteredPackages().get(pkgName);
 
+        TaskDocumentationLanguage.Package pkg = packageDoc(pkgName, descr);
+
+        VelocityContext ic = new VelocityContext();
+        ic.put("pkg", pkg);
+
+        Template index = Velocity.getTemplate("package.vm", UTF_8.name());
+        index.merge(ic, writer);
+    }
+
+    public static TaskDocumentationLanguage.Package packageDoc(String pkgName, String descr) throws Exception {
         TaskDocumentationLanguage.Package pkg = new TaskDocumentationLanguage.Package(pkgName, descr);
 
         List<TaskDocumentationLanguage.Pair> ops = pkg.ops;
-        List<TaskDocumentationLanguage.Pair> adapters = pkg.adapters;
+        List<TaskDocumentationLanguage.Pair> ins = pkg.ins;
+        List<TaskDocumentationLanguage.Pair> outs = pkg.outs;
 
         for (Map.Entry<String, OpInfo> oi : Operations.getAvailableOperations(pkgName).entrySet()) {
             Method verb = oi.getValue().getClass().getDeclaredMethod("verb");
@@ -508,18 +519,21 @@ public class DocumentationGenerator {
             ops.add(new TaskDocumentationLanguage.Pair(oi.getKey(), d.value()));
         }
 
-        for (Map.Entry<String, StorageAdapter> ai : Adapters.getAvailableStorageAdapters(pkgName).entrySet()) {
+        for (Map.Entry<String, StorageAdapter> ai : Adapters.getAvailableInputAdapters(pkgName).entrySet()) {
             Method proto = ai.getValue().getClass().getMethod("proto");
             Description d = proto.getDeclaredAnnotation(Description.class);
 
-            adapters.add(new TaskDocumentationLanguage.Pair(ai.getKey(), d.value()));
+            ins.add(new TaskDocumentationLanguage.Pair(ai.getKey(), d.value()));
         }
 
-        VelocityContext ic = new VelocityContext();
-        ic.put("pkg", pkg);
+        for (Map.Entry<String, StorageAdapter> ai : Adapters.getAvailableOutputAdapters(pkgName).entrySet()) {
+            Method proto = ai.getValue().getClass().getMethod("proto");
+            Description d = proto.getDeclaredAnnotation(Description.class);
 
-        Template index = Velocity.getTemplate("package.vm", UTF_8.name());
-        index.merge(ic, writer);
+            outs.add(new TaskDocumentationLanguage.Pair(ai.getKey(), d.value()));
+        }
+
+        return pkg;
     }
 
     public static void indexDoc(Map<String, String> packages, FileWriter writer) {
@@ -613,6 +627,7 @@ public class DocumentationGenerator {
             input.type = Arrays.stream(descr.inputs.positional.types)
                     .map(TaskDescriptionLanguage.StreamType::name)
                     .collect(Collectors.toList());
+            input.columnar = descr.inputs.positional.columnBased;
 
             opDoc.positionalInputs = input;
             opDoc.positionalMin = descr.inputs.positionalMinCount;
@@ -627,6 +642,7 @@ public class DocumentationGenerator {
                         input.type = Arrays.stream(ns.types)
                                 .map(TaskDescriptionLanguage.StreamType::name)
                                 .collect(Collectors.toList());
+                        input.columnar = ns.columnBased;
 
                         namedInputs.add(input);
                     });
@@ -639,6 +655,7 @@ public class DocumentationGenerator {
             output.type = Arrays.stream(descr.outputs.positional.types)
                     .map(TaskDescriptionLanguage.StreamType::name)
                     .collect(Collectors.toList());
+            output.columnar = descr.outputs.positional.columnBased;
 
             output.generated = new ArrayList<>();
             if (descr.outputs.positional.generatedColumns != null) {
@@ -663,6 +680,7 @@ public class DocumentationGenerator {
                         output.type = Arrays.stream(ns.types)
                                 .map(TaskDescriptionLanguage.StreamType::name)
                                 .collect(Collectors.toList());
+                        output.columnar = ns.columnBased;
 
                         output.generated = new ArrayList<>();
                         if (ns.generatedColumns != null) {
@@ -683,12 +701,22 @@ public class DocumentationGenerator {
     }
 
     public static void adapterDoc(StorageAdapter adapter, FileWriter writer) throws Exception {
+        TaskDocumentationLanguage.Adapter adapterDoc = adapterDoc(adapter);
+
+        VelocityContext vc = new VelocityContext();
+        vc.put("adapter", adapterDoc);
+
+        Template operation = Velocity.getTemplate("adapter.vm", UTF_8.name());
+        operation.merge(vc, writer);
+    }
+
+    public static TaskDocumentationLanguage.Adapter adapterDoc(StorageAdapter adapter) throws Exception {
         Class<? extends StorageAdapter> adapterClass = adapter.getClass();
 
         Method proto = adapterClass.getMethod("proto");
         Description d = proto.getDeclaredAnnotation(Description.class);
 
-        String kind = ((adapter instanceof HadoopAdapter) ? "Fallback " : "") + ((adapter instanceof InputAdapter) ? "Input" : "Output");
+        String kind = (adapter instanceof HadoopAdapter) ? "Fallback" : "Normal";
 
         TaskDocumentationLanguage.Adapter adapterDoc = new TaskDocumentationLanguage.Adapter(kind, adapterClass.getSimpleName(), d.value());
 
@@ -696,11 +724,7 @@ public class DocumentationGenerator {
 
         adapterDoc.pkg = adapterClass.getPackage().getName();
 
-        VelocityContext vc = new VelocityContext();
-        vc.put("adapter", adapterDoc);
-
-        Template operation = Velocity.getTemplate("adapter.vm", UTF_8.name());
-        operation.merge(vc, writer);
+        return adapterDoc;
     }
 
     private static List<TaskDocumentationLanguage.Pair> getEnumDocs(Class<? extends Enum<?>> clazz) throws Exception {

@@ -15,7 +15,6 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.io.StringReader;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.stream.Collectors;
@@ -33,14 +32,11 @@ public class TaskEndpoint {
     @Path("validate.json")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.TEXT_PLAIN)
-    public Response validateTasks(@Valid List<TaskDefinitionLanguage.Task> tasks) {
+    public Response validateTask(@Valid TaskDefinitionLanguage.Task task) {
         try {
-            List<String> ini = new ArrayList<>();
-            for (TaskDefinitionLanguage.Task task : tasks) {
-                ini.addAll(taskService.validateTask(task).entrySet().stream()
-                        .map(e -> e.getKey() + "=" + e.getValue())
-                        .collect(Collectors.toList()));
-            }
+            List<String> ini = taskService.validateTask(task).entrySet().stream()
+                    .map(e -> e.getKey() + "=" + e.getValue())
+                    .collect(Collectors.toList());
 
             return Response.ok(String.join("\n", ini)).build();
         } catch (Exception mess) {
@@ -52,12 +48,12 @@ public class TaskEndpoint {
     @Path("validate.ini")
     @Consumes(MediaType.TEXT_PLAIN)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response validateTasks(@QueryParam("prefix") String prefixes, @NotEmpty String properties) throws IOException {
+    public Response validateTask(@QueryParam("prefix") String prefix, @NotEmpty String properties) throws IOException {
         Properties props = new Properties();
         props.load(new StringReader(properties));
 
         try {
-            return Response.ok(taskService.validateTasks(prefixes, props)).build();
+            return Response.ok(taskService.validateTask(prefix, props)).build();
         } catch (Exception mess) {
             return Response.status(Response.Status.BAD_REQUEST).entity(mess.getMessage()).build();
         }
@@ -66,35 +62,35 @@ public class TaskEndpoint {
     @POST
     @Path("run/local.json")
     @Consumes(MediaType.APPLICATION_JSON)
-    public List<String> localRunTask(@QueryParam("variables") String variables, @Valid List<TaskDefinitionLanguage.Task> tasks) {
-        return taskService.localRun(variables, tasks);
+    public String localRunTask(@QueryParam("variables") String variables, @Valid TaskDefinitionLanguage.Task task) {
+        return taskService.localRun(variables, task);
     }
 
     @POST
     @Path("run/local.ini")
     @Consumes(MediaType.TEXT_PLAIN)
-    public List<String> localRunTask(@QueryParam("prefix") String prefixes, @QueryParam("variables") String variables, @NotEmpty String properties) throws Exception {
+    public String localRunTask(@QueryParam("prefix") String prefix, @QueryParam("variables") String variables, @NotEmpty String properties) throws Exception {
         Properties props = new Properties();
         props.load(new StringReader(properties));
 
-        return taskService.localRun(prefixes, variables, props);
+        return taskService.localRun(prefix, variables, props);
     }
 
     @POST
     @Path("run/remote/tc.json")
     @Consumes(MediaType.APPLICATION_JSON)
-    public List<String> runTaskOnTC(@QueryParam("variables") String variables, @Valid List<TaskDefinitionLanguage.Task> tasks) throws Exception {
-        return taskService.runOnTC(variables, tasks);
+    public String runTaskOnTC(@QueryParam("variables") String variables, @Valid TaskDefinitionLanguage.Task task) throws Exception {
+        return taskService.runOnTC(variables, task);
     }
 
     @POST
     @Path("run/remote/tc.ini")
     @Consumes(MediaType.TEXT_PLAIN)
-    public List<String> runTaskOnTC(@QueryParam("prefix") String prefixes, @QueryParam("variables") String variables, @NotEmpty String properties) throws Exception {
+    public String runTaskOnTC(@QueryParam("prefix") String prefix, @QueryParam("variables") String variables, @NotEmpty String properties) throws Exception {
         Properties props = new Properties();
         props.load(new StringReader(properties));
 
-        return taskService.runOnTC(prefixes, variables, props);
+        return taskService.runOnTC(prefix, variables, props);
     }
 
     @GET

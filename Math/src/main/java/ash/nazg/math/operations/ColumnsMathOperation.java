@@ -111,8 +111,7 @@ public class ColumnsMathOperation extends Operation {
                 mathFunc = new SumFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, _const);
                 break;
             }
-            case POWERMEAN:
-            case POWER_MEAN: {
+            case POWERMEAN: {
                 Double pow = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
                 if (pow == null) {
                     throw new InvalidConfigValueException("POWERMEAN function of the operation '" + name + "' requires " + ConfigurationParameters.OP_CALC_CONST + " set");
@@ -120,17 +119,12 @@ public class ColumnsMathOperation extends Operation {
                 mathFunc = new PowerMeanFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, pow);
                 break;
             }
-            case MEAN:
             case AVERAGE: {
                 Double shift = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
                 mathFunc = new AverageFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, shift);
                 break;
             }
-            case RMS:
-            case ROOTMEAN:
-            case ROOT_MEAN:
-            case ROOTMEANSQUARE:
-            case ROOT_MEAN_SQUARE: {
+            case RMS: {
                 mathFunc = new PowerMeanFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, 2.D);
                 break;
             }
@@ -144,14 +138,11 @@ public class ColumnsMathOperation extends Operation {
                 mathFunc = new MaxFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, ceil);
                 break;
             }
-            case MULTIPLY:
             case MUL: {
                 Double _const = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
                 mathFunc = new MulFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, _const);
                 break;
             }
-            case DIVIDE:
-            case PROPORTION:
             case DIV: {
                 Double _const = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
                 mathFunc = new DivFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, _const);
