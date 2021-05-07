@@ -4,14 +4,9 @@
  */
 package ash.nazg.config;
 
-import ash.nazg.config.tdl.DocumentationGenerator;
-import ash.nazg.config.tdl.TDLObjectMapper;
-import ash.nazg.config.tdl.TaskDefinitionLanguage;
-import ash.nazg.config.tdl.TaskDocumentationLanguage;
+import ash.nazg.config.tdl.*;
 import ash.nazg.spark.OpInfo;
 import ash.nazg.spark.Operations;
-import ash.nazg.storage.Adapters;
-import ash.nazg.storage.StorageAdapter;
 import com.fasterxml.jackson.core.util.DefaultIndenter;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -20,17 +15,18 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import org.apache.velocity.Template;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.Velocity;
+import org.apache.velocity.runtime.RuntimeConstants;
+import org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader;
 
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
-
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class DocGen {
     public static void main(String[] args) {
@@ -46,7 +42,10 @@ public class DocGen {
             }
             Files.createDirectories(Paths.get(outputDirectory, "package"));
             Files.createDirectories(Paths.get(outputDirectory, "operation"));
-            Files.createDirectories(Paths.get(outputDirectory, "adapter"));
+
+            Velocity.setProperty(RuntimeConstants.RESOURCE_LOADERS, "classpath");
+            Velocity.setProperty(RuntimeConstants.RESOURCE_LOADER + ".classpath.class", ClasspathResourceLoader.class.getCanonicalName());
+            Velocity.init();
 
             Map<String, String> pkgs = Packages.getRegisteredPackages();
 
@@ -68,7 +67,7 @@ public class DocGen {
                         VelocityContext vc = new VelocityContext();
                         vc.put("op", opDoc);
 
-                        Template operation = Velocity.getTemplate("operation.vm", UTF_8.name());
+                        Template operation = Velocity.getTemplate("operation.vm", StandardCharsets.UTF_8.name());
                         operation.merge(vc, mdWriter);
 
                         TaskDefinitionLanguage.Task exampleTask = DocumentationGenerator.createExampleTask(opInfo, opDoc, null);
@@ -78,30 +77,10 @@ public class DocGen {
                             ow.writeValue(jsonWriter, exampleTask);
                         }
                         try (final Writer iniWriter = new BufferedWriter(new FileWriter(new File(exampleDir, "example.ini")))) {
-                            DocumentationGenerator.writeDoc(exampleTask, iniWriter);
+                            PropertiesWriter.writeProperties(exampleTask, iniWriter);
                         }
                     } catch (Exception e) {
                         throw new Exception("Operation '" + verb + "'", e);
-                    }
-                }
-
-                for (Map.Entry<String, StorageAdapter> entry : Adapters.getAvailableInputAdapters(pkgName).entrySet()) {
-                    String name = entry.getKey();
-                    StorageAdapter adapter = entry.getValue();
-                    try (FileWriter writer = new FileWriter(outputDirectory + "/adapter/" + name + ".md")) {
-                        DocumentationGenerator.adapterDoc(adapter, writer);
-                    } catch (Exception e) {
-                        throw new Exception("Adapter '" + name + "'", e);
-                    }
-                }
-
-                for (Map.Entry<String, StorageAdapter> entry : Adapters.getAvailableOutputAdapters(pkgName).entrySet()) {
-                    String name = entry.getKey();
-                    StorageAdapter adapter = entry.getValue();
-                    try (FileWriter writer = new FileWriter(outputDirectory + "/adapter/" + name + ".md")) {
-                        DocumentationGenerator.adapterDoc(adapter, writer);
-                    } catch (Exception e) {
-                        throw new Exception("Adapter '" + name + "'", e);
                     }
                 }
 

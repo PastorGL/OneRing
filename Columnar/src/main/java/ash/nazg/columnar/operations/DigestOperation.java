@@ -6,6 +6,7 @@ package ash.nazg.columnar.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
@@ -97,14 +98,14 @@ public class DigestOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.CSV},
                                 true
                         )
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.CSV},
                                 KNOWN_COLUMNS
                         )
                 )
@@ -113,15 +114,13 @@ public class DigestOperation extends Operation {
 
     @Override
     @SuppressWarnings("unchecked")
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        inputDelimiter = dsResolver.inputDelimiter(inputName);
+        outputName = opResolver.positionalOutput(0);
 
-        inputName = describedProps.inputs.get(0);
-        inputDelimiter = dataStreamsProps.inputDelimiter(inputName);
-        outputName = describedProps.outputs.get(0);
-
-        Map<String, Integer> inputColumns = dataStreamsProps.inputColumns.get(inputName);
-        String[] outputColumns = dataStreamsProps.outputColumns.get(outputName);
+        Map<String, Integer> inputColumns = dsResolver.inputColumns(inputName);
+        String[] outputColumns = dsResolver.outputColumns(outputName);
 
         outputCols = new Tuple3[outputColumns.length];
 

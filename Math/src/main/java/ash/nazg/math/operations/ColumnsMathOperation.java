@@ -6,6 +6,7 @@ package ash.nazg.math.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.math.config.CalcFunction;
 import ash.nazg.math.config.ConfigurationParameters;
@@ -49,14 +50,14 @@ public class ColumnsMathOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.CSV},
                                 true
                         )
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.CSV},
                                 new String[]{ConfigurationParameters.GEN_RESULT}
                         )
                 )
@@ -64,17 +65,15 @@ public class ColumnsMathOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        char inputDelimiter = dsResolver.inputDelimiter(inputName);
+        outputName = opResolver.positionalOutput(0);
+        char outputDelimiter = dsResolver.outputDelimiter(outputName);
 
-        inputName = describedProps.inputs.get(0);
-        char inputDelimiter = dataStreamsProps.inputDelimiter(inputName);
-        outputName = describedProps.outputs.get(0);
-        char outputDelimiter = dataStreamsProps.outputDelimiter(outputName);
+        Map<String, Integer> inputColumns = dsResolver.inputColumns(inputName);
 
-        Map<String, Integer> inputColumns = dataStreamsProps.inputColumns.get(inputName);
-
-        String[] calcColumns = describedProps.defs.getTyped(OP_CALC_COLUMNS);
+        String[] calcColumns = opResolver.definition(OP_CALC_COLUMNS);
         Set<Integer> separatedProp = new HashSet<>();
         if (calcColumns.length == 1) {
             final String colTemplate = calcColumns[0].endsWith("*") ? calcColumns[0].substring(0, calcColumns[0].length() - 1) : calcColumns[0];
@@ -93,7 +92,7 @@ public class ColumnsMathOperation extends Operation {
             throw new InvalidConfigValueException("Operation '" + name + "' requires at least one column in " + OP_CALC_COLUMNS + " set either explicitly of as a wildcard");
         }
 
-        String[] outputColumns = dataStreamsProps.outputColumns.get(outputName);
+        String[] outputColumns = dsResolver.outputColumns(outputName);
         int[] outputCols = new int[outputColumns.length];
         int i = 0;
         for (String outputColumn : outputColumns) {
@@ -104,15 +103,15 @@ public class ColumnsMathOperation extends Operation {
             }
         }
 
-        CalcFunction cf = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_FUNCTION);
+        CalcFunction cf = opResolver.definition(ConfigurationParameters.OP_CALC_FUNCTION);
         switch (cf) {
             case SUM: {
-                Double _const = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
+                Double _const = opResolver.definition(ConfigurationParameters.OP_CALC_CONST);
                 mathFunc = new SumFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, _const);
                 break;
             }
             case POWERMEAN: {
-                Double pow = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
+                Double pow = opResolver.definition(ConfigurationParameters.OP_CALC_CONST);
                 if (pow == null) {
                     throw new InvalidConfigValueException("POWERMEAN function of the operation '" + name + "' requires " + ConfigurationParameters.OP_CALC_CONST + " set");
                 }
@@ -120,7 +119,7 @@ public class ColumnsMathOperation extends Operation {
                 break;
             }
             case AVERAGE: {
-                Double shift = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
+                Double shift = opResolver.definition(ConfigurationParameters.OP_CALC_CONST);
                 mathFunc = new AverageFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, shift);
                 break;
             }
@@ -129,22 +128,22 @@ public class ColumnsMathOperation extends Operation {
                 break;
             }
             case MIN: {
-                Double floor = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
+                Double floor = opResolver.definition(ConfigurationParameters.OP_CALC_CONST);
                 mathFunc = new MinFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, floor);
                 break;
             }
             case MAX: {
-                Double ceil = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
+                Double ceil = opResolver.definition(ConfigurationParameters.OP_CALC_CONST);
                 mathFunc = new MaxFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, ceil);
                 break;
             }
             case MUL: {
-                Double _const = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
+                Double _const = opResolver.definition(ConfigurationParameters.OP_CALC_CONST);
                 mathFunc = new MulFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, _const);
                 break;
             }
             case DIV: {
-                Double _const = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
+                Double _const = opResolver.definition(ConfigurationParameters.OP_CALC_CONST);
                 mathFunc = new DivFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, _const);
                 break;
             }

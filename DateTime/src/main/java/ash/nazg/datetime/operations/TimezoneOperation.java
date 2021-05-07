@@ -5,8 +5,8 @@
 package ash.nazg.datetime.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.OperationConfig;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.datetime.config.ConfigurationParameters;
 import ash.nazg.spark.Operation;
@@ -109,14 +109,14 @@ public class TimezoneOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.CSV},
                                 true
                         )
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.CSV},
                                 new String[]{
                                         GEN_INPUT_DATE, GEN_INPUT_DOW_INT, GEN_INPUT_DAY_INT, GEN_INPUT_MONTH_INT, GEN_INPUT_YEAR_INT, GEN_INPUT_HOUR_INT, GEN_INPUT_MINUTE_INT,
                                         GEN_OUTPUT_DATE, GEN_OUTPUT_DOW_INT, GEN_OUTPUT_DAY_INT, GEN_OUTPUT_MONTH_INT, GEN_OUTPUT_YEAR_INT, GEN_OUTPUT_HOUR_INT, GEN_OUTPUT_MINUTE_INT,
@@ -128,33 +128,32 @@ public class TimezoneOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        inputColumns = dsResolver.inputColumns(inputName);
+        inputDelimiter = dsResolver.inputDelimiter(inputName);
 
-        inputName = describedProps.inputs.get(0);
-        inputColumns = dataStreamsProps.inputColumns.get(inputName);
-        inputDelimiter = dataStreamsProps.inputDelimiter(inputName);
-
-        timestampColumn = describedProps.defs.getTyped(ConfigurationParameters.DS_SRC_TIMESTAMP_COLUMN);
-        timezoneColumn = describedProps.defs.getTyped(ConfigurationParameters.OP_SRC_TIMEZONE_COL);
+        timestampColumn = opResolver.definition(ConfigurationParameters.DS_SRC_TIMESTAMP_COLUMN);
+        timezoneColumn = opResolver.definition(ConfigurationParameters.OP_SRC_TIMEZONE_COL);
         if (timezoneColumn == null) {
-            String timezoneDefault = describedProps.defs.getTyped(ConfigurationParameters.OP_SRC_TIMEZONE_DEFAULT);
+            String timezoneDefault = opResolver.definition(ConfigurationParameters.OP_SRC_TIMEZONE_DEFAULT);
             sourceTimezoneDefault = TimeZone.getTimeZone(timezoneDefault);
         }
-        timestampFormat = describedProps.defs.getTyped(ConfigurationParameters.OP_SRC_TIMESTAMP_FORMAT);
+        timestampFormat = opResolver.definition(ConfigurationParameters.OP_SRC_TIMESTAMP_FORMAT);
 
-        outputName = describedProps.outputs.get(0);
-        outputColumns = dataStreamsProps.outputColumns.get(outputName);
-        outputDelimiter = dataStreamsProps.outputDelimiter(outputName);
+        outputName = opResolver.positionalOutput(0);
+        outputColumns = dsResolver.outputColumns(outputName);
+        outputDelimiter = dsResolver.outputDelimiter(outputName);
 
-        outputTimezoneColumn = describedProps.defs.getTyped(ConfigurationParameters.OP_DST_TIMEZONE_COL);
+        outputTimezoneColumn = opResolver.definition(ConfigurationParameters.OP_DST_TIMEZONE_COL);
         if (outputTimezoneColumn == null) {
-            String outputTimezoneDefault = describedProps.defs.getTyped(ConfigurationParameters.OP_DST_TIMEZONE_DEFAULT);
+            String outputTimezoneDefault = opResolver.definition(ConfigurationParameters.OP_DST_TIMEZONE_DEFAULT);
             destinationTimezoneDefault = TimeZone.getTimeZone(outputTimezoneDefault);
         }
-        outputTimestampFormat = describedProps.defs.getTyped(ConfigurationParameters.OP_DST_TIMESTAMP_FORMAT);
+        outputTimestampFormat = opResolver.definition(ConfigurationParameters.OP_DST_TIMESTAMP_FORMAT);
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         final Map<String, Integer> _inputColumns = inputColumns;

@@ -6,6 +6,7 @@ package ash.nazg.simplefilters.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
@@ -52,12 +53,12 @@ public class SplitMatchOperation extends MatchFilterOperation {
                         new TaskDescriptionLanguage.NamedStream[]{
                                 new TaskDescriptionLanguage.NamedStream(
                                         RDD_INPUT_SOURCE,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                        new StreamType[]{StreamType.CSV},
                                         true
                                 ),
                                 new TaskDescriptionLanguage.NamedStream(
                                         RDD_INPUT_VALUES,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                        new StreamType[]{StreamType.CSV},
                                         true
                                 ),
                         }
@@ -66,11 +67,11 @@ public class SplitMatchOperation extends MatchFilterOperation {
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.NamedStream[]{
                                 new TaskDescriptionLanguage.NamedStream(RDD_OUTPUT_MATCHED,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                        new StreamType[]{StreamType.CSV},
                                         true
                                 ),
                                 new TaskDescriptionLanguage.NamedStream(RDD_OUTPUT_EVICTED,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                        new StreamType[]{StreamType.CSV},
                                         false
                                 ),
                         }
@@ -79,23 +80,23 @@ public class SplitMatchOperation extends MatchFilterOperation {
     }
 
     @Override
-    public void configure(Properties config, Properties variables) throws InvalidConfigValueException {
-        super.configure(config, variables);
+    public void configure() throws InvalidConfigValueException {
+        super.configure();
 
-        inputValuesName = describedProps.namedInputs.get(RDD_INPUT_VALUES);
-        inputValuesDelimiter = dataStreamsProps.inputDelimiter(inputValuesName);
+        inputValuesName = opResolver.namedInput(RDD_INPUT_VALUES);
+        inputValuesDelimiter = dsResolver.inputDelimiter(inputValuesName);
 
-        Map<String, Integer> inputSourceColumns = dataStreamsProps.inputColumns.get(inputSourceName);
-        Map<String, Integer> inputValuesColumns = dataStreamsProps.inputColumns.get(inputValuesName);
+        Map<String, Integer> inputSourceColumns = dsResolver.inputColumns(inputSourceName);
+        Map<String, Integer> inputValuesColumns = dsResolver.inputColumns(inputValuesName);
 
         String prop;
 
-        prop = describedProps.defs.getTyped(DS_VALUES_MATCH_COLUMN);
+        prop = opResolver.definition(DS_VALUES_MATCH_COLUMN);
         valuesColumn = inputValuesColumns.get(prop);
 
-        outputDelimiter = dataStreamsProps.outputDelimiter(outputMatchedName);
+        outputDelimiter = dsResolver.outputDelimiter(outputMatchedName);
 
-        String[] outputColumns = dataStreamsProps.outputColumns.get(outputMatchedName);
+        String[] outputColumns = dsResolver.outputColumns(outputMatchedName);
         outputCols = new int[outputColumns.length];
         for (int i = 0; i < outputColumns.length; i++) {
             String col = outputColumns[i];
@@ -105,6 +106,7 @@ public class SplitMatchOperation extends MatchFilterOperation {
         }
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         char _inputSourceDelimiter = inputSourceDelimiter;

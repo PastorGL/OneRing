@@ -6,9 +6,9 @@ package ash.nazg.simplefilters.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
-import ash.nazg.config.OperationConfig;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -18,7 +18,6 @@ import scala.Tuple2;
 
 import java.util.Collections;
 import java.util.Map;
-import java.util.Properties;
 
 @SuppressWarnings("unused")
 public class PercentileFilterOperation extends Operation {
@@ -61,14 +60,14 @@ public class PercentileFilterOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.CSV},
                                 true
                         )
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Passthru},
+                                new StreamType[]{StreamType.Passthru},
                                 false
                         )
                 )
@@ -76,25 +75,23 @@ public class PercentileFilterOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        inputDelimiter = dsResolver.inputDelimiter(inputName);
+        outputName = opResolver.positionalOutput(0);
 
-        inputName = describedProps.inputs.get(0);
-        inputDelimiter = dataStreamsProps.inputDelimiter(inputName);
-        outputName = describedProps.outputs.get(0);
-
-        Map<String, Integer> inputColumns = dataStreamsProps.inputColumns.get(inputName);
+        Map<String, Integer> inputColumns = dsResolver.inputColumns(inputName);
         String prop;
 
-        prop = describedProps.defs.getTyped(DS_FILTERING_COLUMN);
+        prop = opResolver.definition(DS_FILTERING_COLUMN);
         filteringColumn = inputColumns.get(prop);
 
-        topPercentile = describedProps.defs.getTyped(OP_PERCENTILE_TOP);
+        topPercentile = opResolver.definition(OP_PERCENTILE_TOP);
         if (topPercentile > 100) {
             topPercentile = 100;
         }
 
-        bottomPercentile = describedProps.defs.getTyped(OP_PERCENTILE_BOTTOM);
+        bottomPercentile = opResolver.definition(OP_PERCENTILE_BOTTOM);
         if (bottomPercentile > 100) {
             bottomPercentile = 100;
         }

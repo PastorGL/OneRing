@@ -6,6 +6,7 @@ package ash.nazg.simplefilters.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
@@ -43,11 +44,11 @@ public class ListMatchFilterOperation extends MatchFilterOperation {
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.NamedStream[]{
                                 new TaskDescriptionLanguage.NamedStream(RDD_INPUT_SOURCE,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                        new StreamType[]{StreamType.CSV},
                                         true
                                 ),
                                 new TaskDescriptionLanguage.NamedStream(RDD_INPUT_VALUES,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                        new StreamType[]{StreamType.CSV},
                                         true
                                 )
                         }
@@ -56,11 +57,11 @@ public class ListMatchFilterOperation extends MatchFilterOperation {
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.NamedStream[]{
                                 new TaskDescriptionLanguage.NamedStream(RDD_OUTPUT_MATCHED,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                        new StreamType[]{StreamType.CSV},
                                         true
                                 ),
                                 new TaskDescriptionLanguage.NamedStream(RDD_OUTPUT_EVICTED,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                        new StreamType[]{StreamType.CSV},
                                         false
                                 ),
                         }
@@ -69,15 +70,15 @@ public class ListMatchFilterOperation extends MatchFilterOperation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        super.configure();
 
-        inputValuesName = describedProps.namedInputs.get(RDD_INPUT_VALUES);
-        inputValuesDelimiter = dataStreamsProps.inputDelimiter(inputValuesName);
+        inputValuesName = opResolver.namedInput(RDD_INPUT_VALUES);
+        inputValuesDelimiter = dsResolver.inputDelimiter(inputValuesName);
 
-        Map<String, Integer> inputValuesColumns = dataStreamsProps.inputColumns.get(inputValuesName);
+        Map<String, Integer> inputValuesColumns = dsResolver.inputColumns(inputValuesName);
 
-        String prop = describedProps.defs.getTyped(DS_VALUES_MATCH_COLUMN);
+        String prop = opResolver.definition(DS_VALUES_MATCH_COLUMN);
         valuesColumn = inputValuesColumns.get(prop);
     }
 

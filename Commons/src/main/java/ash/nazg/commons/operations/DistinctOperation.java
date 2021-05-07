@@ -6,9 +6,9 @@ package ash.nazg.commons.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
-import ash.nazg.config.OperationConfig;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import org.apache.hadoop.io.Text;
@@ -16,7 +16,10 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 @SuppressWarnings("unused")
 public class DistinctOperation extends Operation {
@@ -48,14 +51,14 @@ public class DistinctOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.KeyValue, TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.KeyValue, StreamType.CSV},
                                 true
                         )
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Passthru},
+                                new StreamType[]{StreamType.Passthru},
                                 false
                         )
                 )
@@ -63,16 +66,14 @@ public class DistinctOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        inputDelimiter = dsResolver.inputDelimiter(inputName);
+        outputName = opResolver.positionalOutput(0);
 
-        inputName = describedProps.inputs.get(0);
-        inputDelimiter = dataStreamsProps.inputDelimiter(inputName);
-        outputName = describedProps.outputs.get(0);
-
-        String uniqueColumn = describedProps.defs.getTyped(DS_UNIQUE_COLUMN);
+        String uniqueColumn = opResolver.definition(DS_UNIQUE_COLUMN);
         if (uniqueColumn != null) {
-            Map<String, Integer> inputColumns = dataStreamsProps.inputColumns.get(inputName);
+            Map<String, Integer> inputColumns = dsResolver.inputColumns(inputName);
             this.uniqueColumn = inputColumns.get(uniqueColumn);
         }
     }

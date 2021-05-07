@@ -42,4 +42,34 @@ public class MapJoinTest {
             );
         }
     }
+
+
+    @Test
+    public void mapDifferentJoinsTest() throws Exception {
+        try (TestRunner underTest = new TestRunner("/test.mapjoin.properties")) {
+
+            Map<String, JavaRDDLike> ret = underTest.go();
+
+            JavaRDD<Text> resultRDD = (JavaRDD<Text>) ret.get("joined_left");
+
+            assertEquals(
+                    6,
+                    resultRDD.count()
+            );
+
+            resultRDD = (JavaRDD<Text>) ret.get("joined_right");
+
+            assertEquals(
+                    4,
+                    resultRDD.count()
+            );
+
+            resultRDD = (JavaRDD<Text>) ret.get("joined_outer");
+
+            assertEquals(
+                    8,
+                    resultRDD.count()
+            );
+        }
+    }
 }

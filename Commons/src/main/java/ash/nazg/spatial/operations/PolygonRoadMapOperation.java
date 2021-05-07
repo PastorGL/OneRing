@@ -6,6 +6,7 @@ package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
 import net.sf.geographiclib.Geodesic;
@@ -77,14 +78,14 @@ public class PolygonRoadMapOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Plain},
+                                new StreamType[]{StreamType.Plain},
                                 false
                         )
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Polygon},
+                                new StreamType[]{StreamType.Polygon},
                                 false
                         )
                 )
@@ -92,23 +93,21 @@ public class PolygonRoadMapOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
 
-        inputName = describedProps.inputs.get(0);
+        outputName = opResolver.positionalOutput(0);
 
-        outputName = describedProps.outputs.get(0);
-
-        String[] roadTypes = describedProps.defs.getTyped(OP_ROAD_TYPES);
+        String[] roadTypes = opResolver.definition(OP_ROAD_TYPES);
         multipliers = new HashMap<>();
         for (String roadType : roadTypes) {
-            Double multiplier = describedProps.defs.getTyped((OP_TYPE_MULTIPLIER_PREFIX + roadType));
+            Double multiplier = opResolver.definition(OP_TYPE_MULTIPLIER_PREFIX + roadType);
             multipliers.put(roadType, multiplier);
         }
 
-        typeColumn = describedProps.defs.getTyped(OP_ROAD_TYPE_COL);
-        widthColumn = describedProps.defs.getTyped(OP_ROAD_WIDTH_COL);
-        nameColumn = describedProps.defs.getTyped(OP_ROAD_NAME_COL);
+        typeColumn = opResolver.definition(OP_ROAD_TYPE_COL);
+        widthColumn = opResolver.definition(OP_ROAD_WIDTH_COL);
+        nameColumn = opResolver.definition(OP_ROAD_NAME_COL);
     }
 
     @Override

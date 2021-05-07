@@ -6,7 +6,7 @@ package ash.nazg.populations.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
-import ash.nazg.config.OperationConfig;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.populations.functions.CountUniquesFunction;
 import ash.nazg.spark.Operation;
@@ -55,18 +55,18 @@ public class ReachOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(new TaskDescriptionLanguage.NamedStream[]{
                         new TaskDescriptionLanguage.NamedStream(RDD_INPUT_SIGNALS,
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.CSV},
                                 true
                         ),
                         new TaskDescriptionLanguage.NamedStream(RDD_INPUT_TARGET,
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.CSV},
                                 true
                         )
                 }),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Fixed},
+                                new StreamType[]{StreamType.Fixed},
                                 false
                         )
                 )
@@ -74,33 +74,32 @@ public class ReachOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputSignalsName = opResolver.namedInput(RDD_INPUT_SIGNALS);
+        inputSignalsDelimiter = dsResolver.inputDelimiter(inputSignalsName);
 
-        inputSignalsName = describedProps.namedInputs.get(RDD_INPUT_SIGNALS);
-        inputSignalsDelimiter = dataStreamsProps.inputDelimiter(inputSignalsName);
-
-        Map<String, Integer> inputColumns = dataStreamsProps.inputColumns.get(inputSignalsName);
+        Map<String, Integer> inputColumns = dsResolver.inputColumns(inputSignalsName);
         String prop;
 
-        prop = describedProps.defs.getTyped(DS_SIGNALS_USERID_COLUMN);
+        prop = opResolver.definition(DS_SIGNALS_USERID_COLUMN);
         signalsUseridColumn = inputColumns.get(prop);
 
-        inputTargetName = describedProps.namedInputs.get(RDD_INPUT_TARGET);
-        inputTargetDelimiter = dataStreamsProps.inputDelimiter(inputTargetName);
+        inputTargetName = opResolver.namedInput(RDD_INPUT_TARGET);
+        inputTargetDelimiter = dsResolver.inputDelimiter(inputTargetName);
 
-        inputColumns = dataStreamsProps.inputColumns.get(inputTargetName);
+        inputColumns = dsResolver.inputColumns(inputTargetName);
 
-        prop = describedProps.defs.getTyped(DS_TARGET_USERID_COLUMN);
+        prop = opResolver.definition(DS_TARGET_USERID_COLUMN);
         targetUseridColumn = inputColumns.get(prop);
 
-        prop = describedProps.defs.getTyped(DS_TARGET_GID_COLUMN);
+        prop = opResolver.definition(DS_TARGET_GID_COLUMN);
         targetGidColumn = inputColumns.get(prop);
 
-        outputName = describedProps.outputs.get(0);
-        outputDelimiter = dataStreamsProps.outputDelimiter(outputName);
+        outputName = opResolver.positionalOutput(0);
+        outputDelimiter = dsResolver.outputDelimiter(outputName);
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         char _inputSignalsDelimiter = inputSignalsDelimiter;

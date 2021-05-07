@@ -4,11 +4,11 @@
  */
 package ash.nazg.columnar.operations;
 
-import ash.nazg.spark.Operation;
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.OperationConfig;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVWriter;
@@ -17,7 +17,10 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 
 import java.io.StringWriter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 @SuppressWarnings("unused")
 public class ArrangeColumnsOperation extends Operation {
@@ -42,14 +45,14 @@ public class ArrangeColumnsOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.CSV},
                                 true
                         )
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.CSV},
                                 true
                         )
                 )
@@ -57,18 +60,16 @@ public class ArrangeColumnsOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        inputDelimiter = dsResolver.inputDelimiter(inputName);
+        outputName = opResolver.positionalOutput(0);
+        outputDelimiter = dsResolver.outputDelimiter(outputName);
 
-        inputName = describedProps.inputs.get(0);
-        inputDelimiter = dataStreamsProps.inputDelimiter(inputName);
-        outputName = describedProps.outputs.get(0);
-        outputDelimiter = dataStreamsProps.outputDelimiter(outputName);
-
-        Map<String, Integer> inputColumns = dataStreamsProps.inputColumns.get(inputName);
+        Map<String, Integer> inputColumns = dsResolver.inputColumns(inputName);
 
         List<Integer> out = new ArrayList<>();
-        String[] outColumns = dataStreamsProps.outputColumns.get(outputName);
+        String[] outColumns = dsResolver.outputColumns(outputName);
         for (String outCol : outColumns) {
             out.add(inputColumns.get(outCol));
         }

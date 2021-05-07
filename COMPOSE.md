@@ -8,7 +8,7 @@ Name mangling is necessary because `tasks.ini` from different Processes may cont
 
 Command line invocation of Composer is as follows (also available via [REST](REST.md)):
 ```bash
-java -cp ./TaskWrapper/target/one-ring-cli.jar ash.nazg.composer.Composer -X spark.meta -C "/path/to/process1.ini=alias1,/path/to/process2.ini=alias2" -o /path/to/process1and2.ini -M /path/to/mapping.file -v /path/to/variables.file -F
+java -cp ./CLI/target/one-ring-cli.jar ash.nazg.composer.Composer -X spark.meta -C "/path/to/process1.ini=alias1,/path/to/process2.ini=alias2" -o /path/to/process1and2.ini -M /path/to/mapping.file -v /path/to/variables.file -F
 ```
 
 `-C` parameter is a list of config files `path=alias` pairs, separated by a comma. Order of Operations in the resulting config follows the order of this list. Source configs may be in `.ini` and JSON formats, and even freely mixed, just use `.json` extension for JSON configs.
@@ -30,4 +30,4 @@ This example's first line means that the DataStream `name1` from the Process `al
 
 `-o` path to the composed output config file, in `.ini` format by default. For JSON output use `.json` extension.
 
-`-F` perform a Full Compose, if this switch is given. Resulting `task.tee.outputs` will only contain same outputs as the very last config in the chain, otherwise it'll contain outputs from all merged tasks.
+`-F` perform a Full Compose, if this switch is given. Resulting `task.output` will only contain same outputs as the very last config in the chain, otherwise it'll contain outputs from all merged tasks.

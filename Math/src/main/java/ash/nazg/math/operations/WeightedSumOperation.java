@@ -6,6 +6,7 @@ package ash.nazg.math.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
@@ -51,7 +52,7 @@ public class WeightedSumOperation extends Operation {
         put(GEN_TOTAL_COUNT, -3);
     }};
 
-    private List<String> inputNames;
+    private String[] inputNames;
     private Map<String, Character> inputDelimiters;
     private String outputName;
     private char outputDelimiter;
@@ -82,14 +83,14 @@ public class WeightedSumOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.CSV},
                                 true
                         )
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.CSV},
                                 new ArrayList<String>(KNOWN_COLUMNS.keySet()) {{
                                     add(GEN_PAYLOAD_PREFIX);
                                 }}
@@ -99,18 +100,16 @@ public class WeightedSumOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        outputName = opResolver.positionalOutput(0);
+        outputDelimiter = dsResolver.outputDelimiter(outputName);
+        String[] outputColumns = dsResolver.outputColumns(outputName);
 
-        outputName = describedProps.outputs.get(0);
-        outputDelimiter = dataStreamsProps.outputDelimiter(outputName);
-        String[] outputColumns = dataStreamsProps.outputColumns.get(outputName);
-
-        inputNames = describedProps.inputs;
+        inputNames = opResolver.positionalInputs();
 
         inputDelimiters = new HashMap<>();
 
-        String[] defaultColumns = describedProps.defs.getTyped(OP_DEFAULT_COLS);
+        String[] defaultColumns = opResolver.definition(OP_DEFAULT_COLS);
         Map<String, Integer> defaultMap = null;
         if (defaultColumns != null) {
             defaultMap = new HashMap<>();
@@ -125,10 +124,10 @@ public class WeightedSumOperation extends Operation {
             }
         }
 
-        String countColumnSuffix = "." + describedProps.defs.getTyped(DS_COUNT_COL);
-        String valueColumnSuffix = "." + describedProps.defs.getTyped(DS_VALUE_COL);
+        String countColumnSuffix = "." + opResolver.definition(DS_COUNT_COL);
+        String valueColumnSuffix = "." + opResolver.definition(DS_VALUE_COL);
 
-        String[] payloadArr = describedProps.defs.getTyped(OP_PAYLOAD_COLS);
+        String[] payloadArr = opResolver.definition(OP_PAYLOAD_COLS);
         Set<String> payloadColumnsSuffixes = Arrays.stream(payloadArr)
                 .map(v -> "." + v)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
@@ -142,10 +141,10 @@ public class WeightedSumOperation extends Operation {
         payloadColumns = new HashMap<>();
 
         for (final String inputName : inputNames) {
-            inputDelimiters.put(inputName, dataStreamsProps.inputDelimiter(inputName));
+            inputDelimiters.put(inputName, dsResolver.inputDelimiter(inputName));
 
-            Map<String, Integer> thisInputColumns = dataStreamsProps.inputColumns.get(inputName);
-            if (thisInputColumns.size() == 0) {
+            Map<String, Integer> thisInputColumns = dsResolver.inputColumns(inputName);
+            if (thisInputColumns == null) {
                 if (defaultMap == null) {
                     throw new InvalidConfigValueException("Input " + inputName + " does not have column specification nor default columns are specified in the operation '" + name + "'");
                 }
@@ -175,10 +174,10 @@ public class WeightedSumOperation extends Operation {
             }
         }
 
-        if (countColumns.size() != inputNames.size()) {
+        if (countColumns.size() != inputNames.length) {
             throw new InvalidConfigValueException("Not all inputs have set a count column with suffix '" + countColumnSuffix + "' in the operation '" + name + "'");
         }
-        if (valueColumns.size() != inputNames.size()) {
+        if (valueColumns.size() != inputNames.length) {
             throw new InvalidConfigValueException("Not all inputs have set a value column with suffix '" + valueColumnSuffix + "' in the operation '" + name + "'");
         }
         for (final String inputName : inputNames) {

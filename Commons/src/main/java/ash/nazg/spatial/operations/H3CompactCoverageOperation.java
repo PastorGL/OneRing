@@ -5,8 +5,8 @@
 package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.WrapperConfig;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVWriter;
@@ -72,14 +72,14 @@ public class H3CompactCoverageOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Polygon},
+                                new StreamType[]{StreamType.Polygon},
                                 false
                         )
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.CSV},
                                 new String[]{GEN_HASH, GEN_LEVEL}
                         )
                 )
@@ -87,15 +87,13 @@ public class H3CompactCoverageOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        outputName = opResolver.positionalOutput(0);
+        outputDelimiter = dsResolver.outputDelimiter(outputName);
 
-        inputName = describedProps.inputs.get(0);
-        outputName = describedProps.outputs.get(0);
-        outputDelimiter = dataStreamsProps.outputDelimiter(outputName);
-
-        maxLevel = describedProps.defs.getTyped(OP_HASH_LEVEL_TO);
-        minLevel = describedProps.defs.getTyped(OP_HASH_LEVEL_FROM);
+        maxLevel = opResolver.definition(OP_HASH_LEVEL_TO);
+        minLevel = opResolver.definition(OP_HASH_LEVEL_FROM);
 
         if ((maxLevel < 1) || (maxLevel > 15)) {
             throw new InvalidConfigValueException("Finest hash level must fall into interval '1'..'15' but is '" + maxLevel + "' in the operation '" + name + "'");
@@ -107,14 +105,11 @@ public class H3CompactCoverageOperation extends Operation {
             throw new InvalidConfigValueException("Coarsest hash level must be higher than finest in the operation '" + name + "'");
         }
 
-        outputColumns = Arrays.stream(dataStreamsProps.outputColumns.get(outputName))
+        outputColumns = Arrays.stream(dsResolver.outputColumns(outputName))
                 .map(c -> c.replaceFirst("^" + inputName + "\\.", ""))
                 .collect(Collectors.toList());
 
-        WrapperConfig wc = new WrapperConfig();
-        wc.setOverrides(variables);
-        wc.setProperties(properties);
-        outputParts = wc.outputParts(outputName);
+        outputParts = dsResolver.outputParts(outputName);
     }
 
     @Override

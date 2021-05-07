@@ -6,6 +6,7 @@ package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
 import ash.nazg.spatial.SegmentedTrack;
@@ -26,7 +27,7 @@ import org.locationtech.jts.geom.GeometryFactory;
 import java.io.Serializable;
 import java.util.*;
 
-import static ash.nazg.config.tdl.TaskDescriptionLanguage.StreamType.*;
+import static ash.nazg.config.tdl.StreamType.*;
 
 @SuppressWarnings("unused")
 public class SpatialToolboxOperation extends Operation {
@@ -58,27 +59,25 @@ public class SpatialToolboxOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{Point, Track, Polygon},
+                                new StreamType[]{Point, Track, Polygon},
                                 true
                         )
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{Passthru},
+                                new StreamType[]{Passthru},
                                 false
                         )
                 ));
     }
 
     @Override
-    public void configure(Properties config, Properties variables) throws InvalidConfigValueException {
-        super.configure(config, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        outputName = opResolver.positionalOutput(0);
 
-        inputName = describedProps.inputs.get(0);
-        outputName = describedProps.outputs.get(0);
-
-        String queryString = describedProps.defs.getTyped(OP_QUERY);
+        String queryString = opResolver.definition(OP_QUERY);
         CharStream cs = CharStreams.fromString(queryString);
 
         QueryLexer lexer = new QueryLexer(cs);
@@ -97,6 +96,7 @@ public class SpatialToolboxOperation extends Operation {
         limitPercent = listener.getLimitPercent();
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         final List<Expressions.QueryExpr> _query = query;

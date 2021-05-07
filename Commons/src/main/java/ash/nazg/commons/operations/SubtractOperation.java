@@ -6,9 +6,9 @@ package ash.nazg.commons.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
-import ash.nazg.config.OperationConfig;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -16,7 +16,10 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 import scala.Tuple2;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 @SuppressWarnings("unused")
 public class SubtractOperation extends Operation {
@@ -61,7 +64,7 @@ public class SubtractOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.KeyValue, TaskDescriptionLanguage.StreamType.Plain},
+                                new StreamType[]{StreamType.KeyValue, StreamType.Plain},
                                 true
                         ),
                         2
@@ -69,7 +72,7 @@ public class SubtractOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Passthru},
+                                new StreamType[]{StreamType.Passthru},
                                 false
                         )
                 )
@@ -77,27 +80,25 @@ public class SubtractOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        minuendName = opResolver.positionalInput(0);
+        subtrahendName = opResolver.positionalInput(1);
 
-        minuendName = describedProps.inputs.get(0);
-        subtrahendName = describedProps.inputs.get(1);
-
-        String subtrahendColumn = describedProps.defs.getTyped(DS_SUBTRAHEND_COLUMN);
-        Map<String, Integer> columns = dataStreamsProps.inputColumns.get(subtrahendName);
-        subtrahendCol = columns.get(subtrahendColumn);
-        if (subtrahendCol != null) {
-            subtrahendDelimiter = dataStreamsProps.inputDelimiter(subtrahendName);
+        String subtrahendColumn = opResolver.definition(DS_SUBTRAHEND_COLUMN);
+        Map<String, Integer> columns = dsResolver.inputColumns(subtrahendName);
+        if (columns != null) {
+            subtrahendCol = columns.get(subtrahendColumn);
+            subtrahendDelimiter = dsResolver.inputDelimiter(subtrahendName);
         }
 
-        String minuendColumn = describedProps.defs.getTyped(DS_MINUEND_COLUMN);
-        columns = dataStreamsProps.inputColumns.get(minuendName);
-        minuendCol = columns.get(minuendColumn);
-        if (minuendCol != null) {
-            minuendDelimiter = dataStreamsProps.inputDelimiter(minuendName);
+        String minuendColumn = opResolver.definition(DS_MINUEND_COLUMN);
+        columns = dsResolver.inputColumns(minuendName);
+        if (columns != null) {
+            minuendCol = columns.get(minuendColumn);
+            minuendDelimiter = dsResolver.inputDelimiter(minuendName);
         }
 
-        outputName = describedProps.outputs.get(0);
+        outputName = opResolver.positionalOutput(0);
     }
 
     @Override

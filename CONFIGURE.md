@@ -7,15 +7,15 @@ For the language's object model, see [TaskDefinitionLanguage.java](./Commons/src
 Let us explore its structure by an advanced example. (For less advanced examples, search this repository's resources for test configurations, there are plenty of them.)
 
 ```properties
-spark.meta.distcp.wrap={WRAP:both}
+spark.meta.dist.wrap={WRAP:both}
 
-spark.meta.task.input.sink=signals,NI
+spark.meta.task.input=signals,NI
 spark.meta.task.operations=range_filter,h3,timezone,aqua2,create_tracks,track_centroid_filter,motion_filter,track_type,track_centroid_filter_2,$ITER{COUNTRY:GB,FI,IE},select_pedestrians,output1,output2,select_car,output1c,output2c,$END,$ITER{TYPE:clean_pedestrian,auto},match_NI,$END
 
 spark.meta.ds.input.path.signals={PATH_SIGNALS}/{DAILY_PREFIX}/*
 spark.meta.ds.input.part_count.signals={PARTS_SIGNALS}
 spark.meta.ds.input.delimiter.signals=,
-spark.meta.ds.input.sink_schema.signals={SCHEMA_SIGNALS:userid,_,timestamp,lat,lon,_,accuracy,_,_,_,_,_,final_country,_,_,_,_,_,_,_,_,_,_,_}
+spark.meta.input.schema.signals={SCHEMA_SIGNALS:userid,_,timestamp,lat,lon,_,accuracy,_,_,_,_,_,final_country,_,_,_,_,_,_,_,_,_,_,_}
 spark.meta.ds.input.columns.signals=userid,lat,lon,final_country,timestamp,accuracy
 
 spark.meta.ds.input.path.NI={PATH_NI}
@@ -141,7 +141,7 @@ spark.meta.op.output.match_NI.matched={TYPE}/NI
 
 spark.meta.ds.output.columns.{TYPE}/NI={TYPE}/GB.userid,{TYPE}/GB.lat,{TYPE}/GB.lon,{TYPE}/GB.velocity,{TYPE}/GB.timestamp,{TYPE}/GB.date,{TYPE}/GB.year,{TYPE}/GB.month,{TYPE}/GB.dow,{TYPE}/GB.day,{TYPE}/GB.hour,{TYPE}/GB.minute,{TYPE}/GB.gid
 
-spark.meta.task.tee.output=clean_pedestrian/*,auto/*
+spark.meta.task.output=clean_pedestrian/*,auto/*
 
 spark.meta.ds.output.path={PATH_OUTPUT}/{DAILY_PREFIX}
 ```
@@ -158,12 +158,14 @@ The config is layered into several namespaces, and all parameter names must be u
 
 ### Foreign Layers
 
-First namespace layer is One Ring DistWrapper's `distcp.` which instructs that utility to copy source files to the cluster and resulting files back:
+First namespace layer is One Ring Dist's `dist.` which instructs that utility to copy source files to the cluster and resulting files back:
 ```properties
-distcp.wrap={WRAP:both}
+dist.wrap={WRAP:both}
 ```
 
-It is [documented in its own doc](DISTCP.md). CLI itself ignores all 'foreign' layers.
+It is [documented in its own doc](DIST.md). CLI itself ignores all 'foreign' layers.
+
+`metrics.` layer is discussed in [its own doc](MONITOR.md).
 
 ### Variables
 
@@ -182,22 +184,20 @@ It is notable that Variables may be encountered at any side of `=` in the `tasks
 Next layer is `task.`, and it contains properties that configure the CLI itself for the current Process' as a Spark job, or a CLI Task. 
 
 ```properties
-task.input.sink=signals,NI
+task.input=signals,NI
 
 task.operations=range_filter,h3,timezone,aqua2,create_tracks,track_centroid_filter,motion_filter,track_type,track_centroid_filter_2,$ITER{COUNTRY:GB,FI,IE},select_pedestrians,output1,output2,select_car,output1c,output2c,$END,$ITER{TYPE:clean_pedestrian,auto},match_NI,$END
 
 #...
 
-task.tee.output=clean_pedestrian/*,auto/*
+task.output=clean_pedestrian/*,auto/*
 ```
 
-`task.input.sink` (required) is an input sink that pours the data sets into Process. Any DataStream referred here is considered as one sourced from the outside storage, and will be created by Storage Adapters of CLI (discussed later) for any Operation to consume.
+`task.input` (required) is an input 'sink' that pours the data sets into Process. Any DataStream referred here is considered as one sourced from the outside storage, and will be created by Storage Adapters of CLI (discussed later) for any Operation to consume.
 
 `task.operations` (required too) is a comma-separated list of Operation names, to be executed in the specified order. Any number of them, but not less than one. Operation names must be unique.
 
-`task.tee.output` (also required) is a T-connector. Any DataStream referred here can be consumed by Operations as usual, but also will be diverted by Storage Adapters of CLI into the outside storage as well. T-connector can handle prefixed wildcards, by specifying a prefix and an asterisk `*`.
-
-`task.metrics.` sub-layer is discussed in [its own doc](MONITOR.md).
+`task.output` (also required) is a T-connector. Any DataStream referred here can be consumed by Operations as usual, but also will be diverted by Storage Adapters of CLI into the outside storage as well. T-connector can handle prefixed wildcards, by specifying a prefix and an asterisk `*`.
 
 ### Flow Control Directives
 
@@ -363,7 +363,7 @@ op.definition.match_NI.values.match.column=NI.gid
 
 Exact type and details of Parameter usage is defined by the internal logic of each Operation. Some Operations require a quite complex syntax for their `String` Parameters (like SQL queries or regexp templates), documented by that Operation. The only type of Parameters that One Ring CLI validates by itself are `.column(s)` references.
 
-For the exhaustive table of each Operation Parameters, look for the docs inside your [./RESTWrapper/docs](./RESTWrapper/docs/index.md) directory (assuming you've successfully built the project, otherwise it'll be empty).
+For the exhaustive table of each Operation Parameters, look for the docs inside your [./REST/docs](./REST/docs/index.md) directory (assuming you've successfully built the project, otherwise it'll be empty).
 
 ### Parameters of DataStreams
 
@@ -385,7 +385,7 @@ Each DataStream can be configured as an input for a number of Operations, and ge
 
 DataStream name is always the last part of any `ds.` key. The set of DataStream Parameters is fixed.
 
-`ds.input.path.` keys must point to some abstract paths for all DataStreams listed under the `task.input.sink` key. The format of the path must always include the protocol specification, and is validated by a Storage Adapter of the CLI (Adapters are discussed in the last section of this document).
+`ds.input.path.` keys must point to some abstract paths for all DataStreams listed under the `task.input` key. The format of the path must always include the protocol specification, and is validated by a Storage Adapter of the CLI (Adapters are discussed in the last section of this document).
 
 In most cases paths are passed via Variables. For example,
 ```properties
@@ -395,7 +395,7 @@ ds.input.path.NI={PATH_NI}
 
 Input paths are handled by Adapters. For filesystem-based ones, paths can contain any valid glob expressions (with `?`, `*` wildcards, and `{}` lists). These glob tokens with curly braces that don't match Variables will be expanded to lists as expected, and may be nested, too.
 
-Same true for `ds.output.path.` keys, that must be specified for all DataStreams listed under the `task.tee.output` key. But you may cheat here. There are all-input and all-output default keys:
+Same true for `ds.output.path.` keys, that must be specified for all DataStreams listed under the `task.output` key. But you may cheat here. There are all-input and all-output default keys:
 ```properties
 ds.output.path={PATH_OUTPUT}/{DAILY_PREFIX}
 ```
@@ -408,13 +408,13 @@ Output columns must always refer to valid columns of inputs passed to the Operat
 
 Input columns list just assigns new column names for all consuming Operations. It may also contain a single underscore `_` instead of some column name to make that column anonymous. Anyways, if a column is 'anonymous', it still may be referenced by its sequential number starting from `_1_`.
 
-For inputs coming from Adapters (or, `task.input.sink`-ed) there could be set a loose schema by `ds.input.sink_schema.` layer, analogous to input columns, for the cases when source files do not contain a built-in schema (i.e. CSV files). However, we're not interested in the data types of each source field, the only things that matter are field names and order.
+For inputs coming from Adapters (or, `task.input`-ed) there could be set a loose schema by `input.schema.` layer, analogous to input columns, for the cases when source files do not contain a built-in schema (i.e. CSV files). However, we're not interested in the data types of each source field, the only things that matter are field names and order.
 
-One Ring Dist reorders columns according to that schema and `ds.input.columns.` in the process of copying data set to the cluster, and can skip the fields that do not matter. It is ignored by CLI itself. Also, One Ring Dist can deal with Parquet source files, what CLI itself couldn't. For these files schema is built-in, and column names in `ds.input.sink.` must adhere to that schema.
+One Ring Dist reorders columns according to that schema and `ds.input.columns.` in the process of copying data set to the cluster, and can skip the fields that do not matter. It is ignored by CLI itself. Also, One Ring Dist can deal with Parquet source files, what CLI itself couldn't. For these files schema is built-in, and column names in `input.schema.` must adhere to that schema.
 
 There is an example:
 ```properties
-ds.input.sink_schema.signals={SCHEMA_SIGNALS:userid,_,timestamp,lat,lon,_,accuracy,_,_,_,_,_,final_country,_,_,_,_,_,_,_,_,_,_,_}
+input.schema.signals={SCHEMA_SIGNALS:userid,_,timestamp,lat,lon,_,accuracy,_,_,_,_,_,final_country,_,_,_,_,_,_,_,_,_,_,_}
 
 ds.input.columns.signals=userid,lat,lon,final_country,timestamp,accuracy
 
@@ -440,7 +440,7 @@ ds.output.columns.{TYPE}/NI={TYPE}/GB.userid,{TYPE}/GB.lat,{TYPE}/GB.lon,{TYPE}/
 
 In `CSV` varieties of DataStreams, columns are separated by a separator character, so there are `ds.input.separator.` and `ds.output.separator.` layers, along with default keys `ds.input.separator` and `ds.output.separator` that set them globally. The 'super global' default value of column separator is the tabulation (TAB, 0x09) character, if none are specified in the entire config.
 
-The final `ds.` layers control the partitioning of DataStream underlying RDDs, namely, `ds.input.part_count.` and `ds.output.part_count.`. These are quite important because the only super global default value for the part count is always 1 (one) part, and no defaults are allowed. You must always set them for at least initial input DataStreams from `task.input.sink` list, and may tune the partitioning in the middle of the Process according to the further flow of the Task.
+The final `ds.` layers control the partitioning of DataStream underlying RDDs, namely, `ds.input.part_count.` and `ds.output.part_count.`. These are quite important because the only super global default value for the part count is always 1 (one) part, and no defaults are allowed. You must always set them for at least initial input DataStreams from `task.input` list, and may tune the partitioning in the middle of the Process according to the further flow of the Task.
 
 If both `part_count.`s are specifies for some intermediate DataStream, it will be repartitioned first to the output one (immediately after the Operation that generated it), and then to input one (before feeding it to the first consuming Operation). Please keep that in mind.
 

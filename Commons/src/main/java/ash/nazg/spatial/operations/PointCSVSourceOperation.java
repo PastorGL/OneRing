@@ -6,6 +6,7 @@ package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
@@ -62,14 +63,14 @@ public class PointCSVSourceOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.CSV},
                                 true
                         )
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Point},
+                                new StreamType[]{StreamType.Point},
                                 true
                         )
                 )
@@ -77,34 +78,34 @@ public class PointCSVSourceOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        outputName = opResolver.positionalOutput(0);
 
-        inputName = describedProps.inputs.get(0);
-        outputName = describedProps.outputs.get(0);
+        inputDelimiter = dsResolver.inputDelimiter(inputName);
 
-        inputDelimiter = dataStreamsProps.inputDelimiter(inputName);
+        defaultRadius = opResolver.definition(OP_DEFAULT_RADIUS);
 
-        defaultRadius = describedProps.defs.getTyped(OP_DEFAULT_RADIUS);
-
-        Map<String, Integer> inputColumns = dataStreamsProps.inputColumns.get(inputName);
-        final List<String> outColumns = Arrays.asList(dataStreamsProps.outputColumns.get(outputName));
+        Map<String, Integer> inputColumns = dsResolver.inputColumns(inputName);
+        String[] outputCols = dsResolver.outputColumns(outputName);
+        final List<String> outColumns = (outputCols == null) ? Collections.emptyList() : Arrays.asList(outputCols);
         outputColumns = inputColumns.entrySet().stream()
-                .filter(c -> (outColumns.size() == 0) || outColumns.contains(c.getKey()))
+                .filter(c -> outColumns.isEmpty() || outColumns.contains(c.getKey()))
                 .collect(Collectors.toMap(c -> c.getKey().replaceFirst("^[^.]+\\.", ""), Map.Entry::getValue));
 
         String prop;
 
-        prop = describedProps.defs.getTyped(DS_CSV_RADIUS_COLUMN);
+        prop = opResolver.definition(DS_CSV_RADIUS_COLUMN);
         radiusColumn = inputColumns.get(prop);
 
-        prop = describedProps.defs.getTyped(DS_CSV_LAT_COLUMN);
+        prop = opResolver.definition(DS_CSV_LAT_COLUMN);
         latColumn = inputColumns.get(prop);
 
-        prop = describedProps.defs.getTyped(DS_CSV_LON_COLUMN);
+        prop = opResolver.definition(DS_CSV_LON_COLUMN);
         lonColumn = inputColumns.get(prop);
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         final int _latColumn = latColumn;

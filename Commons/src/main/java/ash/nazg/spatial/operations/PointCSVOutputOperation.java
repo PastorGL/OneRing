@@ -6,6 +6,7 @@ package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVWriter;
@@ -41,14 +42,14 @@ public class PointCSVOutputOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Point},
+                                new StreamType[]{StreamType.Point},
                                 false
                         )
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.CSV},
                                 true
                         )
                 )
@@ -56,18 +57,18 @@ public class PointCSVOutputOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        outputName = opResolver.positionalOutput(0);
 
-        inputName = describedProps.inputs.get(0);
-        outputName = describedProps.outputs.get(0);
-
-        outputDelimiter = dataStreamsProps.outputDelimiter(outputName);
-        outputColumns = Arrays.stream(dataStreamsProps.outputColumns.get(outputName))
+        outputDelimiter = dsResolver.outputDelimiter(outputName);
+        String[] outputCols = dsResolver.outputColumns(outputName);
+        outputColumns = (outputCols == null) ? Collections.emptyList() : Arrays.stream(outputCols)
                 .map(c -> c.replaceFirst("^" + inputName + "\\.", ""))
                 .collect(Collectors.toList());
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         final char _outputDelimiter = outputDelimiter;

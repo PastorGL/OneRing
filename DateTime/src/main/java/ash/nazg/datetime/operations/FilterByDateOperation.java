@@ -5,8 +5,8 @@
 package ash.nazg.datetime.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.OperationConfig;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.datetime.functions.FilterByDateDefinition;
 import ash.nazg.datetime.functions.FilterByDateFunction;
@@ -112,14 +112,14 @@ public class FilterByDateOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.CSV},
                                 true
                         )
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Passthru},
+                                new StreamType[]{StreamType.Passthru},
                                 false
                         )
                 )
@@ -127,61 +127,59 @@ public class FilterByDateOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
-
+    public void configure() throws InvalidConfigValueException {
         def = new FilterByDateDefinition();
 
-        inputName = describedProps.inputs.get(0);
-        def.inputDelimiter = dataStreamsProps.inputDelimiter(inputName);
-        outputName = describedProps.outputs.get(0);
-        Map<String, Integer> inputColumns = dataStreamsProps.inputColumns.get(inputName);
+        inputName = opResolver.positionalInput(0);
+        def.inputDelimiter = dsResolver.inputDelimiter(inputName);
+        outputName = opResolver.positionalOutput(0);
+        Map<String, Integer> inputColumns = dsResolver.inputColumns(inputName);
 
         boolean filteringNeeded = false;
 
-        String prop = describedProps.defs.getTyped(DS_YEAR_COLUMN);
+        String prop = opResolver.definition(DS_YEAR_COLUMN);
         if (prop != null && !prop.isEmpty()) {
             filteringNeeded = true;
             def.yearCol = inputColumns.get(prop);
         }
-        prop = describedProps.defs.getTyped(DS_MONTH_COLUMN);
+        prop = opResolver.definition(DS_MONTH_COLUMN);
         if (prop != null && !prop.isEmpty()) {
             filteringNeeded = true;
             def.monthCol = inputColumns.get(prop);
         }
-        prop = describedProps.defs.getTyped(DS_DATE_COLUMN);
+        prop = opResolver.definition(DS_DATE_COLUMN);
         if (prop != null && !prop.isEmpty()) {
             filteringNeeded = true;
             def.dateCol = inputColumns.get(prop);
         }
-        prop = describedProps.defs.getTyped(DS_DOW_COLUMN);
+        prop = opResolver.definition(DS_DOW_COLUMN);
         if (prop != null && !prop.isEmpty()) {
             filteringNeeded = true;
             def.dowCol = inputColumns.get(prop);
         }
-        prop = describedProps.defs.getTyped(DS_HOUR_COLUMN);
+        prop = opResolver.definition(DS_HOUR_COLUMN);
         if (prop != null && !prop.isEmpty()) {
             filteringNeeded = true;
             def.hourCol = inputColumns.get(prop);
         }
-        prop = describedProps.defs.getTyped(DS_MINUTE_COLUMN);
+        prop = opResolver.definition(DS_MINUTE_COLUMN);
         if (prop != null && !prop.isEmpty()) {
             filteringNeeded = true;
             def.minuteCol = inputColumns.get(prop);
         }
 
-        prop = describedProps.defs.getTyped(OP_START);
+        prop = opResolver.definition(OP_START);
         if (prop != null && !prop.isEmpty()) {
             filteringNeeded = true;
             def.start = FilterByDateDefinition.parseDate(prop);
         }
-        prop = describedProps.defs.getTyped(OP_END);
+        prop = opResolver.definition(OP_END);
         if (prop != null && !prop.isEmpty()) {
             filteringNeeded = true;
             def.end = FilterByDateDefinition.parseDate(prop);
         }
 
-        String[] arr = describedProps.defs.getTyped(OP_YEAR_VALUE);
+        String[] arr = opResolver.definition(OP_YEAR_VALUE);
         if (arr != null) {
             filteringNeeded = true;
             Calendar c = Calendar.getInstance();
@@ -197,23 +195,23 @@ public class FilterByDateOperation extends Operation {
 
             def.years = integers(arr, lower, upper);
         }
-        arr = describedProps.defs.getTyped(OP_MONTH_VALUE);
+        arr = opResolver.definition(OP_MONTH_VALUE);
         if (arr != null) {
             filteringNeeded = true;
             def.months = integers(arr, 1, 13);
         }
-        arr = describedProps.defs.getTyped(OP_DATE_VALUE);
+        arr = opResolver.definition(OP_DATE_VALUE);
         if (arr != null) {
             filteringNeeded = true;
             def.dates = integers(arr, 1, 32);
         }
-        arr = describedProps.defs.getTyped(OP_DOW_VALUE);
+        arr = opResolver.definition(OP_DOW_VALUE);
         if (arr != null) {
             filteringNeeded = true;
             def.dows = integers(arr, 1, 8);
         }
 
-        Integer hhmm = describedProps.defs.getTyped(OP_HHMM_START);
+        Integer hhmm = opResolver.definition(OP_HHMM_START);
         if (hhmm != null) {
             if (hhmm < 0 || hhmm > 2359) {
                 throw new InvalidConfigValueException("Filter by starting time of day for the operation '" + name + "' exceeds the allowed range of 0000 to 2359");
@@ -221,7 +219,7 @@ public class FilterByDateOperation extends Operation {
             filteringNeeded = true;
             def.startHHMM = hhmm;
         }
-        hhmm = describedProps.defs.getTyped(OP_HHMM_END);
+        hhmm = opResolver.definition(OP_HHMM_END);
         if (hhmm != null) {
             if (hhmm < 0 || hhmm > 2359) {
                 throw new InvalidConfigValueException("Filter by ending time of day for the operation '" + name + "' exceeds the allowed range of 0000 to 2359");
@@ -269,6 +267,7 @@ public class FilterByDateOperation extends Operation {
         return null;
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         @SuppressWarnings("unchecked")

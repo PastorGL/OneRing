@@ -6,13 +6,13 @@ package ash.nazg.math.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.math.config.ConfigurationParameters;
 import ash.nazg.math.functions.series.NormalizeFunction;
 import ash.nazg.math.functions.series.SeriesFunction;
 import ash.nazg.spark.Operation;
 import ash.nazg.math.functions.series.StdDevFunction;
-import ash.nazg.config.OperationConfig;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import org.apache.hadoop.io.Text;
@@ -55,14 +55,14 @@ public class SeriesMathOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.CSV},
                                 true
                         )
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.CSV},
                                 new String[]{ConfigurationParameters.GEN_RESULT}
                         )
                 )
@@ -70,16 +70,14 @@ public class SeriesMathOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        inputDelimiter = dsResolver.inputDelimiter(inputName);
+        outputName = opResolver.positionalOutput(0);
+        char outputDelimiter = dsResolver.outputDelimiter(outputName);
 
-        inputName = describedProps.inputs.get(0);
-        inputDelimiter = dataStreamsProps.inputDelimiter(inputName);
-        outputName = describedProps.outputs.get(0);
-        char outputDelimiter = dataStreamsProps.outputDelimiter(outputName);
-
-        String[] outputColumns = dataStreamsProps.outputColumns.get(outputName);
-        Map<String, Integer> inputColumns = dataStreamsProps.inputColumns.get(inputName);
+        String[] outputColumns = dsResolver.outputColumns(outputName);
+        Map<String, Integer> inputColumns = dsResolver.inputColumns(inputName);
 
         int[] outputCols = new int[outputColumns.length];
         int i = 0;
@@ -93,10 +91,10 @@ public class SeriesMathOperation extends Operation {
 
         String prop;
 
-        prop = describedProps.defs.getTyped(ConfigurationParameters.DS_CALC_COLUMN);
+        prop = opResolver.definition(ConfigurationParameters.DS_CALC_COLUMN);
         calcColumn = inputColumns.get(prop);
 
-        SeriesCalcFunction cf = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_FUNCTION);
+        SeriesCalcFunction cf = opResolver.definition(ConfigurationParameters.OP_CALC_FUNCTION);
 
         switch (cf) {
             case STDDEV: {
@@ -104,7 +102,7 @@ public class SeriesMathOperation extends Operation {
                 break;
             }
             case NORMALIZE: {
-                Double upper = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
+                Double upper = opResolver.definition(ConfigurationParameters.OP_CALC_CONST);
                 seriesFunc = new NormalizeFunction(inputDelimiter, outputDelimiter, outputCols, calcColumn, upper);
                 break;
             }
@@ -112,6 +110,7 @@ public class SeriesMathOperation extends Operation {
 
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         final char _inputDelimiter = inputDelimiter;

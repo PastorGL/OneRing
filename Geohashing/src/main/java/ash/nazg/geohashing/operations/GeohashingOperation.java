@@ -6,6 +6,7 @@ package ash.nazg.geohashing.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.geohashing.functions.HasherFunction;
 import ash.nazg.spark.Operation;
@@ -53,14 +54,14 @@ public abstract class GeohashingOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.CSV},
                                 true
                         )
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.CSV},
                                 new String[]{GEN_HASH}
                         )
                 )
@@ -68,25 +69,23 @@ public abstract class GeohashingOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        inputDelimiter = dsResolver.inputDelimiter(inputName);
+        outputName = opResolver.positionalOutput(0);
+        outputDelimiter = dsResolver.outputDelimiter(outputName);
 
-        inputName = describedProps.inputs.get(0);
-        inputDelimiter = dataStreamsProps.inputDelimiter(inputName);
-        outputName = describedProps.outputs.get(0);
-        outputDelimiter = dataStreamsProps.outputDelimiter(outputName);
-
-        Map<String, Integer> inputColumns = dataStreamsProps.inputColumns.get(inputName);
+        Map<String, Integer> inputColumns = dsResolver.inputColumns(inputName);
         String prop;
 
-        prop = describedProps.defs.getTyped(DS_LAT_COLUMN);
+        prop = opResolver.definition(DS_LAT_COLUMN);
         latColumn = inputColumns.get(prop);
 
-        prop = describedProps.defs.getTyped(DS_LON_COLUMN);
+        prop = opResolver.definition(DS_LON_COLUMN);
         lonColumn = inputColumns.get(prop);
 
         List<Integer> out = new ArrayList<>();
-        String[] outColumns = dataStreamsProps.outputColumns.get(outputName);
+        String[] outColumns = dsResolver.outputColumns(outputName);
         for (String outCol : outColumns) {
             if (inputColumns.containsKey(outCol)) {
                 out.add(inputColumns.get(outCol));
@@ -98,7 +97,7 @@ public abstract class GeohashingOperation extends Operation {
 
         outputColumns = Ints.toArray(out);
 
-        level = describedProps.defs.getTyped(OP_HASH_LEVEL);
+        level = opResolver.definition(OP_HASH_LEVEL);
 
         if (level < getMinLevel() || level > getMaxLevel()) {
             throw new InvalidConfigValueException("Geohash level must fall into interval '" + getMinLevel() + "'..'" + getMaxLevel() + "' but is '" + level + "' in the operation '" + name + "'");
@@ -111,6 +110,7 @@ public abstract class GeohashingOperation extends Operation {
         }
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         JavaRDD<Object> inp = (JavaRDD<Object>) input.get(inputName);

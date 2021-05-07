@@ -1,6 +1,12 @@
+/**
+ * Copyright (C) 2020 Locomizer team and Contributors
+ * This project uses New BSD license with do no evil clause. For full text, check the LICENSE file in the root directory.
+ */
 package ash.nazg.spark;
 
 import ash.nazg.config.InvalidConfigValueException;
+import ash.nazg.config.tdl.Constants;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
@@ -15,9 +21,10 @@ import scala.Tuple2;
 import javax.xml.bind.DatatypeConverter;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.util.*;
-
-import static ash.nazg.config.tdl.TaskDescriptionLanguage.StreamType.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public abstract class RDDMetricsPseudoOperation extends Operation {
     private Map<String, String> counterColumns;
@@ -37,11 +44,11 @@ public abstract class RDDMetricsPseudoOperation extends Operation {
                 },
 
                 new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(new TaskDescriptionLanguage.StreamType[]{
-                                CSV, Fixed, // per column
-                                KeyValue, // per key
-                                Point, Track, Polygon, // per property
-                                Plain // per record
+                        new TaskDescriptionLanguage.DataStream(new StreamType[]{
+                                StreamType.CSV, StreamType.Fixed, // per column
+                                StreamType.KeyValue, // per key
+                                StreamType.Point, StreamType.Track, StreamType.Polygon, // per property
+                                StreamType.Plain // per record
                         }, true)
                 ),
 
@@ -50,28 +57,27 @@ public abstract class RDDMetricsPseudoOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties config, Properties variables) throws InvalidConfigValueException {
-        super.configure(config, variables);
-
+    public void configure() throws InvalidConfigValueException {
         counterColumns = new HashMap<>();
-        for (String inputName : describedProps.inputs) {
-            String column = describedProps.defs.getTyped("count.column." + inputName);
+        for (String inputName : opResolver.positionalInputs()) {
+            String column = opResolver.definition("count.column." + inputName);
             counterColumns.put(inputName, column); // null effectively converts input to Plain
         }
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) throws Exception {
         metrics = new HashMap<>();
 
         for (String inputName : counterColumns.keySet()) {
-            String[] columns = dataStreamsProps.inputColumnsRaw.get(inputName);
-            Character delim = dataStreamsProps.inputDelimiter(inputName);
+            String[] columns = dsResolver.rawInputColumns(inputName);
+            Character delim = dsResolver.inputDelimiter(inputName);
 
             List<String> inputs = getMatchingInputs(input.keySet(), inputName);
             for (String matchingInput : inputs) {
                 if (columns == null) {
-                    columns = dataStreamsProps.inputColumnsRaw.get(matchingInput);
+                    columns = dsResolver.rawInputColumns(matchingInput);
                 }
                 int idx = -1;
                 final String counterColumn = counterColumns.get(inputName);
@@ -86,10 +92,10 @@ public abstract class RDDMetricsPseudoOperation extends Operation {
                 final int counterIndex = idx;
 
                 if (delim == null) {
-                    delim = dataStreamsProps.inputDelimiter(matchingInput);
+                    delim = dsResolver.inputDelimiter(matchingInput);
                 }
                 if (delim == null) {
-                    delim = dataStreamsProps.defaultInputDelimiter();
+                    delim = dsResolver.inputDelimiter(Constants.DEFAULT_DS);
                 }
                 final char _inputDelimiter = delim;
 

@@ -6,6 +6,7 @@ package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
 import org.apache.hadoop.io.MapWritable;
@@ -39,14 +40,14 @@ public class PolygonJSONOutputOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Polygon},
+                                new StreamType[]{StreamType.Polygon},
                                 false
                         )
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Plain},
+                                new StreamType[]{StreamType.Plain},
                                 false
                         )
                 )
@@ -54,13 +55,12 @@ public class PolygonJSONOutputOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
-
-        inputName = describedProps.inputs.get(0);
-        outputName = describedProps.outputs.get(0);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        outputName = opResolver.positionalOutput(0);
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         JavaRDD<Text> output = ((JavaRDD<Polygon>) input.get(inputName))

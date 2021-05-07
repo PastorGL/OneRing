@@ -6,6 +6,7 @@ package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
@@ -53,14 +54,14 @@ public class PolygonH3SourceOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.CSV},
                                 true
                         )
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Polygon},
+                                new StreamType[]{StreamType.Polygon},
                                 true
                         )
                 )
@@ -68,35 +69,35 @@ public class PolygonH3SourceOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        delimiter = dsResolver.inputDelimiter(inputName);
 
-        inputName = describedProps.inputs.get(0);
-        delimiter = dataStreamsProps.inputDelimiter(inputName);
+        outputName = opResolver.positionalOutput(0);
 
-        outputName = describedProps.outputs.get(0);
+        String prop = opResolver.definition(DS_CSV_HASH_COLUMN);
+        hashColumn = dsResolver.inputColumns(inputName).get(prop);
 
-        String prop = describedProps.defs.getTyped(DS_CSV_HASH_COLUMN);
-        hashColumn = dataStreamsProps.inputColumns.get(inputName).get(prop);
-
-        String[] inputColumnsRaw = dataStreamsProps.inputColumnsRaw.get(inputName);
+        String[] inputColumnsRaw = dsResolver.rawInputColumns(inputName);
         Map<String, Integer> inputCols = new HashMap<>();
         for (int i = 0; i < inputColumnsRaw.length; i++) {
             inputCols.put(inputColumnsRaw[i], i);
         }
-        List<String> outs = Arrays.stream(dataStreamsProps.outputColumns.get(outputName))
+        String[] outputCols = dsResolver.outputColumns(outputName);
+        List<String> outs = (outputCols == null) ? Collections.emptyList() : Arrays.stream(outputCols)
                 .map(c -> c.replaceFirst("^" + inputName + "\\.", ""))
                 .collect(Collectors.toList());
-        Map<Integer, String> outputCols = new HashMap<>();
+        Map<Integer, String> outputMap = new HashMap<>();
         for (int i = 0; i < outs.size(); i++) {
-            outputCols.put(i, outs.get(i));
+            outputMap.put(i, outs.get(i));
         }
         outputColumns = new HashMap<>();
         for (int i = 0; i < outs.size(); i++) {
-            outputColumns.put(outputCols.get(i), inputCols.get(outputCols.get(i)));
+            outputColumns.put(outputMap.get(i), inputCols.get(outputMap.get(i)));
         }
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         JavaRDD<Object> rdd = (JavaRDD<Object>) input.get(inputName);

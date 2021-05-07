@@ -6,6 +6,7 @@ package ash.nazg.commons.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
@@ -66,14 +67,14 @@ public class JoinByKeyOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.KeyValue},
+                                new StreamType[]{StreamType.KeyValue},
                                 true
                         )
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.CSV},
                                 true
                         )
                 )
@@ -81,42 +82,40 @@ public class JoinByKeyOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
-
-        inputNames = describedProps.inputs.toArray(new String[0]);
+    public void configure() throws InvalidConfigValueException {
+        inputNames = opResolver.positionalInputs();
         if (inputNames.length < 2) {
             throw new InvalidConfigValueException("There must be at least two Pair RDDs to join by '" + name + "'");
         }
 
-        outputName = describedProps.outputs.get(0);
+        outputName = opResolver.positionalOutput(0);
 
         Map<String, Tuple2<Integer, Integer>> inputColumns = new HashMap<>();
         inputDelimiters = new char[inputNames.length];
         for (int i = 0; i < inputNames.length; i++) {
-            inputDelimiters[i] = dataStreamsProps.inputDelimiter(inputNames[i]);
+            inputDelimiters[i] = dsResolver.inputDelimiter(inputNames[i]);
 
-            for (Map.Entry<String, Integer> ic : dataStreamsProps.inputColumns.get(inputNames[i]).entrySet()) {
+            for (Map.Entry<String, Integer> ic : dsResolver.inputColumns(inputNames[i]).entrySet()) {
                 inputColumns.put(ic.getKey(), new Tuple2<>(i, ic.getValue()));
             }
         }
 
-        String[] outColumns = dataStreamsProps.outputColumns.get(outputName);
+        String[] outColumns = dsResolver.outputColumns(outputName);
         List<Tuple2<Integer, Integer>> out = new ArrayList<>();
         for (String outCol : outColumns) {
             out.add(inputColumns.get(outCol));
         }
 
-        joinType = describedProps.defs.getTyped(OP_JOIN);
+        joinType = opResolver.definition(OP_JOIN);
         if (joinType == Join.RIGHT || joinType == Join.OUTER) {
-            inputDefaultL = describedProps.defs.getTyped(OP_DEFAULT_LEFT);
+            inputDefaultL = opResolver.definition(OP_DEFAULT_LEFT);
         }
         if (joinType == Join.LEFT || joinType == Join.OUTER) {
-            inputDefaultR = describedProps.defs.getTyped(OP_DEFAULT_RIGHT);
+            inputDefaultR = opResolver.definition(OP_DEFAULT_RIGHT);
         }
 
         outputColumns = out.toArray(new Tuple2[0]);
-        outputDelimiter = dataStreamsProps.outputDelimiter(outputName);
+        outputDelimiter = dsResolver.outputDelimiter(outputName);
     }
 
     @Override

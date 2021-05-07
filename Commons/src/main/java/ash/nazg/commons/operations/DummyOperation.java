@@ -5,24 +5,22 @@
 package ash.nazg.commons.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.OperationConfig;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
 import org.apache.spark.api.java.JavaRDDLike;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 
 @SuppressWarnings("unused")
 public class DummyOperation extends Operation {
 
     public static final String VERB = "nop";
 
-    private List<String> inputNames;
-    private List<String> outputNames;
+    private String[] inputNames;
+    private String[] outputNames;
 
     @Override
     @Description("This operation does nothing, just passes all its inputs as all outputs")
@@ -37,14 +35,14 @@ public class DummyOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Plain, TaskDescriptionLanguage.StreamType.KeyValue, TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.Plain, StreamType.KeyValue, StreamType.CSV},
                                 true
                         )
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Passthru},
+                                new StreamType[]{StreamType.Passthru},
                                 false
                         )
                 )
@@ -52,19 +50,18 @@ public class DummyOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
-
-        inputNames = describedProps.inputs;
-        outputNames = describedProps.outputs;
+    public void configure() throws InvalidConfigValueException {
+        inputNames = opResolver.positionalInputs();
+        outputNames = opResolver.positionalOutputs();
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         Map<String, JavaRDDLike> outs = new HashMap<>();
 
-        for (int i = 0; i < inputNames.size(); i++) {
-            outs.put(outputNames.get(i), input.get(inputNames.get(i)));
+        for (int i = 0; i < inputNames.length; i++) {
+            outs.put(outputNames[i], input.get(inputNames[i]));
         }
 
         return outs;

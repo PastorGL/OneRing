@@ -6,54 +6,20 @@ package ash.nazg.config.tdl;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class TaskDescriptionLanguage {
-    public enum StreamType {
-        /**
-         * This type represents the case if any other non-special RDD types except {@link #KeyValue} are allowed
-         */
-        Plain,
-        /**
-         * The underlying CSV RDD a collection of rows with a flexibly defined set of columns
-         */
-        CSV,
-        /**
-         * For output CSV RDDs with a fixed set of columns
-         */
-        Fixed,
-        /**
-         * For RDDs consisting of Point objects
-         */
-        Point,
-        /**
-         * For RDDs consisting of Track objects
-         */
-        Track,
-        /**
-         * For RDDs consisting of Polygon objects
-         */
-        Polygon,
-        /**
-         * For PairRDDs, each record of whose is a key and value pair
-         */
-        KeyValue,
-        /**
-         * This special type is allowed only for the output of filter-like operations that have exactly one positional
-         * input (of any type), and just throw out some records as a whole, never changing records that pass the filter
-         */
-        Passthru
-    }
-
     public static class Operation {
         public final String verb;
 
-        public final DefBase[] definitions;
+        public final Map<String, DefBase> definitions;
 
         public final OpStreams inputs;
         public final OpStreams outputs;
 
         public Operation(String verb, DefBase[] definitions, OpStreams inputs, OpStreams outputs) {
-            this.definitions = definitions;
+            this.definitions = (definitions == null) ? null : Arrays.stream(definitions).collect(Collectors.toMap(d -> d.name, d -> d));
             this.inputs = inputs;
             this.outputs = outputs;
             this.verb = verb;
@@ -132,13 +98,22 @@ public class TaskDescriptionLanguage {
     }
 
     public static class DefBase {
+        public final String name;
+
         public final String type;
 
         public final String[] enumValues;
 
         public final Class clazz;
 
-        public DefBase(Class clazz) {
+        public final boolean optional;
+
+        public final String defaults;
+
+        public final boolean dynamic;
+
+        public DefBase(String name, Class clazz, boolean optional, String defaults, boolean dynamic) {
+            this.name = name;
             this.clazz = clazz;
             if (clazz.isEnum()) {
                 this.type = Enum.class.getSimpleName();
@@ -147,67 +122,41 @@ public class TaskDescriptionLanguage {
                 this.type = clazz.getSimpleName();
                 this.enumValues = null;
             }
+            this.optional = optional;
+            this.defaults = defaults;
+            this.dynamic = dynamic;
         }
     }
 
     public static class Definition extends DefBase {
-        public final String name;
-
-        public final boolean optional;
-
-        public final String defaults;
-
         public <T> Definition(String name, Class<T> type, T defaults) {
-            super(type);
-            this.name = name;
-            this.optional = true;
-            this.defaults = (defaults != null) ? String.valueOf(defaults) : null;
+            super(name, type, true, (defaults != null) ? String.valueOf(defaults) : null, false);
         }
 
         public Definition(String name, Class<?> type) {
-            super(type);
-            this.name = name;
-            this.optional = false;
-            this.defaults = null;
+            super(name, type, false, null, false);
         }
 
         public Definition(String name, Class<String[]> type, String[] defaults) {
-            super(type);
-            this.name = name;
-            this.optional = true;
-            this.defaults = (defaults != null) ? String.join(",", defaults) : null;
+            super(name, type, true, (defaults != null) ? String.join(",", defaults) : null, false);
         }
 
         public Definition(String name, String[] defaults) {
-            super(String[].class);
-            this.name = name;
-            this.optional = true;
-            this.defaults = (defaults != null) ? String.join(",", defaults) : null;
+            super(name, String[].class, true, (defaults != null) ? String.join(",", defaults) : null, false);
         }
 
         public Definition(String name, String defaults) {
-            super(String.class);
-            this.name = name;
-            this.optional = true;
-            this.defaults = defaults;
+            super(name, String.class, true, defaults, false);
         }
 
         public Definition(String name) {
-            super(String.class);
-            this.name = name;
-            this.optional = false;
-            this.defaults = null;
+            super(name, String.class, false, null, false);
         }
     }
 
     public static class DynamicDef extends DefBase {
-        public final boolean dynamic = true;
-
-        public final String prefix;
-
         public DynamicDef(String prefix, Class<?> type) {
-            super(type);
-            this.prefix = prefix;
+            super(prefix, type, true, null, true);
         }
     }
 }

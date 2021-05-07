@@ -6,6 +6,7 @@ package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
 import ash.nazg.spatial.SegmentedTrack;
@@ -62,11 +63,11 @@ public class TrackStatsOperation extends Operation {
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.NamedStream[]{
                                 new TaskDescriptionLanguage.NamedStream(RDD_INPUT_PINS,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Point},
+                                        new StreamType[]{StreamType.Point},
                                         false
                                 ),
                                 new TaskDescriptionLanguage.NamedStream(RDD_INPUT_TRACKS,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Track},
+                                        new StreamType[]{StreamType.Track},
                                         false
                                 )
                         }
@@ -75,7 +76,7 @@ public class TrackStatsOperation extends Operation {
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.NamedStream[]{
                                 new TaskDescriptionLanguage.NamedStream(RDD_OUTPUT_TRACKS,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Track},
+                                        new StreamType[]{StreamType.Track},
                                         new String[]{GEN_POINTS, GEN_DURATION, GEN_RADIUS, GEN_DISTANCE}
                                 )
                         }
@@ -84,17 +85,16 @@ public class TrackStatsOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.namedInput(RDD_INPUT_TRACKS);
+        pinsName = opResolver.namedInput(RDD_INPUT_PINS);
 
-        inputName = describedProps.namedInputs.get(RDD_INPUT_TRACKS);
-        pinsName = describedProps.namedInputs.get(RDD_INPUT_PINS);
+        outputName = opResolver.namedOutput(RDD_OUTPUT_TRACKS);
 
-        outputName = describedProps.namedOutputs.get(RDD_OUTPUT_TRACKS);
-
-        pinningMode = describedProps.defs.getTyped(OP_PINNING_MODE);
+        pinningMode = opResolver.definition(OP_PINNING_MODE);
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         JavaPairRDD<Point, SegmentedTrack> inp;

@@ -6,6 +6,7 @@ package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVWriter;
@@ -59,14 +60,14 @@ public class H3UniformCoverageOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Point, TaskDescriptionLanguage.StreamType.Polygon},
+                                new StreamType[]{StreamType.Point, StreamType.Polygon},
                                 true
                         )
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.CSV},
                                 new String[]{GEN_HASH}
                         )
                 )
@@ -75,27 +76,26 @@ public class H3UniformCoverageOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        outputName = opResolver.positionalOutput(0);
+        outputDelimiter = dsResolver.outputDelimiter(outputName);
 
-        inputName = describedProps.inputs.get(0);
-        outputName = describedProps.outputs.get(0);
-        outputDelimiter = dataStreamsProps.outputDelimiter(outputName);
-
-        Map<String, Integer> inputColumns = dataStreamsProps.inputColumns.get(inputName);
+        Map<String, Integer> inputColumns = dsResolver.inputColumns(inputName);
         String prop;
 
-        outputColumns = Arrays.stream(dataStreamsProps.outputColumns.get(outputName))
+        outputColumns = Arrays.stream(dsResolver.outputColumns(outputName))
                 .map(c -> c.replaceFirst("^" + inputName + "\\.", ""))
                 .collect(Collectors.toList());
 
-        level = describedProps.defs.getTyped(OP_HASH_LEVEL);
+        level = opResolver.definition(OP_HASH_LEVEL);
 
         if ((level < 0) || (level > 15)) {
             throw new InvalidConfigValueException("Hash level must fall into interval '0'..'15' but is '" + level + "' in the operation '" + name + "'");
         }
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         JavaRDD<Object> geometriesInput = (JavaRDD<Object>) input.get(inputName);

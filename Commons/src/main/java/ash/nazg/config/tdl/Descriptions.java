@@ -4,11 +4,7 @@
  */
 package ash.nazg.config.tdl;
 
-import ash.nazg.spark.OpInfo;
 import ash.nazg.spark.Operation;
-import org.apache.velocity.app.Velocity;
-import org.apache.velocity.runtime.RuntimeConstants;
-import org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -18,12 +14,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class Descriptions {
-    static {
-        Velocity.setProperty(RuntimeConstants.RESOURCE_LOADERS, "classpath");
-        Velocity.setProperty(RuntimeConstants.RESOURCE_LOADER + ".classpath.class", ClasspathResourceLoader.class.getCanonicalName());
-        Velocity.init();
-    }
-
     public final Package opPackage;
     public final Map<String, Field> fields;
     public final Map<String, String> definitions;
@@ -32,7 +22,7 @@ public class Descriptions {
     public final Map<String, String> outputs;
     public final Map<String, String> generated;
 
-    private Descriptions(Class<? extends OpInfo> opClass) {
+    private Descriptions(Class<? extends Operation> opClass) {
         opPackage = opClass.getPackage();
 
         Map<String, Field> interesting = getInterestingFields(opClass);
@@ -87,7 +77,7 @@ public class Descriptions {
         }
     }
 
-    public static Descriptions inspectOperation(Class<? extends OpInfo> opClass) {
+    public static Descriptions inspectOperation(Class<? extends Operation> opClass) {
         return new Descriptions(opClass);
     }
 

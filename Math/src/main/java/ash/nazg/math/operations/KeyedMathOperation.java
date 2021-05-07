@@ -6,6 +6,7 @@ package ash.nazg.math.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.math.config.CalcFunction;
 import ash.nazg.math.config.ConfigurationParameters;
@@ -54,14 +55,14 @@ public class KeyedMathOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.KeyValue},
+                                new StreamType[]{StreamType.KeyValue},
                                 true
                         )
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.KeyValue},
+                                new StreamType[]{StreamType.KeyValue},
                                 false
                         )
                 )
@@ -69,28 +70,26 @@ public class KeyedMathOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        outputName = opResolver.positionalOutput(0);
+        inputDelimiter = dsResolver.inputDelimiter(inputName);
 
-        inputName = describedProps.inputs.get(0);
-        outputName = describedProps.outputs.get(0);
-        inputDelimiter = dataStreamsProps.inputDelimiter(inputName);
-
-        Map<String, Integer> inputColumns = dataStreamsProps.inputColumns.get(inputName);
+        Map<String, Integer> inputColumns = dsResolver.inputColumns(inputName);
 
         String prop;
-        prop = describedProps.defs.getTyped(ConfigurationParameters.DS_CALC_COLUMN);
+        prop = opResolver.definition(ConfigurationParameters.DS_CALC_COLUMN);
         calcColumn = inputColumns.get(prop);
 
-        CalcFunction cf = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_FUNCTION);
+        CalcFunction cf = opResolver.definition(ConfigurationParameters.OP_CALC_FUNCTION);
         switch (cf) {
             case SUM: {
-                Double _const = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
+                Double _const = opResolver.definition(ConfigurationParameters.OP_CALC_CONST);
                 keyedFunc = new SumFunction(_const);
                 break;
             }
             case POWERMEAN: {
-                Double pow = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
+                Double pow = opResolver.definition(ConfigurationParameters.OP_CALC_CONST);
                 if (pow == null) {
                     throw new InvalidConfigValueException("POWERMEAN function of the operation '" + name + "' requires " + ConfigurationParameters.OP_CALC_CONST + " set");
                 }
@@ -98,7 +97,7 @@ public class KeyedMathOperation extends Operation {
                 break;
             }
             case AVERAGE: {
-                Double shift = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
+                Double shift = opResolver.definition(ConfigurationParameters.OP_CALC_CONST);
                 keyedFunc = new AverageFunction(shift);
                 break;
             }
@@ -107,22 +106,22 @@ public class KeyedMathOperation extends Operation {
                 break;
             }
             case MIN: {
-                Double floor = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
+                Double floor = opResolver.definition(ConfigurationParameters.OP_CALC_CONST);
                 keyedFunc = new MinFunction(floor);
                 break;
             }
             case MAX: {
-                Double ceil = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
+                Double ceil = opResolver.definition(ConfigurationParameters.OP_CALC_CONST);
                 keyedFunc = new MaxFunction(ceil);
                 break;
             }
             case MUL: {
-                Double _const = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
+                Double _const = opResolver.definition(ConfigurationParameters.OP_CALC_CONST);
                 keyedFunc = new MulFunction(_const);
                 break;
             }
             case DIV: {
-                Double _const = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
+                Double _const = opResolver.definition(ConfigurationParameters.OP_CALC_CONST);
                 keyedFunc = new DivFunction(_const);
                 break;
             }
@@ -130,6 +129,7 @@ public class KeyedMathOperation extends Operation {
 
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         JavaPairRDD<Object, Object> inputRDD = (JavaPairRDD<Object, Object>) input.get(inputName);

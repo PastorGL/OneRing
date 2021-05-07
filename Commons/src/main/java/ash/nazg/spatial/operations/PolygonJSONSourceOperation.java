@@ -6,6 +6,7 @@ package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
 import org.apache.hadoop.io.DoubleWritable;
@@ -50,14 +51,14 @@ public class PolygonJSONSourceOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Plain},
+                                new StreamType[]{StreamType.Plain},
                                 false
                         )
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Polygon},
+                                new StreamType[]{StreamType.Polygon},
                                 true
                         )
                 )
@@ -65,17 +66,17 @@ public class PolygonJSONSourceOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
 
-        inputName = describedProps.inputs.get(0);
-
-        outputName = describedProps.outputs.get(0);
-        outputColumns = Arrays.asList(dataStreamsProps.outputColumns.get(outputName)).stream()
+        outputName = opResolver.positionalOutput(0);
+        String[] outputCols = dsResolver.outputColumns(outputName);
+        outputColumns = (outputCols == null) ? Collections.emptyList() : Arrays.stream(outputCols)
                 .map(c -> c.replaceFirst("^[^.]+\\.", ""))
                 .collect(Collectors.toList());
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         final List<String> _outputColumns = outputColumns;
@@ -104,7 +105,7 @@ public class PolygonJSONSourceOperation extends Operation {
                             MapWritable properties = new MapWritable();
 
                             feature.getProperties().entrySet().stream()
-                                    .filter(e -> (_outputColumns.size() == 0) || _outputColumns.contains(e.getKey()))
+                                    .filter(e -> _outputColumns.isEmpty() || _outputColumns.contains(e.getKey()))
                                     .forEach(e -> properties.put(new Text(e.getKey()), new Text(String.valueOf(e.getValue()))));
 
                             List<Geometry> geometries = new ArrayList<>();

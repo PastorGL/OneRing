@@ -6,6 +6,7 @@ package ash.nazg.config;
 
 import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.Descriptions;
+import ash.nazg.config.tdl.Constants;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.OpInfo;
 import ash.nazg.spark.Operation;
@@ -16,8 +17,6 @@ import java.lang.reflect.Method;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static ash.nazg.config.OperationConfig.COLUMN_SUFFIX;
-
 public class Guardian {
     public static void main(String[] args) {
         System.out.println("This is a Guardian of the metadata in the One Ring Spark Modules.\n" +
@@ -26,12 +25,12 @@ public class Guardian {
 
         Set<Class<? extends Enum<?>>> interestingEnums = new HashSet<>();
 
-        Map<String, OpInfo> ao = Operations.getAvailableOperations();
+        Map<String, OpInfo> ao = Operations.availableOperations;
 
         final List<String> errors = new ArrayList<>();
 
         for (Map.Entry<String, OpInfo> oi : ao.entrySet()) {
-            Class<? extends OpInfo> opClass = oi.getValue().getClass();
+            Class<? extends Operation> opClass = oi.getValue().opClass;
 
             final String cnAbbr = mangleCN(opClass);
 
@@ -65,7 +64,7 @@ public class Guardian {
                 }
             }
 
-            TaskDescriptionLanguage.Operation descr = oi.getValue().description();
+            TaskDescriptionLanguage.Operation descr = oi.getValue().description;
 
             List<String> columnBasedInputs = new ArrayList<>();
 
@@ -83,7 +82,7 @@ public class Guardian {
             }
 
             if (descr.definitions != null) {
-                for (TaskDescriptionLanguage.DefBase db : descr.definitions) {
+                for (TaskDescriptionLanguage.DefBase db : descr.definitions.values()) {
                     if (db instanceof TaskDescriptionLanguage.Definition) {
                         TaskDescriptionLanguage.Definition def = (TaskDescriptionLanguage.Definition) db;
 
@@ -91,7 +90,7 @@ public class Guardian {
                             errors.add(cnAbbr + " has a definition '" + def.name + "' without a proper TDL @Description");
                         }
 
-                        if (!columnBasedInputs.isEmpty() && def.name.endsWith(COLUMN_SUFFIX)) {
+                        if (!columnBasedInputs.isEmpty() && def.name.endsWith(Constants.COLUMN_SUFFIX)) {
                             String rddName = def.name.split("\\.", 2)[0];
 
                             if (!columnBasedInputs.contains(rddName)) {
@@ -123,8 +122,8 @@ public class Guardian {
                     } else {
                         TaskDescriptionLanguage.DynamicDef dyn = (TaskDescriptionLanguage.DynamicDef) db;
 
-                        if (!ds.definitions.containsKey(dyn.prefix)) {
-                            errors.add(cnAbbr + " has dynamic definitions without a properly described prefix '" + dyn.prefix + "'");
+                        if (!ds.definitions.containsKey(dyn.name)) {
+                            errors.add(cnAbbr + " has dynamic definitions without a properly described prefix '" + dyn.name + "'");
                         }
                     }
                 }

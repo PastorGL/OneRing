@@ -6,7 +6,7 @@ To extend One Ring built-in set of Operations, you have to implement an [Operati
 
 First off, you should create a Maven module. Place it at the same level as root `pom.xml`, and include your module in root project's `&lt;modules>` section. You can freely choose the group and artifact IDs you like.
 
-To make One Ring know your module, include its artifact reference in TaskWrapper's `pom.xml` `&lt;dependencies>`. To make your module know One Ring, include a reference of artifact `ash.nazg:Commons` in your module's `&lt;dependencies>` (and its test-jar scope too). For an example, look into [Math's pom.xml](./Math/pom.xml).
+To make One Ring know your module, include its artifact reference in CLI's `pom.xml` `&lt;dependencies>`. To make your module know One Ring, include a reference of artifact `ash.nazg:Commons` in your module's `&lt;dependencies>` (and its test-jar scope too). For an example, look into [Math's pom.xml](./Math/pom.xml).
 
 Now you can proceed to create an Operation package and describe it.
 
@@ -58,7 +58,7 @@ There is a plenty of examples to learn by, just look into the source code for Op
 
 ### Extend Storage Adapters
 
-To extend One Ring with a custom Storage Adapter, you have to implement a pair of [InputAdapter](./Commons/src/main/java/ash/nazg/storage/InputAdapter.java) and [OutputAdapter](./Commons/src/main/java/ash/nazg/storage/OutputAdapter.java) interfaces. They're fairly straightforward, just see existing Adapter [sources](./WrapperCommmons/src/main/java/ash/nazg/storage) for the reference.
+To extend One Ring with a custom Storage Adapter, you have to implement a pair of [InputAdapter](./Commons/src/main/java/ash/nazg/storage/InputAdapter.java) and [OutputAdapter](./Commons/src/main/java/ash/nazg/storage/OutputAdapter.java) interfaces. They're fairly straightforward, just see existing Adapter [sources](./Dist/src/main/java/ash/nazg/storage) for the reference.
 
 A single restriction exists: you can't set your Adapter as a fallback one, as that is reserved to One Ring Hadoop Adapter.
 

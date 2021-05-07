@@ -4,7 +4,7 @@ One Ring has a standalone REST-ish service that provides documentation and can r
 
 One Ring REST is configurable via command line and configuration file.
 ```bash
-java -jar ./RestWrapper/target/one-ring-rest.jar -h
+java -jar ./REST/target/one-ring-rest.jar -h
 usage: One Ring
 -c,--configPath <arg>   Path to configuration file
 -e,--iface <arg>        Server interface. By default, 0.0.0.0 (all interfaces)

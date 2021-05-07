@@ -6,6 +6,7 @@ package ash.nazg.simplefilters.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
 import org.apache.spark.api.java.JavaRDD;
@@ -55,14 +56,14 @@ public class SkipLinesOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Plain},
+                                new StreamType[]{StreamType.Plain},
                                 false
                         )
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Plain},
+                                new StreamType[]{StreamType.Plain},
                                 false
                         )
                 )
@@ -70,18 +71,16 @@ public class SkipLinesOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties config, Properties variables) throws InvalidConfigValueException {
-        super.configure(config, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        outputName = opResolver.positionalOutput(0);
 
-        inputName = describedProps.inputs.get(0);
-        outputName = describedProps.outputs.get(0);
-
-        Boolean reverse = describedProps.defs.getTyped(OP_REVERSE);
+        Boolean reverse = opResolver.definition(OP_REVERSE);
 
         skip = !reverse;
-        value = describedProps.defs.getTyped(OP_LINE_PATTERN);
+        value = opResolver.definition(OP_LINE_PATTERN);
         if (skip && (value == null)) {
-            value = describedProps.defs.getTyped(OP_LINE_VALUE);
+            value = opResolver.definition(OP_LINE_VALUE);
 
             if (value == null) {
                 throw new InvalidConfigValueException("Operation '" + name + "' requires regex pattern or exact value");
@@ -97,6 +96,7 @@ public class SkipLinesOperation extends Operation {
         }
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         boolean _skip = skip;

@@ -6,9 +6,9 @@ package ash.nazg.commons.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
-import ash.nazg.spark.Operation;
-import ash.nazg.config.OperationConfig;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVWriter;
@@ -19,10 +19,11 @@ import org.apache.spark.api.java.JavaRDDLike;
 import scala.Tuple2;
 
 import java.io.StringWriter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
-import static ash.nazg.config.tdl.TaskDescriptionLanguage.StreamType.CSV;
-import static ash.nazg.config.tdl.TaskDescriptionLanguage.StreamType.KeyValue;
 
 @SuppressWarnings("unused")
 public class MapToPairOperation extends Operation {
@@ -67,34 +68,32 @@ public class MapToPairOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{CSV},
+                                new StreamType[]{StreamType.CSV},
                                 true
                         )
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{KeyValue},
-                                false
+                                new StreamType[]{StreamType.KeyValue},
+                                true
                         )
                 )
         );
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        inputDelimiter = dsResolver.inputDelimiter(inputName);
+        outputName = opResolver.positionalOutput(0);
+        outputDelimiter = dsResolver.outputDelimiter(outputName);
 
-        inputName = describedProps.inputs.get(0);
-        inputDelimiter = dataStreamsProps.inputDelimiter(inputName);
-        outputName = describedProps.outputs.get(0);
-        outputDelimiter = dataStreamsProps.outputDelimiter(outputName);
+        Map<String, Integer> inputColumns = dsResolver.inputColumns(inputName);
 
-        Map<String, Integer> inputColumns = dataStreamsProps.inputColumns.get(inputName);
+        keyLength = opResolver.definition(OP_KEY_LENGTH);
 
-        keyLength = describedProps.defs.getTyped(OP_KEY_LENGTH);
-
-        String[] columns = describedProps.defs.getTyped(OP_KEY_COLUMNS);
+        String[] columns = opResolver.definition(OP_KEY_COLUMNS);
         keyColumns = new int[columns.length];
         int i = 0;
         for (String kc : columns) {
@@ -102,7 +101,7 @@ public class MapToPairOperation extends Operation {
             i++;
         }
 
-        columns = describedProps.defs.getTyped(OP_VALUE_COLUMNS);
+        columns = opResolver.definition(OP_VALUE_COLUMNS);
         if (columns != null) {
             valueColumns = new int[columns.length];
             i = 0;
@@ -125,10 +124,10 @@ public class MapToPairOperation extends Operation {
         JavaRDDLike inp = input.get(inputName);
         JavaRDD<Object> rdd = null;
         if (inp instanceof JavaRDD) {
-            rdd = (JavaRDD)inp;
+            rdd = (JavaRDD) inp;
         }
         if (inp instanceof JavaPairRDD) {
-            rdd = ((JavaPairRDD)inp).values();
+            rdd = ((JavaPairRDD) inp).values();
         }
 
         JavaPairRDD<Text, Text> out = rdd

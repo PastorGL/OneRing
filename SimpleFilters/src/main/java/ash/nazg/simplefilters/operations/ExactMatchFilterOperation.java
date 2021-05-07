@@ -6,6 +6,7 @@ package ash.nazg.simplefilters.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -42,7 +43,7 @@ public class ExactMatchFilterOperation extends MatchFilterOperation {
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.NamedStream[]{
                                 new TaskDescriptionLanguage.NamedStream(RDD_INPUT_SOURCE,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                        new StreamType[]{StreamType.CSV},
                                         true
                                 )
                         }
@@ -51,11 +52,11 @@ public class ExactMatchFilterOperation extends MatchFilterOperation {
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.NamedStream[]{
                                 new TaskDescriptionLanguage.NamedStream(RDD_OUTPUT_MATCHED,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                        new StreamType[]{StreamType.CSV},
                                         true
                                 ),
                                 new TaskDescriptionLanguage.NamedStream(RDD_OUTPUT_EVICTED,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                        new StreamType[]{StreamType.CSV},
                                         false
                                 ),
                         }
@@ -64,10 +65,10 @@ public class ExactMatchFilterOperation extends MatchFilterOperation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        super.configure();
 
-        matchSet = describedProps.defs.getTyped(OP_MATCH_VALUES);
+        matchSet = opResolver.definition(OP_MATCH_VALUES);
     }
 
     @Override

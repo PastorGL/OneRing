@@ -7,8 +7,6 @@ package ash.nazg.populations.operations;
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.spark.Operation;
 
-import java.util.Properties;
-
 public abstract class PopulationIndicatorOperation extends Operation {
     protected int countColumn;
     protected int valueColumn;
@@ -20,10 +18,8 @@ public abstract class PopulationIndicatorOperation extends Operation {
     protected char outputDelimiter;
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
-
-        outputName = describedProps.outputs.get(0);
-        outputDelimiter = dataStreamsProps.outputDelimiter(outputName);
+    public void configure() throws InvalidConfigValueException {
+        outputName = opResolver.positionalOutput(0);
+        outputDelimiter = dsResolver.outputDelimiter(outputName);
     }
 }

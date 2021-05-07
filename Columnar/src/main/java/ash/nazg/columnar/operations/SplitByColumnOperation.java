@@ -4,11 +4,11 @@
  */
 package ash.nazg.columnar.operations;
 
-import ash.nazg.spark.Operation;
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.OperationConfig;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import org.apache.hadoop.io.Text;
@@ -18,7 +18,7 @@ import org.apache.spark.storage.StorageLevel;
 
 import java.util.*;
 
-import static ash.nazg.config.tdl.TaskDescriptionLanguage.StreamType.*;
+import static ash.nazg.config.tdl.StreamType.*;
 
 @SuppressWarnings("unused")
 public class SplitByColumnOperation extends Operation {
@@ -60,7 +60,7 @@ public class SplitByColumnOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{CSV},
+                                new StreamType[]{CSV},
                                 true
                         )
                 ),
@@ -69,12 +69,12 @@ public class SplitByColumnOperation extends Operation {
                         new TaskDescriptionLanguage.NamedStream[]{
                                 new TaskDescriptionLanguage.NamedStream(
                                         RDD_OUTPUT_SPLITS_TEMPLATE,
-                                        new TaskDescriptionLanguage.StreamType[]{Passthru},
+                                        new StreamType[]{Passthru},
                                         true
                                 ),
                                 new TaskDescriptionLanguage.NamedStream(
                                         RDD_OUTPUT_DISTINCT_SPLITS,
-                                        new TaskDescriptionLanguage.StreamType[]{Fixed},
+                                        new StreamType[]{Fixed},
                                         false
                                 )
                         }
@@ -83,18 +83,16 @@ public class SplitByColumnOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        inputDelimiter = dsResolver.inputDelimiter(inputName);
+        outputDistinctSplits = opResolver.namedOutput(RDD_OUTPUT_DISTINCT_SPLITS);
+        outputNameTemplate = opResolver.namedOutput(RDD_OUTPUT_SPLITS_TEMPLATE)
+                .replace("*", opResolver.definition(OP_SPLIT_TEMPLATE));
 
-        inputName = describedProps.inputs.get(0);
-        inputDelimiter = dataStreamsProps.inputDelimiter(inputName);
-        outputDistinctSplits = describedProps.namedOutputs.get(RDD_OUTPUT_DISTINCT_SPLITS);
-        outputNameTemplate = describedProps.namedOutputs.get(RDD_OUTPUT_SPLITS_TEMPLATE)
-                .replace("*", describedProps.defs.getTyped(OP_SPLIT_TEMPLATE));
+        Map<String, Integer> inputColumns = dsResolver.inputColumns(inputName);
 
-        Map<String, Integer> inputColumns = dataStreamsProps.inputColumns.get(inputName);
-
-        splitColumnName = describedProps.defs.getTyped(DS_SPLIT_COLUMN);
+        splitColumnName = opResolver.definition(DS_SPLIT_COLUMN);
         splitColumn = inputColumns.get(splitColumnName);
 
         if (!outputNameTemplate.contains("{" + splitColumnName + "}")) {

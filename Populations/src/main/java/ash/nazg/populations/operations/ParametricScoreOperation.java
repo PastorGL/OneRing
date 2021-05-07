@@ -5,8 +5,8 @@
 package ash.nazg.populations.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.OperationConfig;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.populations.config.ConfigurationParameters;
 import ash.nazg.spark.Operation;
@@ -22,7 +22,6 @@ import scala.Tuple3;
 
 import java.io.StringWriter;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @SuppressWarnings("unused")
 public class ParametricScoreOperation extends Operation {
@@ -83,12 +82,12 @@ public class ParametricScoreOperation extends Operation {
                         new TaskDescriptionLanguage.NamedStream[]{
                                 new TaskDescriptionLanguage.NamedStream(
                                         ConfigurationParameters.RDD_INPUT_VALUES,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                        new StreamType[]{StreamType.CSV},
                                         true
                                 ),
                                 new TaskDescriptionLanguage.NamedStream(
                                         RDD_INPUT_SCORE_MULTIPLIERS,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                        new StreamType[]{StreamType.CSV},
                                         true
                                 ),
                         }
@@ -98,7 +97,7 @@ public class ParametricScoreOperation extends Operation {
                         new TaskDescriptionLanguage.NamedStream[]{
                                 new TaskDescriptionLanguage.NamedStream(
                                         ConfigurationParameters.RDD_OUTPUT_SCORES,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                        new StreamType[]{StreamType.CSV},
                                         new String[]{GEN_GROUP, GEN_SCORE_PREFIX, GEN_VALUE_PREFIX}
                                 ),
                         }
@@ -107,50 +106,48 @@ public class ParametricScoreOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputValuesName = opResolver.namedInput(ConfigurationParameters.RDD_INPUT_VALUES);
+        inputValuesDelimiter = dsResolver.inputDelimiter(inputValuesName);
+        inputMultipliersName = opResolver.namedInput(RDD_INPUT_SCORE_MULTIPLIERS);
+        inputMultipliersDelimiter = dsResolver.inputDelimiter(inputMultipliersName);
+        outputName = opResolver.namedOutput(ConfigurationParameters.RDD_OUTPUT_SCORES);
+        outputDelimiter = dsResolver.outputDelimiter(outputName);
 
-        inputValuesName = describedProps.namedInputs.get(ConfigurationParameters.RDD_INPUT_VALUES);
-        inputValuesDelimiter = dataStreamsProps.inputDelimiter(inputValuesName);
-        inputMultipliersName = describedProps.namedInputs.get(RDD_INPUT_SCORE_MULTIPLIERS);
-        inputMultipliersDelimiter = dataStreamsProps.inputDelimiter(inputMultipliersName);
-        outputName = describedProps.namedOutputs.get(ConfigurationParameters.RDD_OUTPUT_SCORES);
-        outputDelimiter = dataStreamsProps.outputDelimiter(outputName);
+        top = opResolver.definition(OP_TOP_SCORES);
 
-        top = describedProps.defs.getTyped(OP_TOP_SCORES);
-
-        Map<String, Integer> inputColumns = dataStreamsProps.inputColumns.get(inputValuesName);
+        Map<String, Integer> inputColumns = dsResolver.inputColumns(inputValuesName);
         String prop;
 
-        prop = describedProps.defs.getTyped(ConfigurationParameters.DS_VALUES_GROUP_COLUMN);
+        prop = opResolver.definition(ConfigurationParameters.DS_VALUES_GROUP_COLUMN);
         groupColumn = inputColumns.get(prop);
 
-        prop = describedProps.defs.getTyped(ConfigurationParameters.DS_VALUES_VALUE_COLUMN);
+        prop = opResolver.definition(ConfigurationParameters.DS_VALUES_VALUE_COLUMN);
         valueColumn = inputColumns.get(prop);
 
-        prop = describedProps.defs.getTyped(ConfigurationParameters.DS_VALUES_COUNT_COLUMN);
+        prop = opResolver.definition(ConfigurationParameters.DS_VALUES_COUNT_COLUMN);
         countColumn = inputColumns.get(prop);
 
-        inputColumns = dataStreamsProps.inputColumns.get(inputMultipliersName);
+        inputColumns = dsResolver.inputColumns(inputMultipliersName);
 
-        prop = describedProps.defs.getTyped(DS_MULTIPLIER_VALUE_COLUMN);
+        prop = opResolver.definition(DS_MULTIPLIER_VALUE_COLUMN);
         multiplierValueColumn = inputColumns.get(prop);
 
-        prop = describedProps.defs.getTyped(DS_MULTIPLIER_COUNT_COLUMN);
+        prop = opResolver.definition(DS_MULTIPLIER_COUNT_COLUMN);
         multiplierCountColumn = inputColumns.get(prop);
 
         Map<String, Integer> outputColumns = new LinkedHashMap<>();
-        String[] output = dataStreamsProps.outputColumns.get(outputName);
+        String[] output = dsResolver.outputColumns(outputName);
         for (String c : output) {
             outputColumns.put(c, null);
         }
 
-        for (Integer i = 1; i <= top; i++) {
-            String prefRepl = GEN_SCORE_PREFIX.replace("*", i.toString());
+        for (int i = 1; i <= top; i++) {
+            String prefRepl = GEN_SCORE_PREFIX.replace("*", Integer.toString(i));
             if (outputColumns.containsKey(prefRepl)) {
                 outputColumns.replace(prefRepl, -i);
             }
-            prefRepl = GEN_VALUE_PREFIX.replace("*", i.toString());
+            prefRepl = GEN_VALUE_PREFIX.replace("*", Integer.toString(i));
             if (outputColumns.containsKey(prefRepl)) {
                 outputColumns.replace(prefRepl, +i);
             }
@@ -167,6 +164,7 @@ public class ParametricScoreOperation extends Operation {
         outputCols = new ArrayList<>(outputColumns.values());
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         final char _inputValuesDelimiter = inputValuesDelimiter;

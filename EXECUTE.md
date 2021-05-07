@@ -6,7 +6,7 @@ After you've composed the Process configuration, you definitely should test it l
 
 After you've built the local artifact, as described in the [build how-to](BUILD.md), call it with -h (--help):
 ```bash
-java -jar ./RestWrapper/target/one-ring-cli.jar -h
+java -jar ./CLI/target/one-ring-cli.jar -h
 usage: One Ring CLI utility
   -c,--config <arg>            Config file (JSON or .ini format)
   -D,--metricsStorePath <arg>  Path where to store data stream metrics, if needed
@@ -33,7 +33,7 @@ usage: One Ring CLI utility
 
 `-x` sets the current task prefix, if needed. If you're planning to pass `tasks.ini` to your cluster via Spark context, you should use prefixed `tasks.ini` locally too.
 
-`-S` to interface with One Ring Dist, especially if your config has wildcard outputs, as discussed [in a separate doc](DISTCP.md).
+`-S` to interface with One Ring Dist, especially if your config has wildcard outputs, as discussed [in a separate doc](DIST.md).
 
 `-D` to output data stream metrics, described [in a separate doc](MONITOR.md).
 
@@ -52,12 +52,12 @@ OUTPUT_PATH=file:/path/to/output
 base64 -w0 < /path/to/variables.ini
 U0lHTkFMU19QQVRIPWZpbGU6L3BhdGgvdG8vc2lnbmFscwpQT0lTX1BBVEg9ZmlsZTovcGF0aC90by9wb2lzCk9VVFBVVF9QQVRIPWZpbGU6L3BhdGgvdG8vb3V0cHV0Cg==
 
-java -jar ./RestWrapper/target/one-ring-cli.jar -c /path/to/tasks.ini -l -m 6g -V U0lHTkFMU19QQVRIPWZpbGU6L3BhdGgvdG8vc2lnbmFscwpQT0lTX1BBVEg9ZmlsZTovcGF0aC90by9wb2lzCk9VVFBVVF9QQVRIPWZpbGU6L3BhdGgvdG8vb3V0cHV0Cg==
+java -jar ./CLI/target/one-ring-cli.jar -c /path/to/tasks.ini -l -m 6g -V U0lHTkFMU19QQVRIPWZpbGU6L3BhdGgvdG8vc2lnbmFscwpQT0lTX1BBVEg9ZmlsZTovcGF0aC90by9wb2lzCk9VVFBVVF9QQVRIPWZpbGU6L3BhdGgvdG8vb3V0cHV0Cg==
 ```
 
 Or place into a file (or other Adapter-supported Storage) and pass its path with `-v` command line key^
 ```bash
-java -jar ./RestWrapper/target/one-ring-cli.jar -c /path/to/tasks.ini -l -m 6g -v /path/to/variables.ini
+java -jar ./CLI/target/one-ring-cli.jar -c /path/to/tasks.ini -l -m 6g -v /path/to/variables.ini
 ```
 
 You'll see a lot of Spark output, as well as the dump of your Task. If everything is successful, you'll see no exceptions in that output. If not, read exception messages carefully and fix your `tasks.ini` and/or check the source data files.

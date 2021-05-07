@@ -6,6 +6,7 @@ package ash.nazg.proximity.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
 import ash.nazg.spatial.SpatialUtils;
@@ -24,7 +25,6 @@ import org.locationtech.jts.geom.Point;
 import scala.Tuple2;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static ash.nazg.proximity.config.ConfigurationParameters.*;
 
@@ -61,12 +61,12 @@ public class ProximityFilterOperation extends Operation {
                         new TaskDescriptionLanguage.NamedStream[]{
                                 new TaskDescriptionLanguage.NamedStream(
                                         RDD_INPUT_SIGNALS,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Point},
+                                        new StreamType[]{StreamType.Point},
                                         false
                                 ),
                                 new TaskDescriptionLanguage.NamedStream(
                                         RDD_INPUT_POIS,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Point},
+                                        new StreamType[]{StreamType.Point},
                                         false
                                 ),
                         }
@@ -76,12 +76,12 @@ public class ProximityFilterOperation extends Operation {
                         new TaskDescriptionLanguage.NamedStream[]{
                                 new TaskDescriptionLanguage.NamedStream(
                                         RDD_OUTPUT_SIGNALS,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Point},
+                                        new StreamType[]{StreamType.Point},
                                         false
                                 ),
                                 new TaskDescriptionLanguage.NamedStream(
                                         RDD_OUTPUT_EVICTED,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Point},
+                                        new StreamType[]{StreamType.Point},
                                         false
                                 ),
                         }
@@ -90,16 +90,14 @@ public class ProximityFilterOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputSignalsName = opResolver.namedInput(RDD_INPUT_SIGNALS);
+        inputPoisName = opResolver.namedInput(RDD_INPUT_POIS);
 
-        inputSignalsName = describedProps.namedInputs.get(RDD_INPUT_SIGNALS);
-        inputPoisName = describedProps.namedInputs.get(RDD_INPUT_POIS);
+        once = opResolver.definition(OP_ENCOUNTER_ONCE);
 
-        once = describedProps.defs.getTyped(OP_ENCOUNTER_ONCE);
-
-        outputSignalsName = describedProps.namedOutputs.get(RDD_OUTPUT_SIGNALS);
-        outputEvictedName = describedProps.namedOutputs.get(RDD_OUTPUT_EVICTED);
+        outputSignalsName = opResolver.namedOutput(RDD_OUTPUT_SIGNALS);
+        outputEvictedName = opResolver.namedOutput(RDD_OUTPUT_EVICTED);
     }
 
     @Override

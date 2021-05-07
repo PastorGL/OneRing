@@ -6,9 +6,9 @@ package ash.nazg.simplefilters.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
-import ash.nazg.config.OperationConfig;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import org.apache.spark.api.java.JavaRDD;
@@ -53,14 +53,14 @@ public class RangeFilterOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.CSV},
                                 true
                         )
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Passthru},
+                                new StreamType[]{StreamType.Passthru},
                                 false
                         )
                 )
@@ -68,16 +68,14 @@ public class RangeFilterOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
-
-        inputName = describedProps.inputs.get(0);
-        inputDelimiter = dataStreamsProps.inputDelimiter(inputName);
-        outputName = describedProps.outputs.get(0);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        inputDelimiter = dsResolver.inputDelimiter(inputName);
+        outputName = opResolver.positionalOutput(0);
 
         String prop;
 
-        prop = describedProps.defs.getTyped(OP_FILTERING_RANGE);
+        prop = opResolver.definition(OP_FILTERING_RANGE);
         inclusive = new Tuple2<>(
                 prop.contains("["),
                 prop.contains("]")
@@ -95,9 +93,9 @@ public class RangeFilterOperation extends Operation {
             throw new InvalidConfigValueException("Setting '" + OP_FILTERING_RANGE + "' for an operation '" + name + "' must have at least one of upper and lower boundaries set");
         }
 
-        Map<String, Integer> inputColumns = dataStreamsProps.inputColumns.get(inputName);
+        Map<String, Integer> inputColumns = dsResolver.inputColumns(inputName);
 
-        prop = describedProps.defs.getTyped(DS_FILTERING_COLUMN);
+        prop = opResolver.definition(DS_FILTERING_COLUMN);
         filteringColumn = inputColumns.get(prop);
     }
 

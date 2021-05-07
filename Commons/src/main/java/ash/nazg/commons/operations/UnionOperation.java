@@ -6,6 +6,7 @@ package ash.nazg.commons.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -46,14 +47,14 @@ public class UnionOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Plain},
+                                new StreamType[]{StreamType.Plain},
                                 false
                         )
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Passthru},
+                                new StreamType[]{StreamType.Passthru},
                                 false
                         )
                 )
@@ -61,14 +62,13 @@ public class UnionOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
-
-        rawInput = String.join(",", describedProps.inputs);
-        outputName = describedProps.outputs.get(0);
-        unionSpec = describedProps.defs.getTyped(OP_UNION_SPEC);
+    public void configure() throws InvalidConfigValueException {
+        rawInput = String.join(",", opResolver.positionalInputs());
+        outputName = opResolver.positionalOutput(0);
+        unionSpec = opResolver.definition(OP_UNION_SPEC);
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         List<String> inputs = getMatchingInputs(input.keySet(), rawInput);

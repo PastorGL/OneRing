@@ -6,6 +6,7 @@ package ash.nazg.columnar.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
@@ -53,31 +54,29 @@ public class CustomColumnOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
-                                false
+                                new StreamType[]{StreamType.CSV},
+                                true
                         )
                 ),
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Passthru},
-                                false
+                                new StreamType[]{StreamType.Passthru},
+                                true
                         )
                 )
         );
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        inputDelimiter = dsResolver.inputDelimiter(inputName);
+        outputName = opResolver.positionalOutput(0);
+        outputDelimiter = dsResolver.outputDelimiter(outputName);
 
-        inputName = describedProps.inputs.get(0);
-        inputDelimiter = dataStreamsProps.inputDelimiter(inputName);
-        outputName = describedProps.outputs.get(0);
-        outputDelimiter = dataStreamsProps.outputDelimiter(outputName);
-
-        columnValues = describedProps.defs.getTyped(OP_CUSTOM_COLUMN_VALUE);
-        String[] indices = describedProps.defs.getTyped(OP_CUSTOM_COLUMN_INDEX);
+        columnValues = opResolver.definition(OP_CUSTOM_COLUMN_VALUE);
+        String[] indices = opResolver.definition(OP_CUSTOM_COLUMN_INDEX);
         columnIndices = Arrays.stream(indices).map(Integer::parseInt).mapToInt(Integer::intValue).toArray();
     }
 

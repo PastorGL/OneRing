@@ -6,6 +6,7 @@ package ash.nazg.datetime.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.datetime.functions.FilterByDateDefinition;
 import ash.nazg.datetime.functions.FilterByDateFunction;
@@ -20,7 +21,10 @@ import org.apache.spark.storage.StorageLevel;
 import org.sparkproject.guava.primitives.Ints;
 
 import java.io.StringWriter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @SuppressWarnings("unused")
 public class SplitByDateOperation extends Operation {
@@ -91,7 +95,7 @@ public class SplitByDateOperation extends Operation {
 
                 new TaskDescriptionLanguage.OpStreams(
                         new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                new StreamType[]{StreamType.CSV},
                                 true
                         )
                 ),
@@ -100,12 +104,12 @@ public class SplitByDateOperation extends Operation {
                         new TaskDescriptionLanguage.NamedStream[]{
                                 new TaskDescriptionLanguage.NamedStream(
                                         RDD_OUTPUT_SPLITS_TEMPLATE,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
+                                        new StreamType[]{StreamType.CSV},
                                         true
                                 ),
                                 new TaskDescriptionLanguage.NamedStream(
                                         RDD_OUTPUT_DISTINCT_SPLITS,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Fixed},
+                                        new StreamType[]{StreamType.Fixed},
                                         false
                                 )
                         }
@@ -114,45 +118,43 @@ public class SplitByDateOperation extends Operation {
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        def.inputDelimiter = dsResolver.inputDelimiter(inputName);
+        outputDistinctSplits = opResolver.namedOutput(RDD_OUTPUT_DISTINCT_SPLITS);
+        outputNameTemplate = opResolver.namedOutput(RDD_OUTPUT_SPLITS_TEMPLATE)
+                .replace("*", opResolver.definition(OP_SPLIT_TEMPLATE));
 
-        inputName = describedProps.inputs.get(0);
-        def.inputDelimiter = dataStreamsProps.inputDelimiter(inputName);
-        outputDistinctSplits = describedProps.namedOutputs.get(RDD_OUTPUT_DISTINCT_SPLITS);
-        outputNameTemplate = describedProps.namedOutputs.get(RDD_OUTPUT_SPLITS_TEMPLATE)
-                .replace("*", describedProps.defs.getTyped(OP_SPLIT_TEMPLATE));
-
-        Map<String, Integer> inputColumns = dataStreamsProps.inputColumns.get(inputName);
+        Map<String, Integer> inputColumns = dsResolver.inputColumns(inputName);
         String prop;
 
         List<String> splitColumns = new ArrayList<>();
-        prop = describedProps.defs.getTyped(DS_YEAR_COLUMN);
+        prop = opResolver.definition(DS_YEAR_COLUMN);
         if (prop != null) {
             def.yearCol = inputColumns.get(prop);
             splitColumns.add(prop);
         }
-        prop = describedProps.defs.getTyped(DS_MONTH_COLUMN);
+        prop = opResolver.definition(DS_MONTH_COLUMN);
         if (prop != null) {
             def.monthCol = inputColumns.get(prop);
             splitColumns.add(prop);
         }
-        prop = describedProps.defs.getTyped(DS_DATE_COLUMN);
+        prop = opResolver.definition(DS_DATE_COLUMN);
         if (prop != null) {
             def.dateCol = inputColumns.get(prop);
             splitColumns.add(prop);
         }
-        prop = describedProps.defs.getTyped(DS_DOW_COLUMN);
+        prop = opResolver.definition(DS_DOW_COLUMN);
         if (prop != null) {
             def.dowCol = inputColumns.get(prop);
             splitColumns.add(prop);
         }
-        prop = describedProps.defs.getTyped(DS_HOUR_COLUMN);
+        prop = opResolver.definition(DS_HOUR_COLUMN);
         if (prop != null) {
             def.hourCol = inputColumns.get(prop);
             splitColumns.add(prop);
         }
-        prop = describedProps.defs.getTyped(DS_MINUTE_COLUMN);
+        prop = opResolver.definition(DS_MINUTE_COLUMN);
         if (prop != null) {
             def.minuteCol = inputColumns.get(prop);
             splitColumns.add(prop);

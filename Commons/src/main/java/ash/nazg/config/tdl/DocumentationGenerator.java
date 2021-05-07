@@ -7,13 +7,10 @@ package ash.nazg.config.tdl;
 import ash.nazg.commons.operations.MapToPairOperation;
 import ash.nazg.config.Packages;
 import ash.nazg.spark.OpInfo;
+import ash.nazg.spark.Operation;
 import ash.nazg.spark.Operations;
 import ash.nazg.spatial.config.ConfigurationParameters;
 import ash.nazg.spatial.operations.*;
-import ash.nazg.storage.Adapters;
-import ash.nazg.storage.HadoopAdapter;
-import ash.nazg.storage.InputAdapter;
-import ash.nazg.storage.StorageAdapter;
 import org.apache.velocity.Template;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.Velocity;
@@ -27,21 +24,18 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-import static ash.nazg.config.OperationConfig.*;
-import static ash.nazg.config.WrapperConfig.*;
-import static ash.nazg.config.tdl.PropertiesConverter.DEFAULT_DS;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class DocumentationGenerator {
-    public static TaskDefinitionLanguage.Task createExampleTask(OpInfo opInfo, TaskDocumentationLanguage.Operation opDoc,  String prefix) {
-        List<TaskDefinitionLanguage.Operation> ops = new ArrayList<>();
-        List<TaskDefinitionLanguage.DataStream> streams = new ArrayList<>();
-        List<String> sink = new ArrayList<>();
-        List<String> tees = new ArrayList<>();
+    public static TaskDefinitionLanguage.Task createExampleTask(OpInfo opInfo, TaskDocumentationLanguage.Operation opDoc, String prefix) {
+        List<String> input = new ArrayList<>();
+        List<String> output = new ArrayList<>();
 
-        TaskDefinitionLanguage.Operation opDef = new TaskDefinitionLanguage.Operation();
-        String verb = opInfo.verb();
-        TaskDescriptionLanguage.Operation descr = opInfo.description();
+        TaskDefinitionLanguage.Task task = TaskDefinitionLanguage.createTask();
+        TaskDefinitionLanguage.Operation opDef = TaskDefinitionLanguage.createOperation(task);
+
+        String verb = opInfo.verb;
+        TaskDescriptionLanguage.Operation descr = opInfo.description;
 
         opDef.verb = verb;
         opDef.name = verb;
@@ -50,76 +44,65 @@ public class DocumentationGenerator {
         namedColumns.put(null, new ArrayList<>());
 
         if (descr.definitions != null) {
-            List<TaskDefinitionLanguage.Definition> defs = new ArrayList<>();
-            List<TaskDefinitionLanguage.DynamicDef> dynDefs = new ArrayList<>();
+            TaskDefinitionLanguage.Definitions defs = TaskDefinitionLanguage.createDefinitions(task);
 
             Map<String, String> manDescr = parameterListToMap(opDoc.getMandatoryParameters());
             Map<String, String> optDescr = parameterListToMap(opDoc.getOptionalParameters());
             Map<String, String> dynDescr = parameterListToMap(opDoc.getDynamicParameters());
 
-            for (TaskDescriptionLanguage.DefBase db : descr.definitions) {
+            for (TaskDescriptionLanguage.DefBase db : descr.definitions.values()) {
                 if (db instanceof TaskDescriptionLanguage.Definition) {
                     TaskDescriptionLanguage.Definition def = (TaskDescriptionLanguage.Definition) db;
 
-                    TaskDefinitionLanguage.Definition d = new TaskDefinitionLanguage.Definition();
-                    d.name = def.name;
+                    String value;
 
                     if (def.optional) {
-                        d.value = "<* " + def.defaults + ": " + optDescr.get(def.name) + " *>";
+                        value = "<* " + def.defaults + ": " + optDescr.get(def.name) + " *>";
                     } else {
                         if (def.clazz.isEnum()) {
-                            d.value = Arrays.stream(def.enumValues).collect(Collectors.joining(", ", "<* One of: ", " *>"));
+                            value = Arrays.stream(def.enumValues).collect(Collectors.joining(", ", "<* One of: ", " *>"));
                         } else {
-                            d.value = "<* " + def.clazz.getSimpleName() + ": " + manDescr.get(def.name) + " *>";
+                            value = "<* " + def.clazz.getSimpleName() + ": " + manDescr.get(def.name) + " *>";
                         }
                     }
 
-                    if (def.name.endsWith(COLUMN_SUFFIX)) {
+                    if (def.name.endsWith(Constants.COLUMN_SUFFIX)) {
                         String[] col = def.name.split("\\.", 3);
 
                         if (col.length == 3) {
                             namedColumns.computeIfAbsent(col[0], x -> new ArrayList<>());
                             namedColumns.get(col[0]).add(col[1]);
 
-                            d.value = verb + "_" + col[0] + "." + col[1];
+                            value = verb + "_" + col[0] + "." + col[1];
                         } else if (col.length == 2) {
                             namedColumns.get(null).add(col[0]);
 
-                            d.value = verb + "_0." + col[0];
+                            value = verb + "_0." + col[0];
                         }
                     }
 
-                    if (def.optional) {
-                        d.useDefaults = Objects.equals(d.value, def.defaults);
-                    }
-
-                    defs.add(d);
+                    defs.put(def.name, value);
                 } else {
                     TaskDescriptionLanguage.DynamicDef dyn = (TaskDescriptionLanguage.DynamicDef) db;
+                    String value;
 
-                    TaskDefinitionLanguage.DynamicDef d = new TaskDefinitionLanguage.DynamicDef();
-
-                    d.name = dyn.prefix + "*";
                     if (dyn.clazz.isEnum()) {
-                        d.value = Arrays.stream(dyn.enumValues).collect(Collectors.joining(" ", "<* One of: ", " *>"));
+                        value = Arrays.stream(dyn.enumValues).collect(Collectors.joining(" ", "<* One of: ", " *>"));
                     } else {
-                        d.value = "<* " + dyn.clazz.getSimpleName() + ": " + dynDescr.get(dyn.prefix) + " *>";
+                        value = "<* " + dyn.clazz.getSimpleName() + ": " + dynDescr.get(dyn.name) + " *>";
                     }
 
-                    dynDefs.add(d);
+                    defs.put(dyn.name + "*", value);
                 }
             }
 
-            opDef.definitions = defs.toArray(new TaskDefinitionLanguage.Definition[0]);
-            opDef.dynamicDefs = dynDefs.toArray(new TaskDefinitionLanguage.DynamicDef[0]);
+            opDef.definitions = defs;
         }
 
         AtomicInteger dsNum = new AtomicInteger();
 
-        opDef.inputs = new TaskDefinitionLanguage.OpStreams();
-
         if (descr.inputs.positional != null) {
-            TaskDescriptionLanguage.StreamType st = descr.inputs.positional.types[0];
+            StreamType st = descr.inputs.positional.types[0];
 
             List<String> posInputs = new ArrayList<>();
             int cnt = (descr.inputs.positionalMinCount != null) ? descr.inputs.positionalMinCount : 1;
@@ -138,46 +121,38 @@ public class DocumentationGenerator {
                     }
                 }
 
-                createSourceOps(name, dsNum, st, columns, ops, streams, sink);
+                createSourceOps(name, dsNum, st, columns, task, input);
                 posInputs.add(name);
             }
 
-            opDef.inputs.positionalNames = posInputs.toArray(new String[0]);
+            opDef.inputs.positionalNames = String.join(",", posInputs);
         } else if (descr.inputs.named != null) {
-            List<TaskDefinitionLanguage.NamedStream> nstreams = new ArrayList<>();
-            Arrays.stream(descr.inputs.named)
-                    .forEach(nsDesc -> {
-                        TaskDescriptionLanguage.StreamType st = nsDesc.types[0];
+            opDef.inputs.named = TaskDefinitionLanguage.createDefinitions(task);
+            Arrays.stream(descr.inputs.named).forEach(nsDesc -> {
+                StreamType st = nsDesc.types[0];
 
-                        List<String> columns = null;
-                        if (nsDesc.columnBased) {
-                            columns = new ArrayList<>();
+                List<String> columns = null;
+                if (nsDesc.columnBased) {
+                    columns = new ArrayList<>();
 
-                            List<String> named = namedColumns.get(nsDesc.name);
-                            if ((named != null) && !named.isEmpty()) {
-                                columns.addAll(named);
-                            } else {
-                                columns.add("<* A list of columns *>");
-                            }
-                        }
+                    List<String> named = namedColumns.get(nsDesc.name);
+                    if ((named != null) && !named.isEmpty()) {
+                        columns.addAll(named);
+                    } else {
+                        columns.add("<* A list of columns *>");
+                    }
+                }
 
-                        createSourceOps(verb + "_" + nsDesc.name, dsNum, st, columns, ops, streams, sink);
+                createSourceOps(verb + "_" + nsDesc.name, dsNum, st, columns, task, input);
 
-                        TaskDefinitionLanguage.NamedStream ns = new TaskDefinitionLanguage.NamedStream();
-                        ns.name = nsDesc.name;
-                        ns.value = verb + "_" + nsDesc.name;
-
-                        nstreams.add(ns);
-                    });
-            opDef.inputs.named = nstreams.toArray(new TaskDefinitionLanguage.NamedStream[0]);
+                opDef.inputs.named.put(nsDesc.name, verb + "_" + nsDesc.name);
+            });
         }
 
-        ops.add(opDef);
-
-        opDef.outputs = new TaskDefinitionLanguage.OpStreams();
+        task.taskItems.add(opDef);
 
         if (descr.outputs.positional != null) {
-            TaskDescriptionLanguage.StreamType st = descr.outputs.positional.types[0];
+            StreamType st = descr.outputs.positional.types[0];
 
             List<String> columns = null;
             if (descr.outputs.positional.columnBased) {
@@ -190,49 +165,38 @@ public class DocumentationGenerator {
                 }
             }
 
-            createOutput(verb, dsNum, st, columns, ops, streams, tees);
+            createOutput(verb, dsNum, st, columns, task, output);
 
-            opDef.outputs.positionalNames = new String[]{verb};
+            opDef.outputs.positionalNames = verb;
         } else if (descr.outputs.named != null) {
-            List<TaskDefinitionLanguage.NamedStream> nstreams = new ArrayList<>();
-            Arrays.stream(descr.outputs.named)
-                    .forEach(nsDesc -> {
-                        TaskDescriptionLanguage.StreamType st = nsDesc.types[0];
+            opDef.outputs.named = TaskDefinitionLanguage.createDefinitions(task);
+            Arrays.stream(descr.outputs.named).forEach(nsDesc -> {
+                StreamType st = nsDesc.types[0];
 
-                        List<String> columns = null;
-                        if (nsDesc.columnBased) {
-                            columns = new ArrayList<>();
+                List<String> columns = null;
+                if (nsDesc.columnBased) {
+                    columns = new ArrayList<>();
 
-                            if ((nsDesc.generatedColumns != null) && (nsDesc.generatedColumns.length > 0)) {
-                                columns.addAll(Arrays.asList(nsDesc.generatedColumns));
-                            } else {
-                                columns.add("<* A list of columns from input(s) goes here *>");
-                            }
-                        }
+                    if ((nsDesc.generatedColumns != null) && (nsDesc.generatedColumns.length > 0)) {
+                        columns.addAll(Arrays.asList(nsDesc.generatedColumns));
+                    } else {
+                        columns.add("<* A list of columns from input(s) goes here *>");
+                    }
+                }
 
-                        createOutput(nsDesc.name, dsNum, st, columns, ops, streams, tees);
+                createOutput(nsDesc.name, dsNum, st, columns, task, output);
 
-                        TaskDefinitionLanguage.NamedStream ns = new TaskDefinitionLanguage.NamedStream();
-                        ns.name = nsDesc.name;
-                        ns.value = nsDesc.name;
-
-                        nstreams.add(ns);
-                    });
-            opDef.outputs.named = nstreams.toArray(new TaskDefinitionLanguage.NamedStream[0]);
+                opDef.outputs.named.put(nsDesc.name, nsDesc.name);
+            });
         }
 
-        TaskDefinitionLanguage.DataStream defDs = new TaskDefinitionLanguage.DataStream();
-        defDs.name = DEFAULT_DS;
+        TaskDefinitionLanguage.DataStream defDs = task.dataStreams.get(Constants.DEFAULT_DS);
         defDs.output = new TaskDefinitionLanguage.StreamDesc();
         defDs.output.path = "proto://full/path/to/output/directory";
-        streams.add(defDs);
 
-        TaskDefinitionLanguage.Task task = new TaskDefinitionLanguage.Task();
         task.prefix = prefix;
-        task.taskItems = ops.toArray(new TaskDefinitionLanguage.Operation[0]);
-        task.dataStreams = streams.toArray(new TaskDefinitionLanguage.DataStream[0]);
-        task.sink = sink.toArray(new String[0]);
-        task.tees = tees.toArray(new String[0]);
+        task.input = input;
+        task.output = output;
 
         return task;
     }
@@ -241,253 +205,218 @@ public class DocumentationGenerator {
         return pl.stream().collect(Collectors.toMap(l -> l.name, l -> l.descr));
     }
 
-    private static void createSourceOps(String name, AtomicInteger dsNum, TaskDescriptionLanguage.StreamType st, List<String> columns, List<TaskDefinitionLanguage.Operation> ops, List<TaskDefinitionLanguage.DataStream> streams, List<String> sink) {
+    private static void createSourceOps(String name, AtomicInteger dsNum, StreamType st, List<String> columns, TaskDefinitionLanguage.Task task, List<String> input) {
         switch (st) {
             case Plain:
             case CSV: {
-                TaskDefinitionLanguage.DataStream input = new TaskDefinitionLanguage.DataStream();
-                input.name = name;
+                TaskDefinitionLanguage.DataStream inp = new TaskDefinitionLanguage.DataStream();
                 if (columns != null) {
-                    input.input = new TaskDefinitionLanguage.StreamDesc();
-                    input.input.columns = columns.toArray(new String[0]);
-                    input.input.delimiter = ",";
-                    input.input.path = "proto://full/path/to/source_" + dsNum + "/*.csv";
-                    input.input.partCount = "100500";
+                    inp.input = new TaskDefinitionLanguage.StreamDesc();
+                    inp.input.columns = String.join(Constants.COMMA, columns);
+                    inp.input.delimiter = ",";
+                    inp.input.path = "proto://full/path/to/source_" + dsNum + "/*.csv";
+                    inp.input.partCount = "100500";
                 }
 
-                streams.add(input);
-                sink.add(name);
+                task.dataStreams.put(name, inp);
+                input.add(name);
 
                 break;
             }
             case Point: {
-                TaskDefinitionLanguage.Operation src = new TaskDefinitionLanguage.Operation();
+                TaskDefinitionLanguage.Operation src = TaskDefinitionLanguage.createOperation(task);
                 src.verb = PointCSVSourceOperation.VERB;
                 src.name = "source_" + dsNum.incrementAndGet();
-                src.inputs = new TaskDefinitionLanguage.OpStreams();
-                src.inputs.positionalNames = new String[]{"source_" + dsNum};
-                src.outputs = new TaskDefinitionLanguage.OpStreams();
-                src.outputs.positionalNames = new String[]{name};
-                src.definitions = new TaskDefinitionLanguage.Definition[3];
-                src.definitions[0] = new TaskDefinitionLanguage.Definition();
-                src.definitions[0].name = ConfigurationParameters.DS_CSV_RADIUS_COLUMN;
-                src.definitions[0].value = "source_" + dsNum + ".radius";
-                src.definitions[1] = new TaskDefinitionLanguage.Definition();
-                src.definitions[1].name = ConfigurationParameters.DS_CSV_LAT_COLUMN;
-                src.definitions[1].value = "source_" + dsNum + ".lat";
-                src.definitions[2] = new TaskDefinitionLanguage.Definition();
-                src.definitions[2].name = ConfigurationParameters.DS_CSV_LON_COLUMN;
-                src.definitions[2].value = "source_" + dsNum + ".lon";
+                src.inputs.positionalNames = "source_" + dsNum;
+                src.outputs.positionalNames = name;
+                src.definitions = TaskDefinitionLanguage.createDefinitions(task);
+                src.definitions.put(ConfigurationParameters.DS_CSV_RADIUS_COLUMN, "source_" + dsNum + ".radius");
+                src.definitions.put(ConfigurationParameters.DS_CSV_LAT_COLUMN, "source_" + dsNum + ".lat");
+                src.definitions.put(ConfigurationParameters.DS_CSV_LON_COLUMN, "source_" + dsNum + ".lon");
 
-                ops.add(src);
+                task.taskItems.add(src);
 
-                TaskDefinitionLanguage.DataStream input = new TaskDefinitionLanguage.DataStream();
-                input.name = "source_" + dsNum;
-                input.input = new TaskDefinitionLanguage.StreamDesc();
-                input.input.columns = new String[]{"lat", "lon", "radius"};
-                input.input.path = "proto://full/path/to/source_" + dsNum + "/*.csv";
-                input.input.partCount = "100500";
+                TaskDefinitionLanguage.DataStream inp = new TaskDefinitionLanguage.DataStream();
+                inp.input = new TaskDefinitionLanguage.StreamDesc();
+                inp.input.columns = "lat,lon,radius";
+                inp.input.path = "proto://full/path/to/source_" + dsNum + "/*.csv";
+                inp.input.partCount = "100500";
 
-                streams.add(input);
-                sink.add("source_" + dsNum);
+                task.dataStreams.put("source_" + dsNum, inp);
+                input.add("source_" + dsNum);
 
                 TaskDefinitionLanguage.DataStream output = new TaskDefinitionLanguage.DataStream();
-                output.name = name;
                 if (columns != null) {
                     output.input = new TaskDefinitionLanguage.StreamDesc();
-                    output.input.columns = columns.toArray(new String[0]);
+                    output.input.columns = String.join(Constants.COMMA, columns);
                     output.input.delimiter = ",";
                 }
 
-                streams.add(output);
+                task.dataStreams.put(name, output);
 
                 break;
             }
             case Track: {
-                TaskDefinitionLanguage.Operation src = new TaskDefinitionLanguage.Operation();
+                TaskDefinitionLanguage.Operation src = TaskDefinitionLanguage.createOperation(task);
                 src.verb = TrackGPXSourceOperation.VERB;
                 src.name = "source_" + dsNum.incrementAndGet();
-                src.inputs = new TaskDefinitionLanguage.OpStreams();
-                src.inputs.positionalNames = new String[]{"source_" + dsNum};
-                src.outputs = new TaskDefinitionLanguage.OpStreams();
-                src.outputs.positionalNames = new String[]{name};
+                src.inputs.positionalNames = "source_" + dsNum;
+                src.outputs.positionalNames = name;
 
-                ops.add(src);
+                task.taskItems.add(src);
 
-                TaskDefinitionLanguage.DataStream input = new TaskDefinitionLanguage.DataStream();
-                input.name = "source_" + dsNum;
-                input.input = new TaskDefinitionLanguage.StreamDesc();
-                input.input.path = "proto://full/path/to/source_" + dsNum + "/*.gpx";
-                input.input.partCount = "100500";
+                TaskDefinitionLanguage.DataStream inp = new TaskDefinitionLanguage.DataStream();
+                inp.input = new TaskDefinitionLanguage.StreamDesc();
+                inp.input.path = "proto://full/path/to/source_" + dsNum + "/*.gpx";
+                inp.input.partCount = "100500";
 
-                streams.add(input);
-                sink.add("source_" + dsNum);
+                task.dataStreams.put("source_" + dsNum, inp);
+                input.add("source_" + dsNum);
 
                 TaskDefinitionLanguage.DataStream output = new TaskDefinitionLanguage.DataStream();
-                output.name = name;
                 if (columns != null) {
                     output.input = new TaskDefinitionLanguage.StreamDesc();
-                    output.input.columns = columns.toArray(new String[0]);
+                    output.input.columns = String.join(Constants.COMMA, columns);
                     output.input.delimiter = ",";
                 }
 
-                streams.add(output);
+                task.dataStreams.put(name, output);
 
                 break;
             }
             case Polygon: {
-                TaskDefinitionLanguage.Operation src = new TaskDefinitionLanguage.Operation();
+                TaskDefinitionLanguage.Operation src = TaskDefinitionLanguage.createOperation(task);
                 src.verb = PolygonJSONSourceOperation.VERB;
                 src.name = "source_" + dsNum.incrementAndGet();
-                src.inputs = new TaskDefinitionLanguage.OpStreams();
-                src.inputs.positionalNames = new String[]{"source_" + dsNum};
-                src.outputs = new TaskDefinitionLanguage.OpStreams();
-                src.outputs.positionalNames = new String[]{name};
+                src.inputs.positionalNames = "source_" + dsNum;
+                src.outputs.positionalNames = name;
 
-                ops.add(src);
+                task.taskItems.add(src);
 
-                TaskDefinitionLanguage.DataStream input = new TaskDefinitionLanguage.DataStream();
-                input.name = "source_" + dsNum;
-                input.input = new TaskDefinitionLanguage.StreamDesc();
-                input.input.path = "proto://full/path/to/source_" + dsNum + "/*.json";
-                input.input.partCount = "100500";
+                TaskDefinitionLanguage.DataStream inp = new TaskDefinitionLanguage.DataStream();
+                inp.input = new TaskDefinitionLanguage.StreamDesc();
+                inp.input.path = "proto://full/path/to/source_" + dsNum + "/*.json";
+                inp.input.partCount = "100500";
 
-                streams.add(input);
-                sink.add("source_" + dsNum);
+                task.dataStreams.put("source_" + dsNum, inp);
+                input.add("source_" + dsNum);
 
                 TaskDefinitionLanguage.DataStream output = new TaskDefinitionLanguage.DataStream();
-                output.name = name;
                 if (columns != null) {
                     output.input = new TaskDefinitionLanguage.StreamDesc();
-                    output.input.columns = columns.toArray(new String[0]);
+                    output.input.columns = String.join(Constants.COMMA, columns);
                     output.input.delimiter = ",";
                 }
 
-                streams.add(output);
+                task.dataStreams.put(name, output);
 
                 break;
             }
             case KeyValue: {
                 TaskDefinitionLanguage.DataStream inter = new TaskDefinitionLanguage.DataStream();
-                inter.name = name + "_0";
                 inter.input = new TaskDefinitionLanguage.StreamDesc();
-                inter.input.columns = new String[]{"key", "_"};
+                inter.input.columns = "key,_";
                 inter.input.delimiter = ",";
                 inter.input.path = "proto://full/path/to/source_" + dsNum + "/*.csv";
                 inter.input.partCount = "100500";
 
-                streams.add(inter);
-                sink.add(name + "_0");
+                task.dataStreams.put(name + "_0", inter);
+                input.add(name + "_0");
 
-                TaskDefinitionLanguage.Operation toPair = new TaskDefinitionLanguage.Operation();
+                TaskDefinitionLanguage.Operation toPair = TaskDefinitionLanguage.createOperation(task);
                 toPair.verb = MapToPairOperation.VERB;
                 toPair.name = "source_" + dsNum.incrementAndGet();
-                toPair.inputs = new TaskDefinitionLanguage.OpStreams();
-                toPair.inputs.positionalNames = new String[]{name + "_0"};
-                toPair.outputs = new TaskDefinitionLanguage.OpStreams();
-                toPair.outputs.positionalNames = new String[]{name};
-                toPair.definitions = new TaskDefinitionLanguage.Definition[1];
-                toPair.definitions[0] = new TaskDefinitionLanguage.Definition();
-                toPair.definitions[0].name = MapToPairOperation.OP_KEY_COLUMNS;
-                toPair.definitions[0].value = name + "_0.key";
+                toPair.inputs.positionalNames = name + "_0";
+                toPair.outputs.positionalNames = name;
+                toPair.definitions = TaskDefinitionLanguage.createDefinitions(task);
+                toPair.definitions.put(MapToPairOperation.OP_KEY_COLUMNS, name + "_0.key");
 
-                ops.add(toPair);
+                task.taskItems.add(toPair);
 
                 TaskDefinitionLanguage.DataStream output = new TaskDefinitionLanguage.DataStream();
-                output.name = name;
                 if (columns != null) {
                     output.input = new TaskDefinitionLanguage.StreamDesc();
-                    output.input.columns = columns.toArray(new String[0]);
+                    output.input.columns = String.join(Constants.COMMA, columns);
                     output.input.delimiter = ",";
                 }
 
-                streams.add(output);
+                task.dataStreams.put(name, output);
 
                 break;
             }
         }
     }
 
-    private static void createOutput(String name, AtomicInteger dsNum, TaskDescriptionLanguage.StreamType st, List<String> columns, List<TaskDefinitionLanguage.Operation> ops, List<TaskDefinitionLanguage.DataStream> streams, List<String> tees) {
+    private static void createOutput(String name, AtomicInteger dsNum, StreamType st, List<String> columns, TaskDefinitionLanguage.Task task, List<String> outputs) {
         switch (st) {
             case Point: {
-                TaskDefinitionLanguage.Operation out = new TaskDefinitionLanguage.Operation();
+                TaskDefinitionLanguage.Operation out = TaskDefinitionLanguage.createOperation(task);
                 out.verb = PointCSVOutputOperation.VERB;
                 out.name = "output_" + dsNum.incrementAndGet();
-                out.inputs = new TaskDefinitionLanguage.OpStreams();
-                out.inputs.positionalNames = new String[]{name};
-                out.outputs = new TaskDefinitionLanguage.OpStreams();
-                out.outputs.positionalNames = new String[]{name + "_output"};
+                out.inputs.positionalNames = name;
+                out.outputs.positionalNames = name + "_output";
 
-                ops.add(out);
+                task.taskItems.add(out);
 
                 TaskDefinitionLanguage.DataStream output = new TaskDefinitionLanguage.DataStream();
-                output.name = name + "_output";
                 if (columns != null) {
                     output.output = new TaskDefinitionLanguage.StreamDesc();
-                    output.output.columns = columns.toArray(new String[0]);
+                    output.output.columns = String.join(Constants.COMMA, columns);
                     output.output.delimiter = ",";
                 }
 
-                streams.add(output);
-                tees.add(name + "_output");
+                task.dataStreams.put(name + "_output", output);
+                outputs.add(name + "_output");
                 break;
             }
             case Track: {
-                TaskDefinitionLanguage.Operation out = new TaskDefinitionLanguage.Operation();
+                TaskDefinitionLanguage.Operation out = TaskDefinitionLanguage.createOperation(task);
                 out.verb = TrackGPXOutputOperation.VERB;
                 out.name = "output_" + dsNum.incrementAndGet();
-                out.inputs = new TaskDefinitionLanguage.OpStreams();
-                out.inputs.positionalNames = new String[]{name};
-                out.outputs = new TaskDefinitionLanguage.OpStreams();
-                out.outputs.positionalNames = new String[]{name + "_output"};
+                out.inputs.positionalNames = name;
+                out.outputs.positionalNames = name + "_output";
 
-                ops.add(out);
+                task.taskItems.add(out);
 
                 TaskDefinitionLanguage.DataStream output = new TaskDefinitionLanguage.DataStream();
-                output.name = name + "_output";
                 output.output = new TaskDefinitionLanguage.StreamDesc();
-                output.output.columns = new String[]{name + ".lat", name + ".lon", name + ".radius",};
+                output.output.columns = name + ".lat," + name + ".lon," + name + ".radius";
                 output.output.delimiter = ",";
 
-                streams.add(output);
-                tees.add(name + "_output");
+                task.dataStreams.put(name + "_output", output);
+                outputs.add(name + "_output");
                 break;
             }
             case Polygon: {
-                TaskDefinitionLanguage.Operation out = new TaskDefinitionLanguage.Operation();
+                TaskDefinitionLanguage.Operation out = TaskDefinitionLanguage.createOperation(task);
                 out.verb = PolygonJSONOutputOperation.VERB;
                 out.name = "output_" + dsNum.incrementAndGet();
-                out.inputs = new TaskDefinitionLanguage.OpStreams();
-                out.inputs.positionalNames = new String[]{name};
-                out.outputs = new TaskDefinitionLanguage.OpStreams();
-                out.outputs.positionalNames = new String[]{name + "_output"};
+                out.inputs.positionalNames = name;
+                out.outputs.positionalNames = name + "_output";
 
-                ops.add(out);
+                task.taskItems.add(out);
 
                 TaskDefinitionLanguage.DataStream output = new TaskDefinitionLanguage.DataStream();
-                output.name = name + "_output";
                 if (columns != null) {
                     output.output = new TaskDefinitionLanguage.StreamDesc();
-                    output.output.columns = columns.toArray(new String[0]);
+                    output.output.columns = String.join(Constants.COMMA, columns);
                     output.output.delimiter = ",";
                 }
 
-                streams.add(output);
-                tees.add(name + "_output");
+                task.dataStreams.put(name + "_output", output);
+                outputs.add(name + "_output");
                 break;
             }
             default: {
                 TaskDefinitionLanguage.DataStream output = new TaskDefinitionLanguage.DataStream();
-                output.name = name;
                 if (columns != null) {
                     output.output = new TaskDefinitionLanguage.StreamDesc();
-                    output.output.columns = columns.toArray(new String[0]);
+                    output.output.columns = String.join(Constants.COMMA, columns);
                     output.output.delimiter = ",";
                 }
 
-                streams.add(output);
-                tees.add(name);
+                task.dataStreams.put(name, output);
+                outputs.add(name);
                 break;
             }
         }
@@ -509,28 +438,12 @@ public class DocumentationGenerator {
         TaskDocumentationLanguage.Package pkg = new TaskDocumentationLanguage.Package(pkgName, descr);
 
         List<TaskDocumentationLanguage.Pair> ops = pkg.ops;
-        List<TaskDocumentationLanguage.Pair> ins = pkg.ins;
-        List<TaskDocumentationLanguage.Pair> outs = pkg.outs;
 
         for (Map.Entry<String, OpInfo> oi : Operations.getAvailableOperations(pkgName).entrySet()) {
-            Method verb = oi.getValue().getClass().getDeclaredMethod("verb");
+            Method verb = oi.getValue().opClass.getDeclaredMethod("verb");
             Description d = verb.getDeclaredAnnotation(Description.class);
 
             ops.add(new TaskDocumentationLanguage.Pair(oi.getKey(), d.value()));
-        }
-
-        for (Map.Entry<String, StorageAdapter> ai : Adapters.getAvailableInputAdapters(pkgName).entrySet()) {
-            Method proto = ai.getValue().getClass().getMethod("proto");
-            Description d = proto.getDeclaredAnnotation(Description.class);
-
-            ins.add(new TaskDocumentationLanguage.Pair(ai.getKey(), d.value()));
-        }
-
-        for (Map.Entry<String, StorageAdapter> ai : Adapters.getAvailableOutputAdapters(pkgName).entrySet()) {
-            Method proto = ai.getValue().getClass().getMethod("proto");
-            Description d = proto.getDeclaredAnnotation(Description.class);
-
-            outs.add(new TaskDocumentationLanguage.Pair(ai.getKey(), d.value()));
         }
 
         return pkg;
@@ -553,9 +466,9 @@ public class DocumentationGenerator {
     public static TaskDocumentationLanguage.Operation operationDoc(OpInfo opInfo) throws Exception {
         TaskDocumentationLanguage.Operation opDoc = new TaskDocumentationLanguage.Operation();
 
-        opDoc.verb = opInfo.verb();
+        opDoc.verb = opInfo.verb;
 
-        Class<? extends OpInfo> operationClass = opInfo.getClass();
+        Class<? extends Operation> operationClass = opInfo.opClass;
 
         Method verb = operationClass.getDeclaredMethod("verb");
         Description d = verb.getDeclaredAnnotation(Description.class);
@@ -565,13 +478,13 @@ public class DocumentationGenerator {
 
         Descriptions ds = Descriptions.inspectOperation(operationClass);
 
-        TaskDescriptionLanguage.Operation descr = opInfo.description();
+        TaskDescriptionLanguage.Operation descr = opInfo.description;
 
         List<TaskDocumentationLanguage.Parameter> mandatoryParameters = opDoc.mandatoryParameters;
         List<TaskDocumentationLanguage.Parameter> optionalParameters = opDoc.optionalParameters;
         List<TaskDocumentationLanguage.Parameter> dynamicParameters = opDoc.dynamicParameters;
         if (descr.definitions != null) {
-            for (TaskDescriptionLanguage.DefBase db : descr.definitions) {
+            for (TaskDescriptionLanguage.DefBase db : descr.definitions.values()) {
                 TaskDocumentationLanguage.Parameter param;
 
                 Field f;
@@ -605,10 +518,10 @@ public class DocumentationGenerator {
                 } else {
                     TaskDescriptionLanguage.DynamicDef dyn = (TaskDescriptionLanguage.DynamicDef) db;
 
-                    f = ds.fields.get(ds.definitions.get(dyn.prefix));
+                    f = ds.fields.get(ds.definitions.get(dyn.name));
                     d = f.getDeclaredAnnotation(Description.class);
 
-                    param = new TaskDocumentationLanguage.Parameter(dyn.prefix, d.value());
+                    param = new TaskDocumentationLanguage.Parameter(dyn.name, d.value());
 
                     param.type = dyn.clazz.getSimpleName();
                     if (dyn.clazz.isEnum()) {
@@ -625,7 +538,7 @@ public class DocumentationGenerator {
             TaskDocumentationLanguage.Input input = new TaskDocumentationLanguage.Input(null, null);
 
             input.type = Arrays.stream(descr.inputs.positional.types)
-                    .map(TaskDescriptionLanguage.StreamType::name)
+                    .map(StreamType::name)
                     .collect(Collectors.toList());
             input.columnar = descr.inputs.positional.columnBased;
 
@@ -640,7 +553,7 @@ public class DocumentationGenerator {
                         TaskDocumentationLanguage.Input input = new TaskDocumentationLanguage.Input(ns.name, de.value());
 
                         input.type = Arrays.stream(ns.types)
-                                .map(TaskDescriptionLanguage.StreamType::name)
+                                .map(StreamType::name)
                                 .collect(Collectors.toList());
                         input.columnar = ns.columnBased;
 
@@ -653,7 +566,7 @@ public class DocumentationGenerator {
             TaskDocumentationLanguage.Output output = new TaskDocumentationLanguage.Output(null, null);
 
             output.type = Arrays.stream(descr.outputs.positional.types)
-                    .map(TaskDescriptionLanguage.StreamType::name)
+                    .map(StreamType::name)
                     .collect(Collectors.toList());
             output.columnar = descr.outputs.positional.columnBased;
 
@@ -678,7 +591,7 @@ public class DocumentationGenerator {
                         TaskDocumentationLanguage.Output output = new TaskDocumentationLanguage.Output(ns.name, de.value());
 
                         output.type = Arrays.stream(ns.types)
-                                .map(TaskDescriptionLanguage.StreamType::name)
+                                .map(StreamType::name)
                                 .collect(Collectors.toList());
                         output.columnar = ns.columnBased;
 
@@ -700,33 +613,6 @@ public class DocumentationGenerator {
         return opDoc;
     }
 
-    public static void adapterDoc(StorageAdapter adapter, FileWriter writer) throws Exception {
-        TaskDocumentationLanguage.Adapter adapterDoc = adapterDoc(adapter);
-
-        VelocityContext vc = new VelocityContext();
-        vc.put("adapter", adapterDoc);
-
-        Template operation = Velocity.getTemplate("adapter.vm", UTF_8.name());
-        operation.merge(vc, writer);
-    }
-
-    public static TaskDocumentationLanguage.Adapter adapterDoc(StorageAdapter adapter) throws Exception {
-        Class<? extends StorageAdapter> adapterClass = adapter.getClass();
-
-        Method proto = adapterClass.getMethod("proto");
-        Description d = proto.getDeclaredAnnotation(Description.class);
-
-        String kind = (adapter instanceof HadoopAdapter) ? "Fallback" : "Normal";
-
-        TaskDocumentationLanguage.Adapter adapterDoc = new TaskDocumentationLanguage.Adapter(kind, adapterClass.getSimpleName(), d.value());
-
-        adapterDoc.proto = adapter.proto().toString();
-
-        adapterDoc.pkg = adapterClass.getPackage().getName();
-
-        return adapterDoc;
-    }
-
     private static List<TaskDocumentationLanguage.Pair> getEnumDocs(Class<? extends Enum<?>> clazz) throws Exception {
         List<TaskDocumentationLanguage.Pair> enDescr = new ArrayList<>();
 
@@ -738,88 +624,4 @@ public class DocumentationGenerator {
         return enDescr;
     }
 
-    public static void writeDoc(TaskDefinitionLanguage.Task exampleTask, Writer writer) throws IOException {
-        Properties props = PropertiesConverter.toProperties(exampleTask, true);
-
-        DocumentationGenerator.DocComparator cmp = new DocumentationGenerator.DocComparator();
-
-        Map sm = props.keySet().stream()
-                .sorted(cmp)
-                .collect(Collectors.toMap(k -> k, props::get, (o, n) -> n, LinkedHashMap::new));
-
-        String kk = null;
-
-        for (Object e : sm.entrySet()) {
-            String k = ((Map.Entry<String, Object>) e).getKey();
-
-            if (kk != null) {
-                int difference = cmp.compare(k, kk);
-                if (difference > 1) {
-                    writer.write("\n");
-                }
-                if (difference > 2) {
-                    writer.write("\n");
-                }
-            }
-            writer.write(k + "=" + ((Map.Entry<String, Object>) e).getValue() + "\n");
-            kk = k;
-        }
-    }
-
-    public static class DocComparator implements Comparator<Object> {
-        private static Map<String, Integer> PRIORITIES = new HashMap() {
-            private int p = 0;
-
-            {
-                put(DISTCP_PREFIX);
-                put(INPUT_PREFIX);
-                put(TASK_INPUT_SINK);
-                put(TASK_OPERATIONS);
-                put("ds.input.");
-                put(OP_OPERATION_PREFIX);
-                put(OP_INPUTS_PREFIX);
-                put0(OP_INPUT_PREFIX);
-                put(OP_DEFINITION_PREFIX);
-                put(OP_OUTPUT_PREFIX);
-                put0(OP_OUTPUTS_PREFIX);
-                put("ds.output.");
-                put(OUTPUT_PREFIX);
-                put(TASK_TEE_OUTPUT);
-            }
-
-            private void put(String prefix) {
-                put(prefix, ++p);
-            }
-            private void put0(String prefix) {
-                put(prefix, p);
-            }
-
-            public Integer get(Object k) {
-                for (Object e : entrySet()) {
-                    if (((String) k).startsWith(((Map.Entry<String, Integer>) e).getKey())) {
-                        return ((Map.Entry<String, Integer>) e).getValue();
-                    }
-                }
-
-                return 0;
-            }
-        };
-
-        @Override
-        public int compare(Object o1, Object o2) {
-            int d = PRIORITIES.get(o1) - PRIORITIES.get(o2);
-            if (d > 0) {
-                return 2;
-            }
-            if (d < 0) {
-                return -2;
-            }
-
-            d = ((String)o1).compareTo((String)o2);
-            if (d > 0) {
-                return 1;
-            }
-            return -1;
-        }
-    }
 }
