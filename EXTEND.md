@@ -56,10 +56,10 @@ There is a plenty of examples to learn by, just look into the source code for Op
 * [WeightedSumOperation](./Math/src/main/java/ash/nazg/math/operations/WeightedSumOperation.java) generates a lot of columns that either come from input DataStreams or are created anew,
 * and the package [Proximity](./Proximity/src/main/java/ash/nazg/proximity/operations/package-info.java) contains Operations that deal with Point and Polygon RDDs in their DataStreams.
 
-### Extend Storage Adapters
+### Extend Dist Storage Adapters
 
-To extend One Ring with a custom Storage Adapter, you have to implement a pair of [InputAdapter](./Commons/src/main/java/ash/nazg/storage/InputAdapter.java) and [OutputAdapter](./Commons/src/main/java/ash/nazg/storage/OutputAdapter.java) interfaces. They're fairly straightforward, just see existing Adapter [sources](./Dist/src/main/java/ash/nazg/storage) for the reference.
+To extend One Ring Dist with a custom Storage Adapter, you have to implement a pair of [InputAdapter](./Dist/src/main/java/ash/nazg/storage/InputAdapter.java) and [OutputAdapter](./Dist/src/main/java/ash/nazg/storage/OutputAdapter.java) interfaces. They're fairly straightforward mini-Operations, just see existing Adapter [sources](./Dist/src/main/java/ash/nazg/storage) for the reference.
 
-A single restriction exists: you can't set your Adapter as a fallback one, as that is reserved to One Ring Hadoop Adapter.
+A single restriction exists: you can't set your Adapter as a fallback one (by handling 'any' protocol), as that role is reserved to One Ring Hadoop Adapter.
 
 Hopefully this information is enough to extend One Ring.

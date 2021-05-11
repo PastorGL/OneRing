@@ -1,6 +1,6 @@
 ### TDL3 Primer
 
-There is a domain specific language named TDL3 that stands for One Ring Task Definition Language. (There also are DSLs named TDL1 and TDL2, but they're discussed in other topics.)
+There is a domain specific language named TDL3 that stands for One Ring Task Definition Language. (There also are other numbered TDLs, but they're discussed in other topics.)
 
 For the language's object model, see [TaskDefinitionLanguage.java](./Commons/src/main/java/ash/nazg/config/tdl/TaskDefinitionLanguage.java). Note that the main form intended for human use isn't JSON but a simple non-sectioned .ini (or Java's .properties) file. We refer to this file as `tasks.ini`, or just a config.
 
@@ -150,38 +150,44 @@ A recommended practice is to write keys in paragraphs grouped for each Operation
 
 ### Namespace Layers
 
-As you could see, each key begins with a prefix `spark.meta.`. One Ring can (and first tries to) read its configuration directly from Spark context, not only a config file, and each Spark property must start with a `spark.` prefix. We add another prefix `meta.` (by convention; this can be any unique token of your choice) to distinguish our own properties from Spark's. Also, a single tasks.ini may contain a number of Processes if properly prefixed, just start their keys with `spark.process1_name.`, `spark.another_process.` and so on.
+As you could see, each key begins with a prefix `spark.meta.`. One Ring can read its configuration directly from Spark context (not only a config file accessible via Hadoop FileSystems), and each Spark property must start with a `spark.` prefix. We add another prefix `meta.` (by convention; this can be any unique token of your choice) to distinguish our own properties from Spark's. Also, a single tasks.ini may contain a number of Processes if properly prefixed, just start their keys with `spark.process1_name.`, `spark.another_process.` and so on.
 
-If you're running One Ring in local mode, you can supply properties via `tasks.ini` file, and omit all prefixes. Let assume that we've stripped all Spark's prefixes in mind and now look directly into namespaces of keys.
+If you're running One Ring in Local mode, you can supply properties via `tasks.ini` file, and omit all prefixes. Let assume that we've stripped all Spark's prefixes in mind and now look directly into namespaces of keys.
 
-The config is layered into several namespaces, and all parameter names must be unique in the corresponding namespace. These layers are distinguished, again, by prefixes.
+The config is layered into several namespaces, and all parameter names must be unique in their corresponding namespace. These layers are distinguished, again, by prefixes.
+
+There are 'native' layers that map directly into TDL3 internal object model, and 'foreign' ones that work more like a key-value maps under layer's namespace.
 
 ### Foreign Layers
 
-First namespace layer is One Ring Dist's `dist.` which instructs that utility to copy source files to the cluster and resulting files back:
+First 'foreign' (well-known by, but not native to One Ring CLI) namespace layer is One Ring Dist's `dist.` which instructs that utility to copy source files to the cluster's input location, and resulting files back from cluster's output location:
 ```properties
 dist.wrap={WRAP:both}
 ```
 
 It is [documented in its own doc](DIST.md). CLI itself ignores all 'foreign' layers.
 
-`metrics.` layer is discussed in [its own doc](MONITOR.md).
+`metrics.` layer is also discussed in [its own doc](MONITOR.md).
 
 ### Variables
 
-If a key or a value contains a token of the form `{ALL_CAPS}`, it'll be treated by the CLI as a configuration Variable, and will be replaced by the value supplied via command line or variables file (this topic is discussed in depth in the [Process execution how-to](EXECUTE.md)).
+If a key, or a value contains a token of the form `{ALL_CAPS}`, it'll be treated by the CLI as a configuration Variable, and will be replaced by the value supplied via command line or variables file (this topic is discussed in depth in the [Process execution how-to](EXECUTE.md)).
 
-If the Variable's value wasn't supplied, no replacement will be made, unless the variable doesn't include a default value for itself in the form of `{ALL_CAPS:any default value}`. Default values may not contain the '}' symbol.
+If the Variable's value wasn't supplied, no replacement will be made, unless the variable doesn't include a default value for itself in the form of `{ALL_CAPS:any default value}`. Default values may not contain the '{' and '}' symbols.
 
-So there if we didn't supply the variable `WRAP`, its value will default to 'both'. 
+Considering previously mentioned
+```properties
+dist.wrap={WRAP:both}
+```
+so there if we didn't supply the variable `WRAP`, its value will default to 'both'. 
 
 There are a few other restrictions to default values. First, each Variable occurrence has a different default and does not carry one over entire config, so you should set them each time you use that Variable. Second, if a Variable after a replacement forms a reference to another Variable, it will not be processed recursively.
 
-It is notable that Variables may be encountered at any side of `=` in the `tasks.ini` lines, and there is no limit of them for a single line and/or config file.
+It is notable that Variables may be encountered only on the right side of `=` in the `tasks.ini` lines (with one exception for DataStream names, discussed later on), but there is no limit of them for a single line and/or config file.
 
 ### CLI Task of the Process
 
-Next layer is `task.`, and it contains properties that configure the CLI itself for the current Process' as a Spark job, or a CLI Task. 
+Next layer is `task.`, and it contains properties that configure the CLI itself for the current Process' as a Spark job, or a CLI Task. All properties are required and can't be omitted.
 
 ```properties
 task.input=signals,NI
@@ -193,28 +199,30 @@ task.operations=range_filter,h3,timezone,aqua2,create_tracks,track_centroid_filt
 task.output=clean_pedestrian/*,auto/*
 ```
 
-`task.input` (required) is an input 'sink' that pours the data sets into Process. Any DataStream referred here is considered as one sourced from the outside storage, and will be created by Storage Adapters of CLI (discussed later) for any Operation to consume.
+`task.input` is a comma-separated list of input data sets for the Process. Any DataStream referred here is considered as one sourced from the outside storage, and will be read by CLI from input location, creating an RDD for any Operation to consume.
 
-`task.operations` (required too) is a comma-separated list of Operation names, to be executed in the specified order. Any number of them, but not less than one. Operation names must be unique.
+`task.operations` is a list of Operation names, to be executed in the specified order, optionally with flow control directives. Any number of them is allowed, but no less than one Operation. Operation names must be unique.
 
-`task.output` (also required) is a T-connector. Any DataStream referred here can be consumed by Operations as usual, but also will be diverted by Storage Adapters of CLI into the outside storage as well. T-connector can handle prefixed wildcards, by specifying a prefix and an asterisk `*`.
+`task.output` is a task Process output. Any DataStream referred here can be consumed by Operations as usual, but also will be saved by CLI to the output location as well. Unlike most others, this list can contain prefixed wildcards, by specifying a prefix and an asterisk `*`.
 
 ### Flow Control Directives
 
-`task.operations` could contain flow control directives, to execute any Operation in loops and by very basic conditions. Note again, we don't want to go fully Turing complete, so those directives are just for convenience.
+`task.operations` could contain flow control directives, to execute any Operation in loops, and to branch the flow by evaluating very basic conditions. Note again, we don't want to go fully Turing complete, so those directives are just for convenience.
 
 Loops are defined by `$ITER{VARIABLE:list,of,values},operation1,...,operationN,$END`.
 
-The control Variable of a loop is parsed as a comma-separated list, and operations inside the loop will be executed as many times as the list's length, in the listed order. Inside the loop, each iteration will have that variable set to current iteration's value. Of course, loop variable might be specified via the command line.
+The control Variable of a loop is parsed as a comma-separated list, and operations inside the loop will be executed as many times as the list's length, in the listed order. In the loop, each iteration will have its control variable set to current iteration's value. Of course, loop variable might be specified via the command line.
 
 If it wasn't, and has no default list, the operations in the loop won't be executed, so the `$ITER` loop has an optional `$ELSE` directive for that case:
 ```properties
 task.operations=$ITER{UNSET},never,executed,$ELSE,execute,instead,$END
 ```
 
+Also, for a convenience, inside the loop an automatic Variable `{ITER}` will have a random unique value for each iteration.
+
 As there is `$ELSE`, there also should exist `$IF`, and it does. Syntax is `$IF{VARIABLE:default},operation1,...,operationN,$ELSE,operationInstead,$END`. Of course, `$ELSE` is optional, and will execute only if control Variable is unset and doesn't have a default.
 
-Both loops and conditionals can be nested, but all of nested directives must controlled by different variables.
+Both loops and conditionals can be nested, but all of nested directives must be controlled by different variables.
 
 Speaking of control Variables, they may come also from the output of the Operations themselves, not only from the command line or defaults. For that purpose, there is a directive of `$LET{VARIABLE:DS_name}`. It takes a DataStream with the specified name and tries to coalesce its values into a comma-separated list. If the DataStream doesn't exist or is empty, the Variable will be effectively unset.
 
@@ -315,7 +323,7 @@ op.outputs.output2c=auto/{COUNTRY}
 op.output.match_NI.matched={TYPE}/NI
 ```
 
-A wildcard DataStream reference is defined like:
+Some Operations allow wildcard DataStreams. A wildcard DataStream reference is defined like:
 ```properties
 op.inputs.union=prefix*
 ```
@@ -326,7 +334,7 @@ It'll match all DataStreams with said prefix available at the point of execution
 
 Next sub-layer is for Operation Parameter Definitions, `op.definition.`. Parameters' names take the rest of `op.definition.` keys. The first prefix of Parameter name is the name of the Operation instance it belongs to.
 
-Each Parameter Definition is supplied to CLI by the Operation itself via TDL2 interface (Task Description Language, [discussed here](EXTEND.md)), and they are strongly typed. So they can have a value of any Java `Number`'s descendant, `String`, `enum`s, `String[]` (as a comma-separated list), and `Boolean` types.
+Each Parameter Definition is supplied to CLI by the Operation itself via TDL2 interface (Task Description Language, [discussed here](EXTEND.md)), and they are strongly typed. So they can have a value of any Java `Number`'s descendants, `String`, `Enum`, `String[]` (string array — as a comma-separated list), and `Boolean` types.
 
 Some Parameters may be defined as optional, and in that case they always have a default value set by the Operation itself (see Operation docs for them).
 
@@ -369,11 +377,11 @@ For the exhaustive table of each Operation Parameters, look for the docs inside 
 
 Next layer is the `ds.` configuration namespace of DataStreams, and its rules are quite different.
 
-First off, DataStreams are always typed, albeit with some degree of freedom. There are types of:
-* Text-based:
+First off, DataStreams are always parseable text-based, albeit with some degree of freedom. There are types of:
+* Columnar:
   * `Plain` RDD is generated by CLI as opaque Hadoop `Text` for each source line, to be handled by Operation.
   * `CSV` (column-based, escaped, and delimited text) with loosely defined schema, but strongly referenced columns;
-    * `Fixed` same `CSV`, but the order of columns and their format are considered fixed.
+    * `Fixed` same `CSV`, but the order of columns, and their format are considered fixed.
 * `KeyValue` PairRDD with opaque strings for keys, and column-based values like `CSV`.
 * Spatial (object-based; remember that One Ring was developed with primarily geoinformational processing in mind):
   * `Point` contains geodesic coordinates with arbitrary set of metadata but mandatory fields of latitude, longitude, and time stamp;
@@ -383,24 +391,7 @@ First off, DataStreams are always typed, albeit with some degree of freedom. The
 
 Each DataStream can be configured as an input for a number of Operations, and generated as an output by only one of them. Exact number and types of DataStream that an Operation handles and generates are defined by that Operation.
 
-DataStream name is always the last part of any `ds.` key. The set of DataStream Parameters is fixed.
-
-`ds.input.path.` keys must point to some abstract paths for all DataStreams listed under the `task.input` key. The format of the path must always include the protocol specification, and is validated by a Storage Adapter of the CLI (Adapters are discussed in the last section of this document).
-
-In most cases paths are passed via Variables. For example,
-```properties
-ds.input.path.signals={PATH_SIGNALS}/{DAILY_PREFIX}/*
-ds.input.path.NI={PATH_NI}
-```
-
-Input paths are handled by Adapters. For filesystem-based ones, paths can contain any valid glob expressions (with `?`, `*` wildcards, and `{}` lists). These glob tokens with curly braces that don't match Variables will be expanded to lists as expected, and may be nested, too.
-
-Same true for `ds.output.path.` keys, that must be specified for all DataStreams listed under the `task.output` key. But you may cheat here. There are all-input and all-output default keys:
-```properties
-ds.output.path={PATH_OUTPUT}/{DAILY_PREFIX}
-```
-
-In that case, for each DataStream that doesn't have its own path, its name will be added to the end of corresponding this key's value without a separator. We don't recommend usage of default keys in the production environment except wildcard outputs.
+DataStream name is always the last part of any `ds.` key.
 
 `ds.input.columns.` and `ds.output.columns.` layers define columns for column-based DataStreams or metadata properties for object-based ones. Column names must be unique for that particular DataStream.
 
@@ -408,14 +399,10 @@ Output columns must always refer to valid columns of inputs passed to the Operat
 
 Input columns list just assigns new column names for all consuming Operations. It may also contain a single underscore `_` instead of some column name to make that column anonymous. Anyways, if a column is 'anonymous', it still may be referenced by its sequential number starting from `_1_`.
 
-For inputs coming from Adapters (or, `task.input`-ed) there could be set a loose schema by `input.schema.` layer, analogous to input columns, for the cases when source files do not contain a built-in schema (i.e. CSV files). However, we're not interested in the data types of each source field, the only things that matter are field names and order.
-
 One Ring Dist reorders columns according to that schema and `ds.input.columns.` in the process of copying data set to the cluster, and can skip the fields that do not matter. It is ignored by CLI itself. Also, One Ring Dist can deal with Parquet source files, what CLI itself couldn't. For these files schema is built-in, and column names in `input.schema.` must adhere to that schema.
 
 There is an example:
 ```properties
-input.schema.signals={SCHEMA_SIGNALS:userid,_,timestamp,lat,lon,_,accuracy,_,_,_,_,_,final_country,_,_,_,_,_,_,_,_,_,_,_}
-
 ds.input.columns.signals=userid,lat,lon,final_country,timestamp,accuracy
 
 ds.input.columns.NI=gid,name
@@ -438,36 +425,33 @@ ds.input.columns.{TYPE}/GB=userid,lat,lon,velocity,timestamp,date,year,month,dow
 ds.output.columns.{TYPE}/NI={TYPE}/GB.userid,{TYPE}/GB.lat,{TYPE}/GB.lon,{TYPE}/GB.velocity,{TYPE}/GB.timestamp,{TYPE}/GB.date,{TYPE}/GB.year,{TYPE}/GB.month,{TYPE}/GB.dow,{TYPE}/GB.day,{TYPE}/GB.hour,{TYPE}/GB.minute,{TYPE}/GB.gid
 ```
 
+As you may note, DataStream names can be Variable, and this is the only exception from the general property naming rule. For all other configuration layers, use of Variables on the left side of a property definition is disallowed.
+
 In `CSV` varieties of DataStreams, columns are separated by a separator character, so there are `ds.input.separator.` and `ds.output.separator.` layers, along with default keys `ds.input.separator` and `ds.output.separator` that set them globally. The 'super global' default value of column separator is the tabulation (TAB, 0x09) character, if none are specified in the entire config.
 
-The final `ds.` layers control the partitioning of DataStream underlying RDDs, namely, `ds.input.part_count.` and `ds.output.part_count.`. These are quite important because the only super global default value for the part count is always 1 (one) part, and no defaults are allowed. You must always set them for at least initial input DataStreams from `task.input` list, and may tune the partitioning in the middle of the Process according to the further flow of the Task.
+The final `ds.` layers control the partitioning of DataStream underlying RDDs, namely, `ds.input.part_count.` and `ds.output.part_count.`. These are quite important because the only super global default value for the part count is always 1 (one) part, and no explicit defaults are allowed. You must always set them for at least initial input DataStreams from `task.input` list, and may tune the partitioning in the middle of the Process according to the further flow of the Task.
 
 If both `part_count.`s are specifies for some intermediate DataStream, it will be repartitioned first to the output one (immediately after the Operation that generated it), and then to input one (before feeding it to the first consuming Operation). Please keep that in mind.
 
-### Storage Adapters
+### Input and Output Storage Locations
 
-Input DataStreams of an entire Process come from the outside world, and output DataStreams are stored somewhere outside. CLI does this job via its Storage Adapters. 
+Input DataStreams of an entire Process come from the outside world, and output DataStreams are stored somewhere outside. CLI does this job via notion of input and output location and with a help of Dist (as discussed in [its own doc](DIST.md)).
 
-There are following Storage Adapters currently implemented:
-* Hadoop (fallback, uses all protocols available in your Spark environment, i.e. `file:`, `hdfs:`, `s3:` and so on),
-* S3 Direct (any S3-compatible storage with a protocol of `s3d:`),
-* JDBC (`jdbc:`).
+`ds.input.path` is a Hadoop FileSystem path where all source files for DataStreams referenced in `task.input` list reside by default, and `ds.output.path` is a path where to place the resulting `task.output`. For example, all-output default key, set via Variables:
+```properties
+ds.output.path={PATH_OUTPUT}/{DAILY_PREFIX}
+```
 
-The fallback Hadoop Adapter is called if and only if another Adapter doesn't recognize the protocol of the path.
+These properties have some meaningful defaults, if left unset. For Local execution mode they both are automatically set to `.` (current directory), and for on-cluster execution they are defined as `hdfs:///input` and `hdfs:///output`.
 
-Storage Adapters share two namesake layers of `input.` and `output.`, and all their Parameters are global.
+These properties can be overridden per each DataStream. For input ones, overrides are set in the layer `ds.input.path.`. In most cases, path overrides are passed via Variables. For example,
+```properties
+ds.input.path.signals={PATH_SIGNALS}/{DAILY_PREFIX}/*
+ds.input.path.NI={PATH_NI}
+```
 
-Hadoop Adapters have no explicit Parameters.
+Same true for `ds.output.path.` keys, that can be specified for each (or some) of DataStreams listed under the `task.output` key.
 
-S3 Direct uses standard Amazon S3 client provider, and has parameters for:
-* `input|output.access.key` and `input|output.secret.key` of your target S3 bucket Access and Secret Keys respectively with no defaults (so it will try to take them from your environment),
-* and only for output `output.content.type` with a default of `text/csv`.
-
-JDBC Adapter Parameters are:
-* `input.jdbc.driver` and `output.jdbc.driver` for fully qualified class names of driver, available in the classpath. No default.
-* `input.jdbc.url` and `output.jdbc.url` for connection URLs. No default.
-* `input.jdbc.user` and `output.jdbc.user` with no default.
-* `input.jdbc.password` and `output.jdbc.password` with no default.
-* `output.jdbc.batch.size` for output batch size, default is '500'.
+### Next to Read 
 
 This concludes the configuration of One Ring CLI for a single Process. After you've assembled a library of basic Processes, you'll may want to know [how to compose](COMPOSE.md) them into larger workflows.

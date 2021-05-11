@@ -20,7 +20,7 @@ public class Constants {
     public static final String DS_INPUT_PATH = "ds.input.path";
     public static final String DS_OUTPUT_PATH = "ds.output.path";
     public static final String REP_SEP = ":";
-    public static final Pattern REP_VAR = Pattern.compile("\\{([A-Z][A-Z_\\d]+?(?::[^{}]*?)?)}");
+    public static final Pattern REP_VAR = Pattern.compile("\\{([^:{}]+:?|[^:{}]*?:[^{}]+?)}");
     public static final String DS_INPUT_PREFIX = "ds.input.";
     public static final String DS_OUTPUT_PREFIX = "ds.output.";
     public static final String DS_INPUT_COLUMNS_PREFIX = "ds.input.columns.";

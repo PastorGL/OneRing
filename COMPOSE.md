@@ -1,10 +1,10 @@
 ### One Ring Composer
 
-There is an utility in the CLI to merge (or Compose) two or more One Ring Process Templates into one larger Template.
+There is a utility in the CLI's JAR to merge (or Compose) two or more One Ring Process Templates into one larger Template.
 
-This action is final and should be performed only when the pipeline of all participating Processes is fully established, as it mangles most of named entities from the composed `tasks.ini`s and emits a much less readable config.
+This action is final and should be performed only when the pipeline of all participating Processes is fully established, as it mangles most of named entities from the composed `tasks.ini`s and emits a much less human-readable config.
  
-Name mangling is necessary because `tasks.ini` from different Processes may contain Operations and DataStreams with same names, and we want to avoid reference clashes. DataStreams may persist they names and carry over the resulting config, though.
+Name mangling is necessary because `tasks.ini` from different Processes may contain Operations and DataStreams with same names, and we want to avoid reference clashes. DataStreams may persist their names and carry over the resulting config, though.
 
 Command line invocation of Composer is as follows (also available via [REST](REST.md)):
 ```bash
