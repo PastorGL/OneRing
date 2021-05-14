@@ -24,9 +24,10 @@ public class TaskDefinitionLanguage {
         return operation;
     }
 
-    public static Directive createDirective(Task task) {
+    public static Directive createDirective(Task task, String directiveText) {
         Directive directive = new Directive();
         directive.task = task;
+        directive.directive = directiveText;
         return directive;
     }
 

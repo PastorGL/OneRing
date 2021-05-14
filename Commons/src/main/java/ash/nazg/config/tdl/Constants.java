@@ -49,5 +49,7 @@ public class Constants {
     public static final String DIRECTIVE_SIGIL = "$";
     public static final Pattern REP_OPERATIONS = Pattern.compile("(\\$[^{,]+\\{[^}]+?}|\\$[^,]+|[^,]+)");
     public static final String DEFAULT_DS = "_default";
+    public static final String METRICS_DS = "_metrics";
+    public static final String OUTPUTS_DS = "_outputs";
     public static final String VAR_ITER = "ITER";
 }

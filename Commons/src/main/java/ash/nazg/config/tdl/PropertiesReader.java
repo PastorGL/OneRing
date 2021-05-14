@@ -186,11 +186,7 @@ public class PropertiesReader {
 
                 tiDef = opDef;
             } else {
-                TaskDefinitionLanguage.Directive dirDef = TaskDefinitionLanguage.createDirective(task);
-
-                dirDef.directive = taskItem;
-
-                tiDef = dirDef;
+                tiDef = TaskDefinitionLanguage.createDirective(task, taskItem);
             }
 
             task.taskItems.add(tiDef);

@@ -6,6 +6,8 @@ package ash.nazg.cli;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.*;
+import com.opencsv.CSVParser;
+import com.opencsv.CSVParserBuilder;
 import org.apache.hadoop.io.Text;
 import org.apache.log4j.Logger;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -123,24 +125,37 @@ public class TaskRunner {
         }
 
         if (wrapperStore) {
-            save(wrapperStorePath + "/outputs", dsResolver.outputDelimiter(Constants.DEFAULT_DS), context.parallelizePairs(paths, 1));
+            save(wrapperStorePath + "/outputs", dsResolver.outputDelimiter(Constants.OUTPUTS_DS), context.parallelizePairs(paths, 1));
         }
 
-        List<String> metricsLog = new ArrayList<>();
-        interpreter.metrics.forEach((ds, m) -> {
-            metricsLog.add("Metrics of data stream '" + ds + "'");
-            m.forEach((k, v) -> metricsLog.add(k + ": " + v));
-        });
-        metricsLog.forEach(LOG::info);
+        if (interpreter.metered()) {
+            JavaRDDLike metricsRdd = result.get(Constants.METRICS_DS);
+            char metricsDelimiter = dsResolver.outputDelimiter(Constants.METRICS_DS);
 
-        LayerResolver metricsResolver = new LayerResolver(taskConfig.foreignLayer(Constants.METRICS_LAYER));
-        String metricsStorePath = metricsResolver.get("store.path");
-        if (metricsStorePath != null) {
-            save(metricsStorePath, dsResolver.outputDelimiter(Constants.DEFAULT_DS), context.parallelize(metricsLog, 1));
+            LayerResolver metricsResolver = new LayerResolver(taskConfig.foreignLayer(Constants.METRICS_LAYER));
+            String metricsStorePath = metricsResolver.get("store");
+            if (metricsStorePath != null) {
+                save(metricsStorePath, metricsDelimiter, metricsRdd);
+            }
+
+            List<Text> metrics = metricsRdd.collect();
+            List<String> metricsLog = new ArrayList<>();
+            CSVParser parser = new CSVParserBuilder().withSeparator(metricsDelimiter).build();
+            for (Text line : metrics) {
+                String[] metric = parser.parseLine(String.valueOf(line));
+
+                metricsLog.add("Metrics of data stream '" + metric[0] + "'");
+                metricsLog.add("Total " + metric[1] + ": " + metric[2]);
+                metricsLog.add("Counted by '" + metric[3] + "': " + metric[4]);
+                metricsLog.add("Average per counter: " + metric[5]);
+                metricsLog.add("Median per counter: " + metric[6]);
+            }
+            metricsLog.forEach(LOG::info);
         }
 
-        recordsRead.forEach((key, value) -> LOG.info("One Ring input '" + key + "': " + value + " record(s) read"));
-        recordsWritten.forEach((key, value) -> LOG.info("One Ring output '" + key + "': " + value + " records(s) written"));
+        LOG.info("One Ring raw physical record statistics");
+        recordsRead.forEach((key, value) -> LOG.info("Input '" + key + "': " + value + " record(s) read"));
+        recordsWritten.forEach((key, value) -> LOG.info("Output '" + key + "': " + value + " records(s) written"));
     }
 
     private void save(String path, char delimiter, JavaRDDLike rdd) {

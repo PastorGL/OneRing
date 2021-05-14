@@ -13,15 +13,18 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 import org.apache.spark.api.java.JavaSparkContext;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Random;
 import java.util.stream.Collectors;
 
 public class Interpreter {
-    public final Map<String, Map<String, Double>> metrics = new HashMap<>();
-
     private final TaskDefinitionLanguage.Task taskConfig;
     private final StreamResolver dsResolver;
     private final JavaSparkContext context;
+
+    private boolean metered = false;
 
     public Interpreter(TaskDefinitionLanguage.Task taskConfig, JavaSparkContext context) {
         this.taskConfig = taskConfig;
@@ -31,16 +34,6 @@ public class Interpreter {
     }
 
     public void processTaskChain(Map<String, JavaRDDLike> rdds) throws Exception {
-        TaskDefinitionLanguage.Definitions metricsLayer = taskConfig.foreignLayer(Constants.METRICS_LAYER);
-        if (!metricsLayer.isEmpty()) {
-            taskConfig.taskItems.add(0, new TaskDefinitionLanguage.Directive() {{
-                directive = "$METRICS{:input}";
-            }});
-            taskConfig.taskItems.add(new TaskDefinitionLanguage.Directive() {{
-                directive = "$METRICS{:output}";
-            }});
-        }
-
         int index = 0;
         do {
             index = advance(rdds, new Random(), index, false);
@@ -175,6 +168,8 @@ public class Interpreter {
     }
 
     private void callMetrics(String target, Map<String, JavaRDDLike> rdds) throws Exception {
+        metered = true;
+
         if ("input".equals(target)) {
             target = String.join(Constants.COMMA, taskConfig.input);
         }
@@ -190,8 +185,11 @@ public class Interpreter {
         RDDMetricsPseudoOperation metricsOp = Operations.getMetricsOperation();
         metricsOp.initialize(context);
         metricsOp.configure(metricsProps, taskConfig.dataStreams);
-        metricsOp.getResult(rdds);
 
-        metrics.putAll(metricsOp.getMetrics());
+        rdds.putAll(metricsOp.getResult(rdds));
+    }
+
+    public boolean metered() {
+        return metered;
     }
 }
