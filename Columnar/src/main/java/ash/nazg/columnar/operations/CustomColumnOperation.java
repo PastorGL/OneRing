@@ -5,8 +5,10 @@
 package ash.nazg.columnar.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.StreamType;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
@@ -20,17 +22,12 @@ import java.util.*;
 
 @SuppressWarnings("unused")
 public class CustomColumnOperation extends Operation {
-    @Description("A list of values of custom column(s)")
     public static final String OP_CUSTOM_COLUMN_VALUE = "custom.column.value";
-    @Description("Position(s) to insert column(s). Counts from 0 onwards from the beginning of a row, or from the end if < 0 (-1 is last and so on)")
     public static final String OP_CUSTOM_COLUMN_INDEX = "custom.column.index";
-    @Description("By default, add a single column to the end of a row")
-    public static final String[] DEF_CUSTOM_COLUMN_INDEX = {"-1"};
-
-    public static final String VERB = "customColumn";
 
     private String inputName;
     private char inputDelimiter;
+
     private String outputName;
     private char outputDelimiter;
 
@@ -38,46 +35,38 @@ public class CustomColumnOperation extends Operation {
     private int[] columnIndices;
 
     @Override
-    @Description("Insert a custom column(s) in the input CSV at a given index(ices)")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("customColumn", "Insert a custom column(s) in the input CSV at a given index(ices)",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(OP_CUSTOM_COLUMN_VALUE, String[].class),
-                        new TaskDescriptionLanguage.Definition(OP_CUSTOM_COLUMN_INDEX, String[].class, DEF_CUSTOM_COLUMN_INDEX),
-                },
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
-                                false
+                new PositionalStreamsMetaBuilder()
+                        .ds("Input CSV to add columns to",
+                                new StreamType[]{StreamType.CSV}, true
                         )
-                ),
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Passthru},
-                                false
+                new DefinitionMetaBuilder()
+                        .def(OP_CUSTOM_COLUMN_VALUE, "A list of values of custom column(s)", String[].class)
+                        .def(OP_CUSTOM_COLUMN_INDEX, "Position(s) to insert column(s). Counts from 0 onwards from the beginning of a row, or from the end if < 0 (-1 is last and so on)",
+                                String[].class, "-1", "By default, add a single column to the end of a row")
+                        .build(),
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("CSV with added columns",
+                                new StreamType[]{StreamType.Passthru}, true
                         )
-                )
+                        .build()
         );
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        inputDelimiter = dsResolver.inputDelimiter(inputName);
+        outputName = opResolver.positionalOutput(0);
+        outputDelimiter = dsResolver.outputDelimiter(outputName);
 
-        inputName = describedProps.inputs.get(0);
-        inputDelimiter = dataStreamsProps.inputDelimiter(inputName);
-        outputName = describedProps.outputs.get(0);
-        outputDelimiter = dataStreamsProps.outputDelimiter(outputName);
-
-        columnValues = describedProps.defs.getTyped(OP_CUSTOM_COLUMN_VALUE);
-        String[] indices = describedProps.defs.getTyped(OP_CUSTOM_COLUMN_INDEX);
+        columnValues = opResolver.definition(OP_CUSTOM_COLUMN_VALUE);
+        String[] indices = opResolver.definition(OP_CUSTOM_COLUMN_INDEX);
         columnIndices = Arrays.stream(indices).map(Integer::parseInt).mapToInt(Integer::intValue).toArray();
     }
 

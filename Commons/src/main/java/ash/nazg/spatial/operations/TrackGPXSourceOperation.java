@@ -5,8 +5,9 @@
 package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.StreamType;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import ash.nazg.spatial.SegmentedTrack;
 import ash.nazg.spatial.TrackSegment;
@@ -26,52 +27,42 @@ import org.locationtech.jts.geom.Point;
 import java.io.ByteArrayInputStream;
 import java.util.*;
 
-import static ash.nazg.spatial.config.ConfigurationParameters.GEN_TRACKID;
+import static ash.nazg.spatial.config.ConfigurationParameters.GEN_TRACK_ID;
 import static ash.nazg.spatial.config.ConfigurationParameters.GEN_USERID;
 
 @SuppressWarnings("unused")
 public class TrackGPXSourceOperation extends Operation {
-    public static final String VERB = "trackGpxSource";
-
     private String inputName;
+
     private String outputName;
 
     @Override
-    @Description("Take GPX fragment file and produce a Track RDD")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("trackGpxSource", "Take GPX fragment file and produce a Track RDD",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
+                new PositionalStreamsMetaBuilder()
+                        .ds("Plain RDD with GPS fragments per each line",
+                                new StreamType[]{StreamType.Plain}
+                        )
+                        .build(),
+
                 null,
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Plain},
-                                false
+                new PositionalStreamsMetaBuilder()
+                        .ds("SegmentedTrack RDD",
+                                new StreamType[]{StreamType.Track}, true
                         )
-                ),
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Track},
-                                true
-                        )
-                )
+                        .build()
         );
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
-
-        inputName = describedProps.inputs.get(0);
-
-        outputName = describedProps.outputs.get(0);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        outputName = opResolver.positionalOutput(0);
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         JavaRDD<Object> rdd = (JavaRDD<Object>) input.get(inputName);
@@ -83,7 +74,7 @@ public class TrackGPXSourceOperation extends Operation {
 
             Text tsAttr = new Text("_ts");
             Text useridAttr = new Text(GEN_USERID);
-            Text trackidAttr = new Text(GEN_TRACKID);
+            Text trackidAttr = new Text(GEN_TRACK_ID);
 
             String l = String.valueOf(o);
 

@@ -34,7 +34,7 @@ public final class Expressions {
     }
 
     public static NumericExpr numericLessEq(final double rv) {
-        return (r) -> (r != null) && (r >= rv);
+        return (r) -> (r != null) && (r <= rv);
     }
 
     public static NumericExpr numericEqual(final double rv) {

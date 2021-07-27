@@ -1,9 +1,0 @@
-#set( $H = '#' )
-
-$H There are following packages available
-
-Package | Description
---- | ---
-#foreach( $pkg in $pkgs )
-[`${pkg.name}`](./package/${pkg.name}.md) | $pkg.descr
-#end

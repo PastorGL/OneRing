@@ -15,10 +15,10 @@ There are docs on the main One Ring CLI:
 * [How to monitor](MONITOR.md) task execution and examine quality of data transformations
 * [How to extend](EXTEND.md) One Ring with your own Operations
 
-After you've successfully built One Ring, its [self-generated docs on all Operations will be available here](RESTWrapper/docs/index.md), with examples.
+After you've successfully built One Ring, its [self-generated docs on all Operations will be available here](REST/docs/index.md), with examples.
 
 And there are docs on One Ring Utilities:
-* [One Ring Dist](DISTCP.md) to replace `[s3-]dist-cp` with more effective implementation
+* [One Ring Dist](DIST.md) to replace `[s3-]dist-cp` with more effective implementation
 * [One Ring REST](REST.md) to call One Ring in more or less REST-ish way
 * [One Ring Composer](COMPOSE.md) to create advanced Processes from Template fragments
 

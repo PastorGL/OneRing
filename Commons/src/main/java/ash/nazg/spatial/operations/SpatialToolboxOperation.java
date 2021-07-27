@@ -5,8 +5,10 @@
 package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.StreamType;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import ash.nazg.spatial.SegmentedTrack;
 import ash.nazg.spatial.TrackSegment;
@@ -26,59 +28,50 @@ import org.locationtech.jts.geom.GeometryFactory;
 import java.io.Serializable;
 import java.util.*;
 
-import static ash.nazg.config.tdl.TaskDescriptionLanguage.StreamType.*;
+import static ash.nazg.config.tdl.StreamType.*;
 
 @SuppressWarnings("unused")
 public class SpatialToolboxOperation extends Operation {
-    private static final String VERB = "spatialToolbox";
-
-    @Description("Selector for properties, SQL-like")
     public static final String OP_QUERY = "query";
 
-    private String outputName;
     private String inputName;
+
+    private String outputName;
+
     private List<Expressions.QueryExpr> query;
     private String what;
     private Long limitRecords;
     private Double limitPercent;
 
-    @Description("This operation allows SELECT queries against any Spatially-typed RDDs using any of their properties" +
-            " as criteria, e.g. SELECT Point FROM tracks WHERE trackid LIKE '.+?non.*' OR pt = 'e2e'")
     @Override
-    public String verb() {
-        return VERB;
+    public OperationMeta meta() {
+        return new OperationMeta("spatialToolbox", "This operation allows SELECT queries against any Spatially-typed RDDs using any of their properties" +
+                " as criteria, e.g. SELECT Point FROM tracks WHERE trackid LIKE '.+?non.*' OR pt = 'e2e'",
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("Any Geometry-type RDD",
+                                new StreamType[]{Point, Track, Polygon}, true
+                        )
+                        .build(),
+
+                new DefinitionMetaBuilder()
+                        .def(OP_QUERY, "Query for object properties, SQL SELECT-like")
+                        .build(),
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("Same type of input, with objects adhering to a query",
+                                new StreamType[]{Passthru}
+                        )
+                        .build()
+        );
     }
 
     @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(VERB,
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(OP_QUERY)
-                },
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        outputName = opResolver.positionalOutput(0);
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{Point, Track, Polygon},
-                                true
-                        )
-                ),
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{Passthru},
-                                false
-                        )
-                ));
-    }
-
-    @Override
-    public void configure(Properties config, Properties variables) throws InvalidConfigValueException {
-        super.configure(config, variables);
-
-        inputName = describedProps.inputs.get(0);
-        outputName = describedProps.outputs.get(0);
-
-        String queryString = describedProps.defs.getTyped(OP_QUERY);
+        String queryString = opResolver.definition(OP_QUERY);
         CharStream cs = CharStreams.fromString(queryString);
 
         QueryLexer lexer = new QueryLexer(cs);
@@ -97,6 +90,7 @@ public class SpatialToolboxOperation extends Operation {
         limitPercent = listener.getLimitPercent();
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         final List<Expressions.QueryExpr> _query = query;

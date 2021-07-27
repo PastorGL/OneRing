@@ -6,34 +6,36 @@ After you've composed the Process configuration, you definitely should test it l
 
 After you've built the local artifact, as described in the [build how-to](BUILD.md), call it with -h (--help):
 ```bash
-java -jar ./RestWrapper/target/one-ring-cli.jar -h
+java -jar ./CLI/target/one-ring-cli.jar -h
 usage: One Ring CLI utility
-  -c,--config <arg>            Config file (JSON or .ini format)
-  -D,--metricsStorePath <arg>  Path where to store data stream metrics, if needed
   -h,--help                    Print a list of command line options and exit
-  -l,--local                   Run in local mode (its options have no effect otherwise)
-  -L,--localCores <arg>        Set cores # for local mode, by default * -- all cores
-  -m,--driverMemory <arg>      Driver memory for local mode, by default Spark uses 1g
-  -o,--output <arg>            Output path
-  -S,--wrapperStorePath <arg>  Path where to store a list of wrapped wildcards outputs
-  -u,--sparkUI                 Enable Spark UI for local mode, by default it is disabled
+  -c,--config <arg>            Config file (JSON or .ini format)
+  -x,--task <arg>              Task prefix in the config file
   -V,--variables <arg>         name=value pairs of substitution variables for the Spark config encoded as Base64
   -v,--variablesFile <arg>     Path to variables file, name=value pairs per each line
-  -x,--task <arg>              Task prefix in the config file
+  -l,--local                   Run in local mode (its options have no effect otherwise)
+  -m,--driverMemory <arg>      Driver memory for local mode, by default Spark uses 1g
+  -u,--sparkUI                 Enable Spark UI for local mode, by default it is disabled
+  -L,--localCores <arg>        Set cores # for local mode, by default * -- all cores
+  -S,--wrapperStorePath <arg>  Path where to store a list of wrapped wildcards outputs
+  -i,--input <arg>             Override for default input path
+  -o,--output <arg>            Override for default output path
+  -D,--metricsStorePath <arg>  Path where to store data stream metrics, if needed
 ```
 
-`-c` sets the path to `tasks.ini` or JSON config.
+`-c` sets the path to `tasks.ini` or JSON config file.
 
 `-l` means the local execution mode of Spark context. Following switches have effect only in that mode:
 * `-L #` sets the number of cores to use. By default, it'll use all available cores (`local[*]`).
 * `-m` sets the amount of Spark memory, like `4g` or `512m`. Spark's current default is 1g.
 * `-u` to start Spark UI for debugging purposes.
 
-`-o` overrides the default output path `ds.output.path` for the Process.
+`-i` overrides the default input path (`input.path`) for the Process.
+`-o` overrides the default output path (`output.path`) for the Process.
 
-`-x` sets the current task prefix, if needed. If you're planning to pass `tasks.ini` to your cluster via Spark context, you should use prefixed `tasks.ini` locally too.
+`-x` sets the current task prefix, if needed. If you're planning to pass `tasks.ini` to your cluster via Spark context, you should use prefixed `tasks.ini` locally too. If your configuration file contains a number of different tasks, set the prefix to select one of them.
 
-`-S` to interface with One Ring Dist, especially if your config has wildcard outputs, as discussed [in a separate doc](DISTCP.md).
+`-S` to interface with One Ring Dist, especially if your config has wildcard outputs, as discussed [in a separate doc](DIST.md).
 
 `-D` to output data stream metrics, described [in a separate doc](MONITOR.md).
 
@@ -52,12 +54,12 @@ OUTPUT_PATH=file:/path/to/output
 base64 -w0 < /path/to/variables.ini
 U0lHTkFMU19QQVRIPWZpbGU6L3BhdGgvdG8vc2lnbmFscwpQT0lTX1BBVEg9ZmlsZTovcGF0aC90by9wb2lzCk9VVFBVVF9QQVRIPWZpbGU6L3BhdGgvdG8vb3V0cHV0Cg==
 
-java -jar ./RestWrapper/target/one-ring-cli.jar -c /path/to/tasks.ini -l -m 6g -V U0lHTkFMU19QQVRIPWZpbGU6L3BhdGgvdG8vc2lnbmFscwpQT0lTX1BBVEg9ZmlsZTovcGF0aC90by9wb2lzCk9VVFBVVF9QQVRIPWZpbGU6L3BhdGgvdG8vb3V0cHV0Cg==
+java -jar ./CLI/target/one-ring-cli.jar -c /path/to/tasks.ini -l -m 6g -V U0lHTkFMU19QQVRIPWZpbGU6L3BhdGgvdG8vc2lnbmFscwpQT0lTX1BBVEg9ZmlsZTovcGF0aC90by9wb2lzCk9VVFBVVF9QQVRIPWZpbGU6L3BhdGgvdG8vb3V0cHV0Cg==
 ```
 
-Or place into a file (or other Adapter-supported Storage) and pass its path with `-v` command line key^
+Or place into a file accessible to Hadoop and pass its path with `-v` command line key^
 ```bash
-java -jar ./RestWrapper/target/one-ring-cli.jar -c /path/to/tasks.ini -l -m 6g -v /path/to/variables.ini
+java -jar ./CLI/target/one-ring-cli.jar -c /path/to/tasks.ini -l -m 6g -v /path/to/variables.ini
 ```
 
 You'll see a lot of Spark output, as well as the dump of your Task. If everything is successful, you'll see no exceptions in that output. If not, read exception messages carefully and fix your `tasks.ini` and/or check the source data files.

@@ -5,8 +5,11 @@
 package ash.nazg.commons.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.StreamType;
+import ash.nazg.config.tdl.metadata.DefinitionEnum;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -18,12 +21,7 @@ import java.util.stream.Stream;
 
 @SuppressWarnings("unused")
 public class UnionOperation extends Operation {
-    @Description("Union specification")
     public static final String OP_UNION_SPEC = "spec";
-    @Description("By default, just concatenate")
-    public static final UnionSpec DEF_UNION_SPEC = UnionSpec.CONCAT;
-
-    public static final String VERB = "union";
 
     private String rawInput;
     private String outputName;
@@ -31,44 +29,37 @@ public class UnionOperation extends Operation {
     private UnionSpec unionSpec;
 
     @Override
-    @Description("Take a number of RDDs (in the form of the list and/or prefixed wildcard)" +
-            " and union them into one")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("union", "Take a number of RDDs (in the form of the list and/or prefixed wildcard)" +
+                " and union them into one",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(OP_UNION_SPEC, UnionSpec.class, DEF_UNION_SPEC),
-                },
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Plain},
-                                false
+                new PositionalStreamsMetaBuilder()
+                        .ds("A list of Plain RDDs to union",
+                                new StreamType[]{StreamType.Plain}
                         )
-                ),
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Passthru},
-                                false
+                new DefinitionMetaBuilder()
+                        .def(OP_UNION_SPEC, "Union specification", UnionSpec.class,
+                                UnionSpec.CONCAT.name(), "By default, just concatenate")
+                        .build(),
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("United RDD",
+                                new StreamType[]{StreamType.Passthru}
                         )
-                )
+                        .build()
         );
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
-
-        rawInput = String.join(",", describedProps.inputs);
-        outputName = describedProps.outputs.get(0);
-        unionSpec = describedProps.defs.getTyped(OP_UNION_SPEC);
+    public void configure() throws InvalidConfigValueException {
+        rawInput = String.join(",", opResolver.positionalInputs());
+        outputName = opResolver.positionalOutput(0);
+        unionSpec = opResolver.definition(OP_UNION_SPEC);
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         List<String> inputs = getMatchingInputs(input.keySet(), rawInput);
@@ -135,12 +126,20 @@ public class UnionOperation extends Operation {
         return Collections.singletonMap(outputName, output);
     }
 
-    public enum UnionSpec {
-        @Description("Just concatenate inputs, don't look into records")
-        CONCAT,
-        @Description("Only emit records that occur strictly in one input RDD")
-        XOR,
-        @Description("Only emit records that occur in all input RDDs")
-        AND
+    public enum UnionSpec implements DefinitionEnum {
+        CONCAT("Just concatenate inputs, don't look into records"),
+        XOR("Only emit records that occur strictly in one input RDD"),
+        AND("Only emit records that occur in all input RDDs");
+
+        private final String descr;
+
+        UnionSpec(String descr) {
+            this.descr = descr;
+        }
+
+        @Override
+        public String descr() {
+            return descr;
+        }
     }
 }

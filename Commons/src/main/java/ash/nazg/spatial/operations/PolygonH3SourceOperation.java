@@ -5,8 +5,10 @@
 package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.StreamType;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
@@ -29,79 +31,71 @@ import static ash.nazg.spatial.config.ConfigurationParameters.*;
 
 @SuppressWarnings("unused")
 public class PolygonH3SourceOperation extends Operation {
-    public static final String VERB = "polygonH3Source";
-
     private String inputName;
+    private char inputDelimiter;
+    private int hashColumn;
 
     private String outputName;
     private Map<String, Integer> outputColumns;
-    private int hashColumn;
-    private char delimiter;
 
     @Override
-    @Description("Take a csv with H3 hashes and produce a Polygon RDD")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("polygonH3Source", "Take a csv with H3 hashes and produce a Polygon RDD",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(DS_CSV_HASH_COLUMN),
-                },
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
-                                true
+                new PositionalStreamsMetaBuilder()
+                        .ds("CSV RDD with H3 hashes",
+                                new StreamType[]{StreamType.CSV}, true
                         )
-                ),
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Polygon},
-                                true
+                new DefinitionMetaBuilder()
+                        .def(DS_CSV_HASH_COLUMN, "H3 hash column")
+                        .build(),
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("Polygon RDD with a Polygon for each input hash" +
+                                        " and other parameters from other input columns",
+                                new StreamType[]{StreamType.Polygon}, true
                         )
-                )
+                        .build()
         );
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        inputDelimiter = dsResolver.inputDelimiter(inputName);
 
-        inputName = describedProps.inputs.get(0);
-        delimiter = dataStreamsProps.inputDelimiter(inputName);
+        outputName = opResolver.positionalOutput(0);
 
-        outputName = describedProps.outputs.get(0);
+        String prop = opResolver.definition(DS_CSV_HASH_COLUMN);
+        hashColumn = dsResolver.inputColumns(inputName).get(prop);
 
-        String prop = describedProps.defs.getTyped(DS_CSV_HASH_COLUMN);
-        hashColumn = dataStreamsProps.inputColumns.get(inputName).get(prop);
-
-        String[] inputColumnsRaw = dataStreamsProps.inputColumnsRaw.get(inputName);
+        String[] inputColumnsRaw = dsResolver.rawInputColumns(inputName);
         Map<String, Integer> inputCols = new HashMap<>();
         for (int i = 0; i < inputColumnsRaw.length; i++) {
             inputCols.put(inputColumnsRaw[i], i);
         }
-        List<String> outs = Arrays.stream(dataStreamsProps.outputColumns.get(outputName))
+        String[] outputCols = dsResolver.outputColumns(outputName);
+        List<String> outs = (outputCols == null) ? Collections.emptyList() : Arrays.stream(outputCols)
                 .map(c -> c.replaceFirst("^" + inputName + "\\.", ""))
                 .collect(Collectors.toList());
-        Map<Integer, String> outputCols = new HashMap<>();
+        Map<Integer, String> outputMap = new HashMap<>();
         for (int i = 0; i < outs.size(); i++) {
-            outputCols.put(i, outs.get(i));
+            outputMap.put(i, outs.get(i));
         }
         outputColumns = new HashMap<>();
         for (int i = 0; i < outs.size(); i++) {
-            outputColumns.put(outputCols.get(i), inputCols.get(outputCols.get(i)));
+            outputColumns.put(outputMap.get(i), inputCols.get(outputMap.get(i)));
         }
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         JavaRDD<Object> rdd = (JavaRDD<Object>) input.get(inputName);
 
-        final char _delimiter = delimiter;
+        final char _delimiter = inputDelimiter;
         final Map<String, Integer> _outputColumns = outputColumns;
         final GeometryFactory geometryFactory = new GeometryFactory();
         final int _hashColumn = hashColumn;

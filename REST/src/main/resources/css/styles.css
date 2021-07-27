@@ -1,0 +1,339 @@
+* {
+    box-sizing: border-box;
+    padding: 0;
+    margin: 0;
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    line-height: 1;
+    font-size: 10pt;
+}
+
+body {
+    background-color: #ffffff;
+    color: #000000;
+}
+
+.grid-container {
+    display: grid;
+    grid-template-columns: 2fr 6fr 3fr;
+    grid-template-rows: 1fr 14fr;
+    gap: 5px 5px;
+    grid-template-areas:
+            "toolbar toolbar toolbar"
+            "sources task data-streams";
+    width: 100vw;
+    height: 100vh;
+}
+
+.cell {
+    box-shadow: 3px 3px 10px #f0f0f0;
+    padding: 5px;
+    overflow: auto;
+    cursor: default;
+}
+
+.canvas {
+}
+
+.toolbar {
+    grid-area: toolbar;
+    display: flex;
+}
+
+.toolbar fieldset {
+    padding: 2px;
+    margin: 4px;
+    display: inline-block;
+    border: none;
+}
+
+.sources {
+    grid-area: sources;
+}
+
+.task {
+    grid-area: task;
+}
+
+.data-streams {
+    grid-area: data-streams;
+}
+
+.modal {
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: none;
+    z-index: 100;
+    background-color: rgba(255, 255, 255, 0.7);
+    width: 100vw;
+    height: 100vh;
+    justify-content: center;
+}
+
+.modal .dialog {
+    background-color: #ffffff;
+    width: 60vw;
+    height: 80vh;
+    padding: 10px;
+    box-shadow: 0 0 10px 10px #f0f0f0;
+    align-self: center;
+    border-radius: 10px;
+    display: grid;
+    grid-template-rows: 1fr 10fr;
+    grid-template-areas:
+            "dialog-header"
+            "dialog-content";
+}
+
+.dialog-header {
+    grid-area: dialog-header;
+    overflow: auto;
+}
+
+textarea.dialog-content {
+    grid-area: dialog-content;
+    font-size: larger;
+    resize: none;
+    line-height: revert;
+    font-family: Consolas, "Courier New", monospace;
+}
+
+.package-list {
+    display: none;
+}
+
+.shown {
+    display: revert;
+}
+
+ul {
+    margin-top: 3px;
+    padding-inline-start: 20px;
+    list-style-type: none;
+}
+
+li {
+    margin-bottom: 5px;
+}
+
+small {
+    padding-left: 1em;
+    font-size: 9pt;
+}
+
+.i {
+    display: inline-block;
+    height: 16px;
+    width: 16px;
+    border: 1px solid #add8e6;
+    color: #6495ed;
+    background-color: #cff1ff;
+    border-radius: 10px;
+    margin: 2px;
+    text-align: center;
+    vertical-align: middle;
+    font-size: 9pt;
+}
+
+.i small {
+    padding: 10px;
+    display: none;
+    text-align: left;
+    background-color: white;
+    border: 1px solid #add8e6;
+    border-radius: 4px;
+    min-width: 250px;
+    box-shadow: inset 0 0 10px #cff1ff;
+}
+
+.i:hover small {
+    display: block;
+    z-index: 10;
+    position: relative;
+}
+
+.btn-right .i:hover small {
+    right: 234px;
+}
+
+.btn-extra {
+    display: inline-block;
+}
+
+button, input, select, textarea {
+    margin: 2px;
+    padding: 2px;
+    min-width: 50px;
+}
+
+button, textarea {
+    border: 1px #d3d3d3 solid;
+}
+
+button, select:invalid {
+    background-color: #efefef;
+}
+
+select, input {
+    border: none;
+    border-bottom: 1px #d3d3d3 solid;
+}
+
+.layer {
+    display: none;
+}
+
+.switch-active {
+    border: 1px solid #add8e6;
+    color: #6495ed;
+    background-color: #cff1ff;
+}
+
+pre.descr {
+    white-space: pre-wrap;
+    line-break: anywhere;
+    font-family: Consolas, "Courier New", monospace;
+}
+
+dl.props {
+    padding: 2px;
+}
+
+dd, dt {
+    margin: 4px;
+}
+
+dl.props select {
+    width: 30%;
+}
+
+dl.props label.label-sel {
+    display: inline-block;
+    width: 30%;
+}
+
+dl.props input {
+    width: 60%;
+}
+
+dl.props label.label-inp {
+    display: inline-block;
+    width: 60%;
+}
+
+dl.props input.inp-rename {
+    min-width: 30%;
+}
+
+div.op, div.ds, div.dir, div.adapter {
+    border: #f0f0f0 solid 1px;
+    box-shadow: 0 0 5px 5px #f0f0f0;
+    margin: 5px;
+    border-radius: 6px;
+    padding: 2px;
+}
+
+div.op {
+    margin-left: 15px;
+}
+
+div.dir {
+    padding-left: 12px;
+    width: 50%;
+}
+
+.dir-name, .adapter-name {
+    display: inline-block;
+    width: 150px;
+    padding: 2px;
+    margin: 2px;
+    font-weight: 700;
+}
+
+.dyn-name {
+    display: inline-block;
+    min-width: 150px;
+    padding: 2px;
+    margin: 2px;
+}
+
+.btn-move, .btn-remove {
+    min-width: 20px;
+}
+
+.inp-rename {
+    max-width: 150px;
+}
+
+.btn-right {
+    float: right;
+    display: inline-block;
+}
+
+.btn-remove {
+    background-color: #ffbca5;
+}
+
+.tr-input, .tr-output {
+    font-weight: 400;
+    margin: 2px;
+    padding: 2px;
+}
+
+.tr-def, .tr-dyn {
+    margin: 2px;
+    padding: 2px;
+}
+
+.tr-input:hover, .tr-output:hover, .tr-def:hover, .tr-dyn:hover {
+    background-color: #f3f3f3;
+}
+
+.type-number {
+    max-width: 150px;
+    text-align: right;
+}
+
+.type-boolean::after {
+    content: 'Set the parameter';
+    white-space: nowrap;
+    margin-left: 40px;
+}
+
+.type-literal {
+    width: revert;
+}
+
+.task-vars {
+    width: 200px;
+}
+
+.task-prefix {
+    width: 150px;
+}
+
+@keyframes flash-editor {
+    from {
+        box-shadow: 0 0 2px 2px #ff8800;
+    }
+    to {
+        box-shadow: 0 0 5px 5px #f0f0f0;
+    }
+}
+
+.flash-editor {
+    animation: flash-editor 1s ease-in-out 0s;
+}
+
+@keyframes flash-new {
+    from {
+        box-shadow: 0 0 2px 2px #6495ed;
+    }
+    to {
+        box-shadow: 0 0 5px 5px #f0f0f0;
+    }
+}
+
+.flash-new {
+    animation: flash-new 1s ease-in-out 0s;
+}

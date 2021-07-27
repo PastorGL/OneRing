@@ -4,23 +4,27 @@
  */
 package ash.nazg.math.config;
 
-import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.metadata.DefinitionEnum;
 
-public enum CalcFunction {
-    @Description("Calculate the sum of columns, optionally add a constant")
-    SUM,
-    @Description("Calculate the power mean of columns with a set power")
-    POWERMEAN, @Description("Alias of POWERMEAN") POWER_MEAN,
-    @Description("Calculate the arithmetic mean of columns, optionally shifted towards a constant")
-    MEAN, @Description("Alias of MEAN") AVERAGE,
-    @Description("Calculate the square root of the mean square (quadratic mean or RMS)")
-    RMS, @Description("Alias of RMS") ROOTMEAN, @Description("Alias of RMS") ROOT_MEAN, @Description("Alias of RMS") ROOTMEANSQUARE, @Description("Alias of RMS") ROOT_MEAN_SQUARE,
-    @Description("Find the minimal value among columns, optionally with a set floor")
-    MIN,
-    @Description("Find the maximal value among columns, optionally with a set ceil")
-    MAX,
-    @Description("Multiply column values, optionally also by a constant")
-    MUL, @Description("Alias of MUL") MULTIPLY,
-    @Description("Divide first columns by all others, optionally also by a constant")
-    DIV, @Description("Alias of DIV") DIVIDE, @Description("Alias of DIV") PROPORTION,
+public enum CalcFunction implements DefinitionEnum {
+    SUM("Calculate the sum of columns, optionally add a constant"),
+    POWERMEAN("Calculate the power mean of columns with a set power"),
+    AVERAGE("Calculate the arithmetic mean of columns, optionally shifted towards a constant"),
+    RMS("Calculate the square root of the mean square (quadratic mean or RMS)"),
+    MIN("Find the minimal value among columns, optionally with a set floor"),
+    MAX("Find the maximal value among columns, optionally with a set ceil"),
+    MUL("Multiply column values, optionally also by a constant"),
+    DIV("Divide first columns by all others, optionally also by a constant"),
+    EQUALITY("Check equality of values, optionally within a threshold constant");
+
+    private final String descr;
+
+    CalcFunction(String descr) {
+        this.descr = descr;
+    }
+
+    @Override
+    public String descr() {
+        return descr;
+    }
 }

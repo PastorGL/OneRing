@@ -57,38 +57,38 @@ public class MedianCalcFunction implements Function<JavaPairRDD<Text, Double>, J
                     Map<Text, Tuple3<Long, Double, Double>> medians = new HashMap<>();
 
                     while (it.hasNext()) {
-                        Tuple2<Text, Double> gidScore = it.next();
+                        Tuple2<Text, Double> groupScore = it.next();
 
-                        Text gid = gidScore._1;
-                        long medianIndex = _numScoresPerPolygon.get(gid) >> 1;
+                        Text groupid = groupScore._1;
+                        long medianIndex = _numScoresPerPolygon.get(groupid) >> 1;
 
-                        Tuple3<Long, Double, Double> t3 = medians.compute(gid, (text, t) ->
+                        Tuple3<Long, Double, Double> t3 = medians.compute(groupid, (text, t) ->
                                 (t == null) ? new Tuple3<>(0L, null, null) : t
                         );
 
                         long currentIndex = t3._1();
                         if (currentIndex < medianIndex - 1) {
-                            medians.put(gid, new Tuple3<>(currentIndex + 1, null, null));
+                            medians.put(groupid, new Tuple3<>(currentIndex + 1, null, null));
                         } else if (currentIndex == medianIndex - 1) {
-                            medians.put(gid, new Tuple3<>(currentIndex + 1, gidScore._2, null));
+                            medians.put(groupid, new Tuple3<>(currentIndex + 1, groupScore._2, null));
                         } else if (currentIndex == medianIndex) {
-                            medians.put(gid, new Tuple3<>(currentIndex + 1, t3._2(), gidScore._2));
+                            medians.put(groupid, new Tuple3<>(currentIndex + 1, t3._2(), groupScore._2));
                         }
                     }
 
                     List<Tuple2<Text, Double>> ret = medians.entrySet().stream()
                             .map(e -> {
-                                Text gid = e.getKey();
+                                Text groupid = e.getKey();
                                 Tuple3<Long, Double, Double> t3 = e.getValue();
 
                                 Double median;
-                                if (_numScoresPerPolygon.get(gid) % 2 == 0) {
+                                if (_numScoresPerPolygon.get(groupid) % 2 == 0) {
                                     median = (t3._2() + t3._3()) / 2.D;
                                 } else {
                                     median = t3._3();
                                 }
 
-                                return new Tuple2<>(gid, median);
+                                return new Tuple2<>(groupid, median);
                             })
                             .collect(Collectors.toList());
 

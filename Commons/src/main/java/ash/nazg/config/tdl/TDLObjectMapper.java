@@ -14,6 +14,5 @@ public class TDLObjectMapper extends ObjectMapper {
 
         enable(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY);
         enable(SerializationFeature.INDENT_OUTPUT);
-        enable(SerializationFeature.WRITE_SINGLE_ELEM_ARRAYS_UNWRAPPED);
     }
 }

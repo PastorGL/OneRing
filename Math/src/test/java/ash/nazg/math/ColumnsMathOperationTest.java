@@ -64,6 +64,12 @@ public class ColumnsMathOperationTest {
                 double mul = 3.5 * new Double(row[0]) * new Double(row[1]) * new Double(row[2]);
                 assertEquals(mul, new Double(row[3]), 1.E-6);
             });
+
+            ret.get("eq").foreach(t -> {
+                String[] row = t.toString().split(",");
+                boolean eq = (new Double(row[0]) - new Double(row[1]) - new Double(row[2])) == 0.D;
+                assertEquals(eq, new Double(row[3]) == 1.D);
+            });
         }
     }
 }

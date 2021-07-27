@@ -6,11 +6,11 @@ To extend One Ring built-in set of Operations, you have to implement an [Operati
 
 First off, you should create a Maven module. Place it at the same level as root `pom.xml`, and include your module in root project's `&lt;modules>` section. You can freely choose the group and artifact IDs you like.
 
-To make One Ring know your module, include its artifact reference in TaskWrapper's `pom.xml` `&lt;dependencies>`. To make your module know One Ring, include a reference of artifact `ash.nazg:Commons` in your module's `&lt;dependencies>` (and its test-jar scope too). For an example, look into [Math's pom.xml](./Math/pom.xml).
+To make One Ring know your module, include its artifact reference in CLI's `pom.xml` `&lt;dependencies>`. To make your module know One Ring, include a reference of artifact `ash.nazg:Commons` in your module's `&lt;dependencies>` (and its test-jar scope too). For an example, look into [Math's pom.xml](./Math/pom.xml).
 
 Now you can proceed to create an Operation package and describe it.
 
-By convention, Operation package must be named `your.package.name.operations` and have `package-info.java` annotated with `@ash.nazg.config.tdl.Description`. That annotation is required by One Ring to recognize the contents of `your.package.name`. [There's an example](./Math/src/main/java/ash/nazg/math/operations/package-info.java).
+By convention, Operation package must be named `your.package.name.operations` and have `package-info.java` annotated with `@ash.nazg.config.tdl.RegisteredPackage`. That annotation is required by One Ring to recognize the contents of `your.package.name`. [There's an example](./Math/src/main/java/ash/nazg/math/operations/package-info.java).
 
 Place all your Operations inside that Package.
 
@@ -56,10 +56,10 @@ There is a plenty of examples to learn by, just look into the source code for Op
 * [WeightedSumOperation](./Math/src/main/java/ash/nazg/math/operations/WeightedSumOperation.java) generates a lot of columns that either come from input DataStreams or are created anew,
 * and the package [Proximity](./Proximity/src/main/java/ash/nazg/proximity/operations/package-info.java) contains Operations that deal with Point and Polygon RDDs in their DataStreams.
 
-### Extend Storage Adapters
+### Extend Dist Storage Adapters
 
-To extend One Ring with a custom Storage Adapter, you have to implement a pair of [InputAdapter](./Commons/src/main/java/ash/nazg/storage/InputAdapter.java) and [OutputAdapter](./Commons/src/main/java/ash/nazg/storage/OutputAdapter.java) interfaces. They're fairly straightforward, just see existing Adapter [sources](./WrapperCommmons/src/main/java/ash/nazg/storage) for the reference.
+To extend One Ring Dist with a custom Storage Adapter, you have to implement a pair of [InputAdapter](./Dist/src/main/java/ash/nazg/storage/InputAdapter.java) and [OutputAdapter](./Dist/src/main/java/ash/nazg/storage/OutputAdapter.java) interfaces. They're fairly straightforward mini-Operations, just see existing Adapter [sources](./Dist/src/main/java/ash/nazg/storage) for the reference.
 
-A single restriction exists: you can't set your Adapter as a fallback one, as that is reserved to One Ring Hadoop Adapter.
+A single restriction exists: you can't set your Adapter as a fallback one (by handling 'any' protocol), as that role is reserved to One Ring Hadoop Adapter.
 
 Hopefully this information is enough to extend One Ring.

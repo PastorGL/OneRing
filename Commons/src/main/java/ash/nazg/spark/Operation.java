@@ -4,33 +4,47 @@
  */
 package ash.nazg.spark;
 
-import ash.nazg.config.DataStreamsConfig;
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.OperationConfig;
+import ash.nazg.config.tdl.OperationResolver;
+import ash.nazg.config.tdl.StreamResolver;
+import ash.nazg.config.tdl.TaskDefinitionLanguage;
+import ash.nazg.config.tdl.metadata.OperationMeta;
 import org.apache.spark.api.java.JavaRDDLike;
 import org.apache.spark.api.java.JavaSparkContext;
 
-import java.util.*;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 
-public abstract class Operation implements OpInfo {
+public abstract class Operation implements Serializable {
+    public final OperationMeta meta;
+
     protected JavaSparkContext ctx;
+    protected OperationResolver opResolver;
+    protected StreamResolver dsResolver;
     protected String name;
 
-    protected OperationConfig describedProps;
-    protected DataStreamsConfig dataStreamsProps;
-
     public Operation() {
+        this.meta = meta();
     }
 
-    public void initialize(String name, JavaSparkContext ctx) {
-        this.name = name;
+    public void initialize(JavaSparkContext ctx) {
         this.ctx = ctx;
     }
 
-    public void configure(Properties config, Properties variables) throws InvalidConfigValueException {
-        describedProps = new OperationConfig(description(), name);
-        dataStreamsProps = describedProps.configure(config, variables);
+    public void configure(TaskDefinitionLanguage.Operation opConfig, TaskDefinitionLanguage.DataStreams dsConfig) throws InvalidConfigValueException {
+        this.opResolver = new OperationResolver(meta, opConfig);
+        this.dsResolver = new StreamResolver(dsConfig);
+        this.name = opConfig.name;
+
+        configure();
     }
+
+    abstract public OperationMeta meta();
+
+    abstract protected void configure() throws InvalidConfigValueException;
 
     protected static List<String> getMatchingInputs(Collection<String> inputNames, String keys) {
         String[] templates = keys.split(",");
@@ -53,4 +67,7 @@ public abstract class Operation implements OpInfo {
 
         return ds;
     }
+
+    @SuppressWarnings("rawtypes")
+    abstract public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) throws Exception;
 }
