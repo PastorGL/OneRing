@@ -5,9 +5,9 @@
 package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import ash.nazg.spatial.SegmentedTrack;
 import ash.nazg.spatial.TrackSegment;
@@ -22,41 +22,36 @@ import org.apache.spark.api.java.JavaRDDLike;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.Point;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 import static ash.nazg.spatial.config.ConfigurationParameters.GEN_USERID;
 
 @SuppressWarnings("unused")
 public class TrackGPXOutputOperation extends Operation {
-    public static final String VERB = "trackGpxOutput";
-
     private String inputName;
+
     private String outputName;
 
     @Override
-    @Description("Take a Track RDD and produce a GPX fragment file")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("trackGpxOutput", "Take a Track RDD and produce a GPX fragment file",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
+                new PositionalStreamsMetaBuilder()
+                        .ds("SegmentedTrack RDD",
+                                new StreamType[]{StreamType.Track}
+                        )
+                        .build(),
+
                 null,
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Track},
-                                false
+                new PositionalStreamsMetaBuilder()
+                        .ds("Plain RDD with GPX fragments per each line",
+                                new StreamType[]{StreamType.Plain}
                         )
-                ),
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Plain},
-                                false
-                        )
-                )
+                        .build()
         );
     }
 

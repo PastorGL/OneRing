@@ -179,12 +179,50 @@ select, input {
     border-bottom: 1px #d3d3d3 solid;
 }
 
-dl.props dd select {
+.layer {
+    display: none;
+}
+
+.switch-active {
+    border: 1px solid #add8e6;
+    color: #6495ed;
+    background-color: #cff1ff;
+}
+
+pre.descr {
+    white-space: pre-wrap;
+    line-break: anywhere;
+    font-family: Consolas, "Courier New", monospace;
+}
+
+dl.props {
+    padding: 2px;
+}
+
+dd, dt {
+    margin: 4px;
+}
+
+dl.props select {
     width: 30%;
 }
 
-dl.props dd input {
+dl.props label.label-sel {
+    display: inline-block;
+    width: 30%;
+}
+
+dl.props input {
     width: 60%;
+}
+
+dl.props label.label-inp {
+    display: inline-block;
+    width: 60%;
+}
+
+dl.props input.inp-rename {
+    min-width: 30%;
 }
 
 div.op, div.ds, div.dir, div.adapter {
@@ -204,12 +242,12 @@ div.dir {
     width: 50%;
 }
 
-.dir-name {
+.dir-name, .adapter-name {
     display: inline-block;
     width: 150px;
     padding: 2px;
     margin: 2px;
-    font-weight: bold;
+    font-weight: 700;
 }
 
 .dyn-name {
@@ -217,11 +255,6 @@ div.dir {
     min-width: 150px;
     padding: 2px;
     margin: 2px;
-}
-
-div.adapter {
-    width: 31%;
-    display: inline-block;
 }
 
 .btn-move, .btn-remove {
@@ -242,7 +275,7 @@ div.adapter {
 }
 
 .tr-input, .tr-output {
-    font-weight: 500;
+    font-weight: 400;
     margin: 2px;
     padding: 2px;
 }

@@ -126,6 +126,8 @@ public class TaskWrapperConfigBuilder extends WrapperConfigBuilder {
             task = PropertiesReader.toTask(prefix, ini, variables);
         }
 
+        foreignLayerVariable(task, "dist.store", "S");
+
         return task;
     }
 

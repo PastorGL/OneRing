@@ -5,9 +5,9 @@
 package ash.nazg.commons.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import org.apache.spark.api.java.JavaRDDLike;
 
@@ -16,36 +16,27 @@ import java.util.Map;
 
 @SuppressWarnings("unused")
 public class DummyOperation extends Operation {
-
-    public static final String VERB = "nop";
-
     private String[] inputNames;
+
     private String[] outputNames;
 
     @Override
-    @Description("This operation does nothing, just passes all its inputs as all outputs")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("nop", "This operation does nothing, just passes all its inputs as all outputs",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
+                new PositionalStreamsMetaBuilder()
+                        .ds("Any number of inputs to be renamed",
+                                new StreamType[]{StreamType.Plain, StreamType.KeyValue, StreamType.CSV}
+                        )
+                        .build(),
+
                 null,
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Plain, StreamType.KeyValue, StreamType.CSV},
-                                true
+                new PositionalStreamsMetaBuilder()
+                        .ds("Newly named inputs (must be same count as inputs)",
+                                new StreamType[]{StreamType.Passthru}
                         )
-                ),
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Passthru},
-                                false
-                        )
-                )
+                        .build()
         );
     }
 
@@ -53,6 +44,10 @@ public class DummyOperation extends Operation {
     public void configure() throws InvalidConfigValueException {
         inputNames = opResolver.positionalInputs();
         outputNames = opResolver.positionalOutputs();
+
+        if (inputNames.length != outputNames.length) {
+            throw new InvalidConfigValueException("Operation '" + name + "' must have equal number of inputs and outputs");
+        }
     }
 
     @SuppressWarnings("rawtypes")

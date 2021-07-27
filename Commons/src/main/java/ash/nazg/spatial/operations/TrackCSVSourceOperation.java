@@ -7,9 +7,10 @@ package ash.nazg.spatial.operations;
 import ash.nazg.commons.functions.TrackComparator;
 import ash.nazg.commons.functions.TrackPartitioner;
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import ash.nazg.spatial.SegmentedTrack;
 import ash.nazg.spatial.TrackSegment;
@@ -36,14 +37,9 @@ import static ash.nazg.spatial.config.ConfigurationParameters.*;
 
 @SuppressWarnings("unused")
 public class TrackCSVSourceOperation extends Operation {
-    @Description("By default, create single-segmented tracks")
-    public static final String DEF_CSV_TRACKID_COLUMN = null;
-
-    public static final String VERB = "trackCsvSource";
-
     private String inputName;
     private char inputDelimiter;
-    private Map<String, Integer> inputColumns;
+
     private int latColumn;
     private int lonColumn;
     private int useridColumn;
@@ -54,35 +50,29 @@ public class TrackCSVSourceOperation extends Operation {
     private Map<String, Integer> outputColumns;
 
     @Override
-    @Description("Source user Tracks from CSV file with signal data")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("trackCsvSource", "Source user Tracks from CSV file with signal data",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(DS_CSV_TIMESTAMP_COLUMN),
-                        new TaskDescriptionLanguage.Definition(DS_CSV_LAT_COLUMN),
-                        new TaskDescriptionLanguage.Definition(DS_CSV_LON_COLUMN),
-                        new TaskDescriptionLanguage.Definition(DS_CSV_USERID_COLUMN),
-                        new TaskDescriptionLanguage.Definition(DS_CSV_TRACKID_COLUMN, DEF_CSV_TRACKID_COLUMN),
-                },
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.CSV},
-                                true
+                new PositionalStreamsMetaBuilder()
+                        .ds("CSV with Point attributes to create SegmentedTracks from",
+                                new StreamType[]{StreamType.CSV}, true
                         )
-                ),
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Track},
-                                true
+                new DefinitionMetaBuilder()
+                        .def(DS_CSV_TIMESTAMP_COLUMN, "Point time stamp column")
+                        .def(DS_CSV_LAT_COLUMN, "Point latitude column")
+                        .def(DS_CSV_LON_COLUMN, "Point longitude column")
+                        .def(DS_CSV_USERID_COLUMN, "Point User ID column")
+                        .def(DS_CSV_TRACKID_COLUMN, "Optional Point track segment ID column",
+                                null, "By default, create single-segmented tracks")
+                        .build(),
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("SegmentedTrack RDD",
+                                new StreamType[]{StreamType.Track}, true
                         )
-                )
+                        .build()
         );
     }
 
@@ -93,7 +83,7 @@ public class TrackCSVSourceOperation extends Operation {
 
         inputDelimiter = dsResolver.inputDelimiter(inputName);
 
-        inputColumns = dsResolver.inputColumns(inputName);
+        Map<String, Integer> inputColumns = dsResolver.inputColumns(inputName);
         String[] outputCols = dsResolver.outputColumns(outputName);
         List<String> outColumns = (outputCols == null) ? Collections.emptyList() : Arrays.asList(outputCols);
         outputColumns = inputColumns.entrySet().stream()
@@ -185,7 +175,7 @@ public class TrackCSVSourceOperation extends Operation {
             boolean isSegmented = (_trackColumn != null);
 
             Text useridAttr = new Text(GEN_USERID);
-            Text trackidAttr = new Text(GEN_TRACKID);
+            Text trackidAttr = new Text(GEN_TRACK_ID);
             Text tsAttr = new Text("_ts");
 
             Map<Text, Integer> useridOrd = new HashMap<>();

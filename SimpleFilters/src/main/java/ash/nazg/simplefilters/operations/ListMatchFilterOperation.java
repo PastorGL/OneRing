@@ -5,9 +5,10 @@
 package ash.nazg.simplefilters.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.NamedStreamsMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -20,52 +21,37 @@ import static ash.nazg.simplefilters.config.ConfigurationParameters.*;
 
 @SuppressWarnings("unused")
 public class ListMatchFilterOperation extends MatchFilterOperation {
-    public static final String VERB = "listMatch";
-
     private String inputValuesName;
     private char inputValuesDelimiter;
     private int valuesColumn;
 
     @Override
-    @Description("This operation is a filter that only passes the RDD rows that have an exact match" +
-            " with a specific set of allowed values in a given column sourced from another RDD's column")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("listMatch", "This operation is a filter that only passes the RDD rows that have an exact match" +
+                " with a specific set of allowed values in a given column sourced from another RDD's column",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(DS_SOURCE_MATCH_COLUMN),
-                        new TaskDescriptionLanguage.Definition(DS_VALUES_MATCH_COLUMN),
-                },
+                new NamedStreamsMetaBuilder()
+                        .ds(RDD_INPUT_SOURCE, "CSV RDD with to be filtered",
+                                new StreamType[]{StreamType.CSV}, true
+                        )
+                        .ds(RDD_INPUT_VALUES, "CSV RDD with values to match any of them",
+                                new StreamType[]{StreamType.CSV}, true
+                        )
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.NamedStream[]{
-                                new TaskDescriptionLanguage.NamedStream(RDD_INPUT_SOURCE,
-                                        new StreamType[]{StreamType.CSV},
-                                        true
-                                ),
-                                new TaskDescriptionLanguage.NamedStream(RDD_INPUT_VALUES,
-                                        new StreamType[]{StreamType.CSV},
-                                        true
-                                )
-                        }
-                ),
+                new DefinitionMetaBuilder()
+                        .def(DS_SOURCE_MATCH_COLUMN, "Column to match a value")
+                        .def(DS_VALUES_MATCH_COLUMN, "Column with a value to match")
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.NamedStream[]{
-                                new TaskDescriptionLanguage.NamedStream(RDD_OUTPUT_MATCHED,
-                                        new StreamType[]{StreamType.CSV},
-                                        true
-                                ),
-                                new TaskDescriptionLanguage.NamedStream(RDD_OUTPUT_EVICTED,
-                                        new StreamType[]{StreamType.CSV},
-                                        false
-                                ),
-                        }
-                )
+                new NamedStreamsMetaBuilder()
+                        .ds(RDD_OUTPUT_MATCHED, "CSV RDD with matching values",
+                                new StreamType[]{StreamType.CSV}, true
+                        )
+                        .ds(RDD_OUTPUT_EVICTED, "CSV RDD with non-matching values",
+                                new StreamType[]{StreamType.CSV}
+                        )
+                        .build()
         );
     }
 

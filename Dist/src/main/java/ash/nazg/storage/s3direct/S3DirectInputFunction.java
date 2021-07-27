@@ -1,6 +1,6 @@
 package ash.nazg.storage.s3direct;
 
-import ash.nazg.storage.hadoop.FileStorage;
+import ash.nazg.storage.hadoop.HadoopStorage;
 import ash.nazg.storage.hadoop.InputFunction;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.util.IOUtils;
@@ -8,7 +8,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.permission.FsPermission;
 
 import javax.xml.bind.DatatypeConverter;
 import java.io.InputStream;
@@ -37,7 +36,7 @@ public class S3DirectInputFunction extends InputFunction {
 
     @Override
     protected InputStream decorateInputStream(Configuration conf, String inputFile) throws Exception {
-        String suffix = FileStorage.suffix(inputFile);
+        String suffix = HadoopStorage.suffix(inputFile);
 
         AmazonS3 _s3 = S3DirectStorage.get(endpoint, region, accessKey, secretKey);
         InputStream inputStream = _s3.getObject(_bucket, inputFile).getObjectContent();
@@ -60,7 +59,7 @@ public class S3DirectInputFunction extends InputFunction {
 
             inputStream = getParquetInputStream(conf, localPath.toString());
         } else {
-            inputStream = getTextInputStream(conf, inputStream, suffix);
+            inputStream = getTextInputStream(conf, inputStream, HadoopStorage.Codec.lookup(suffix));
         }
 
         return inputStream;

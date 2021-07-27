@@ -30,19 +30,19 @@ public class Interpreter {
         this.taskConfig = taskConfig;
         this.context = context;
 
-        dsResolver = new StreamResolver(taskConfig.dataStreams);
+        dsResolver = new StreamResolver(taskConfig.streams);
     }
 
     public void processTaskChain(Map<String, JavaRDDLike> rdds) throws Exception {
         int index = 0;
         do {
             index = advance(rdds, new Random(), index, false);
-        } while (++index < taskConfig.taskItems.size());
+        } while (++index < taskConfig.items.size());
     }
 
     private int advance(Map<String, JavaRDDLike> rdds, Random random, Integer index, boolean skip) throws Exception {
         do {
-            TaskDefinitionLanguage.TaskItem ti = taskConfig.taskItems.get(index);
+            TaskDefinitionLanguage.TaskItem ti = taskConfig.items.get(index);
 
             if (ti instanceof TaskDefinitionLanguage.Directive) {
                 DirVarVal dvv = ((TaskDefinitionLanguage.Directive) ti).dirVarVal();
@@ -118,7 +118,7 @@ public class Interpreter {
                     callOperation(rdds, (TaskDefinitionLanguage.Operation) ti);
                 }
             }
-        } while (++index < taskConfig.taskItems.size());
+        } while (++index < taskConfig.items.size());
 
         return index;
     }
@@ -141,13 +141,13 @@ public class Interpreter {
             }
         }
 
-        if (!Operations.availableOperations.containsKey(op.verb)) {
+        if (!Operations.OPERATIONS.containsKey(op.verb)) {
             throw new InvalidConfigValueException("Operation '" + op.name + "' has unknown verb '" + op.verb + "'");
         }
 
-        Operation chainedOp = Operations.availableOperations.get(op.verb).opClass.newInstance();
+        Operation chainedOp = Operations.OPERATIONS.get(op.verb).opClass.newInstance();
         chainedOp.initialize(context);
-        chainedOp.configure(op, taskConfig.dataStreams);
+        chainedOp.configure(op, taskConfig.streams);
         Map<String, JavaRDDLike> result = chainedOp.getResult(Collections.unmodifiableMap(rdds));
 
         for (String out : result.keySet()) {
@@ -179,12 +179,12 @@ public class Interpreter {
 
         TaskDefinitionLanguage.Operation metricsProps = TaskDefinitionLanguage.createOperation(taskConfig);
         metricsProps.name = "metrics:" + target;
-        metricsProps.inputs.positionalNames = target;
+        metricsProps.input.positional = target;
         metricsProps.definitions = taskConfig.foreignLayer(Constants.METRICS_LAYER);
 
         RDDMetricsPseudoOperation metricsOp = Operations.getMetricsOperation();
         metricsOp.initialize(context);
-        metricsOp.configure(metricsProps, taskConfig.dataStreams);
+        metricsOp.configure(metricsProps, taskConfig.streams);
 
         rdds.putAll(metricsOp.getResult(rdds));
     }

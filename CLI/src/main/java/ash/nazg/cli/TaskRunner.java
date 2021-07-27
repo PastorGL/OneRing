@@ -37,6 +37,11 @@ public class TaskRunner {
     }
 
     public void go(boolean local) throws Exception {
+        String wrapperStorePath = taskConfig.getForeignValue("dist.store");
+        if (!local && (wrapperStorePath == null)) {
+            throw new InvalidConfigValueException("An invocation on the cluster must have wrapper store path set");
+        }
+
         final Map<String, Long> recordsRead = new HashMap<>();
         final Map<String, Long> recordsWritten = new HashMap<>();
 
@@ -62,21 +67,22 @@ public class TaskRunner {
             }
         });
 
-        StreamResolver dsResolver = new StreamResolver(taskConfig.dataStreams);
+        StreamResolver dsResolver = new StreamResolver(taskConfig.streams);
+        InOutResolver ioResolver = new InOutResolver(taskConfig);
 
         Map<String, JavaRDDLike> result = new HashMap<>();
 
         for (String input : taskConfig.input) {
-            String path = dsResolver.inputPath(input);
+            String path;
+            if (!local) {
+                path = ioResolver.inputPathNonLocal(input) + "/*";
+            } else {
+                path = ioResolver.inputPath(input);
+            }
 
             JavaRDDLike inputRdd = context.textFile(path, Math.max(dsResolver.inputParts(input), 1));
             inputRdd.rdd().setName("one-ring:input:" + input);
             result.put(input, inputRdd);
-        }
-
-        String wrapperStorePath = taskConfig.getForeignValue("dist.store");
-        if (!local && (wrapperStorePath == null)) {
-            throw new InvalidConfigValueException("An invocation on the cluster must have wrapper store path set");
         }
 
         Interpreter interpreter = new Interpreter(taskConfig, context);
@@ -102,9 +108,9 @@ public class TaskRunner {
         }
 
         boolean wrapperStore = wrapperStorePath != null;
-        List<Tuple2<String, String>> paths = null;
+        List<Tuple2<String, Integer>> outputs = null;
         if (wrapperStore) {
-            paths = new ArrayList<>();
+            outputs = new ArrayList<>();
         }
 
         for (String output : outputNames) {
@@ -112,12 +118,16 @@ public class TaskRunner {
 
             if (outputRdd != null) {
                 outputRdd.rdd().setName("one-ring:output:" + output);
-                String path = dsResolver.outputPath(output);
+
+                String path;
+                if (!local) {
+                    path = ioResolver.outputPathNonLocal(output);
+                } else {
+                    path = ioResolver.outputPath(output);
+                }
 
                 if (wrapperStore) {
-                    path = dsResolver.outputPath(Constants.DEFAULT_DS) + "/" + output;
-
-                    paths.add(new Tuple2<>(output, path));
+                    outputs.add(new Tuple2<>(output, outputRdd.getNumPartitions()));
                 }
 
                 save(path, dsResolver.outputDelimiter(output), outputRdd);
@@ -125,7 +135,7 @@ public class TaskRunner {
         }
 
         if (wrapperStore) {
-            save(wrapperStorePath + "/outputs", dsResolver.outputDelimiter(Constants.OUTPUTS_DS), context.parallelizePairs(paths, 1));
+            save(wrapperStorePath + "/outputs", dsResolver.outputDelimiter(Constants.OUTPUTS_DS), context.parallelizePairs(outputs, 1));
         }
 
         if (interpreter.metered()) {
@@ -145,8 +155,8 @@ public class TaskRunner {
                 String[] metric = parser.parseLine(String.valueOf(line));
 
                 metricsLog.add("Metrics of data stream '" + metric[0] + "'");
-                metricsLog.add("Total " + metric[1] + ": " + metric[2]);
-                metricsLog.add("Counted by '" + metric[3] + "': " + metric[4]);
+                metricsLog.add("Total " + metric[1] + ": " + metric[3]);
+                metricsLog.add("Counted by '" + metric[2] + "': " + metric[4]);
                 metricsLog.add("Average per counter: " + metric[5]);
                 metricsLog.add("Median per counter: " + metric[6]);
             }

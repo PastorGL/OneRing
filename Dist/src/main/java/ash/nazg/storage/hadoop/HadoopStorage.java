@@ -1,29 +1,18 @@
 package ash.nazg.storage.hadoop;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.storage.StorageAdapter;
+import ash.nazg.config.tdl.metadata.DefinitionEnum;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.compress.*;
 import scala.Tuple2;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-public class FileStorage {
-    public static final Map<String, Class<? extends CompressionCodec>> CODECS = new HashMap<>();
-
-    static {
-        CODECS.put("gz", GzipCodec.class);
-        CODECS.put("gzip", GzipCodec.class);
-        CODECS.put("bz2", BZip2Codec.class);
-        CODECS.put("snappy", SnappyCodec.class);
-        CODECS.put("lz4", Lz4Codec.class);
-        CODECS.put("zstd", ZStandardCodec.class);
-    }
+public class HadoopStorage {
+    public static final String PATH_PATTERN = "^([^:]+:/*[^/]+)/(.+)";
 
     /**
      * Create a list of file groups from a glob pattern.
@@ -75,7 +64,7 @@ public class FileStorage {
         splits.add(current.toString());
 
         for (String split : splits) {
-            Matcher m = StorageAdapter.PATH_PATTERN.matcher(split);
+            Matcher m = Pattern.compile(PATH_PATTERN).matcher(split);
             if (m.matches()) {
                 String rootPath = m.group(1);
                 String path = m.group(2);
@@ -242,5 +231,35 @@ public class FileStorage {
         }
 
         return suffix;
+    }
+
+    public enum Codec implements DefinitionEnum {
+        NONE(null),
+        GZ(GzipCodec.class),
+        BZ2(BZip2Codec.class),
+        SNAPPY(SnappyCodec.class),
+        LZ4(Lz4Codec.class),
+        ZST(ZStandardCodec.class);
+
+        Class<? extends CompressionCodec> codec;
+
+        Codec(Class<? extends CompressionCodec> codec) {
+            this.codec = codec;
+        }
+
+        @Override
+        public String descr() {
+            return (codec != null) ? "Compression " + name() : "No compression";
+        }
+
+        static public Codec lookup(String suffix) {
+            for (Codec codec : Codec.values()) {
+                if (codec.name().equalsIgnoreCase(suffix)) {
+                    return codec;
+                }
+            }
+
+            return NONE;
+        }
     }
 }

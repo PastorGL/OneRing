@@ -5,9 +5,11 @@
 package ash.nazg.datetime.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.NamedStreamsMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.datetime.functions.FilterByDateDefinition;
 import ash.nazg.datetime.functions.FilterByDateFunction;
 import ash.nazg.spark.Operation;
@@ -28,92 +30,58 @@ import java.util.Map;
 
 @SuppressWarnings("unused")
 public class SplitByDateOperation extends Operation {
-    @Description("Template for output names wildcard part in form of {input.column1}/{input.column2}")
     public static final String OP_SPLIT_TEMPLATE = "split.template";
-    @Description("Template output with a wildcard part, i.e. output_*")
     public static final String RDD_OUTPUT_SPLITS_TEMPLATE = "template";
-    @Description("Optional output that contains all the distinct splits occurred on the input data," +
-            " in the form of names of the generated inputs. Its column order is always year,month,date,dow,hour,minute." +
-            " Unreferenced split columns are omitted from this output")
     public static final String RDD_OUTPUT_DISTINCT_SPLITS = "distinct_splits";
-    @Description("If set, split by year column value")
     public static final String DS_YEAR_COLUMN = "year.column";
-    @Description("If set, split by month column value")
     public static final String DS_MONTH_COLUMN = "month.column";
-    @Description("If set, split by date of month column value")
     public static final String DS_DATE_COLUMN = "date.column";
-    @Description("If set, split by day of week column value")
     public static final String DS_DOW_COLUMN = "dow.column";
-    @Description("If set, split by hour column value")
     public static final String DS_HOUR_COLUMN = "hour.column";
-    @Description("If set, split by minute column value")
     public static final String DS_MINUTE_COLUMN = "minute.column";
-    @Description("By default do not explode date of month")
-    public static final String DEF_DATE_COLUMN = null;
-    @Description("By default do not explode year")
-    public static final String DEF_YEAR_COLUMN = null;
-    @Description("By default do not explode day of week")
-    public static final String DEF_DOW_COLUMN = null;
-    @Description("By default do not explode month")
-    public static final String DEF_MONTH_COLUMN = null;
-    @Description("By default do not explode hour")
-    public static final String DEF_HOUR_COLUMN = null;
-    @Description("By default do not explode minute")
-    public static final String DEF_MINUTE_COLUMN = null;
-
-    public static final String VERB = "splitByDate";
 
     private String inputName;
+
     private String outputNameTemplate;
     private String outputDistinctSplits;
 
     private int[] splitColumns;
-    private Map<Integer, String> splitColumnNames = new HashMap<>();
+    private final Map<Integer, String> splitColumnNames = new HashMap<>();
 
-    private FilterByDateDefinition def = new FilterByDateDefinition();
-
-    @Override
-    @Description("Take a CSV RDD that contains exploded timestamp columns and split it into several RDDs" +
-            " by selected columns' values. Output 'template' name is treated as a template for a set of" +
-            " generated outputs that can reference to encountered unique values of selected columns")
-    public String verb() {
-        return VERB;
-    }
+    private final FilterByDateDefinition def = new FilterByDateDefinition();
 
     @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(DS_YEAR_COLUMN, DEF_YEAR_COLUMN),
-                        new TaskDescriptionLanguage.Definition(DS_MONTH_COLUMN, DEF_MONTH_COLUMN),
-                        new TaskDescriptionLanguage.Definition(DS_DATE_COLUMN, DEF_DATE_COLUMN),
-                        new TaskDescriptionLanguage.Definition(DS_DOW_COLUMN, DEF_DOW_COLUMN),
-                        new TaskDescriptionLanguage.Definition(DS_HOUR_COLUMN, DEF_HOUR_COLUMN),
-                        new TaskDescriptionLanguage.Definition(DS_MINUTE_COLUMN, DEF_MINUTE_COLUMN),
-                        new TaskDescriptionLanguage.Definition(OP_SPLIT_TEMPLATE),
-                },
+    public OperationMeta meta() {
+        return new OperationMeta("splitByDate", "Take a CSV RDD that contains exploded timestamp columns and split it into several RDDs" +
+                " by selected columns' values. Output 'template' name is treated as a template for a set of" +
+                " generated outputs that can reference to encountered unique values of selected columns",
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.CSV},
-                                true
+                new PositionalStreamsMetaBuilder()
+                        .ds("A CSV RDD with one or more exploded timestamp columns",
+                                new StreamType[]{StreamType.CSV}, true
                         )
-                ),
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.NamedStream[]{
-                                new TaskDescriptionLanguage.NamedStream(
-                                        RDD_OUTPUT_SPLITS_TEMPLATE,
-                                        new StreamType[]{StreamType.CSV},
-                                        true
-                                ),
-                                new TaskDescriptionLanguage.NamedStream(
-                                        RDD_OUTPUT_DISTINCT_SPLITS,
-                                        new StreamType[]{StreamType.Fixed},
-                                        false
-                                )
-                        }
-                )
+                new DefinitionMetaBuilder()
+                        .def(DS_YEAR_COLUMN, "If set, split by year column value", null, "By default do not explode date of month")
+                        .def(DS_MONTH_COLUMN, "If set, split by month column value", null, "By default do not explode year")
+                        .def(DS_DATE_COLUMN, "If set, split by date of month column value", null, "By default do not explode day of week")
+                        .def(DS_DOW_COLUMN, "If set, split by day of week column value", null, "By default do not explode month")
+                        .def(DS_HOUR_COLUMN, "If set, split by hour column value", null, "By default do not explode hour")
+                        .def(DS_MINUTE_COLUMN, "If set, split by minute column value", null, "By default do not explode minute")
+                        .def(OP_SPLIT_TEMPLATE, "Template for output names wildcard part in form of {input.column1}/{input.column2}")
+                        .build(),
+
+                new NamedStreamsMetaBuilder()
+                        .ds(RDD_OUTPUT_SPLITS_TEMPLATE, "Template output with a wildcard part, i.e. output_*",
+                                new StreamType[]{StreamType.CSV}, true
+                        )
+                        .ds(RDD_OUTPUT_DISTINCT_SPLITS, "Optional output that contains all the distinct splits occurred on the input data," +
+                                        " in the form of names of the generated inputs. Its column order is always year,month,date,dow,hour,minute." +
+                                        " Unreferenced split columns are omitted from this output",
+                                new StreamType[]{StreamType.Fixed}
+                        )
+                        .build()
         );
     }
 

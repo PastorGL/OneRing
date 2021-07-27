@@ -5,9 +5,10 @@
 package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
@@ -30,48 +31,40 @@ import static ash.nazg.spatial.config.ConfigurationParameters.*;
 
 @SuppressWarnings("unused")
 public class PolygonH3SourceOperation extends Operation {
-    public static final String VERB = "polygonH3Source";
-
     private String inputName;
+    private char inputDelimiter;
+    private int hashColumn;
 
     private String outputName;
     private Map<String, Integer> outputColumns;
-    private int hashColumn;
-    private char delimiter;
 
     @Override
-    @Description("Take a csv with H3 hashes and produce a Polygon RDD")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("polygonH3Source", "Take a csv with H3 hashes and produce a Polygon RDD",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(DS_CSV_HASH_COLUMN),
-                },
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.CSV},
-                                true
+                new PositionalStreamsMetaBuilder()
+                        .ds("CSV RDD with H3 hashes",
+                                new StreamType[]{StreamType.CSV}, true
                         )
-                ),
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Polygon},
-                                true
+                new DefinitionMetaBuilder()
+                        .def(DS_CSV_HASH_COLUMN, "H3 hash column")
+                        .build(),
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("Polygon RDD with a Polygon for each input hash" +
+                                        " and other parameters from other input columns",
+                                new StreamType[]{StreamType.Polygon}, true
                         )
-                )
+                        .build()
         );
     }
 
     @Override
     public void configure() throws InvalidConfigValueException {
         inputName = opResolver.positionalInput(0);
-        delimiter = dsResolver.inputDelimiter(inputName);
+        inputDelimiter = dsResolver.inputDelimiter(inputName);
 
         outputName = opResolver.positionalOutput(0);
 
@@ -102,7 +95,7 @@ public class PolygonH3SourceOperation extends Operation {
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         JavaRDD<Object> rdd = (JavaRDD<Object>) input.get(inputName);
 
-        final char _delimiter = delimiter;
+        final char _delimiter = inputDelimiter;
         final Map<String, Integer> _outputColumns = outputColumns;
         final GeometryFactory geometryFactory = new GeometryFactory();
         final int _hashColumn = hashColumn;

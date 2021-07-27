@@ -48,7 +48,8 @@ For example, consider us need to analyze the number of `SegmentedTrack`s generat
 task.input=signals
 task.operations=create_tracks,$METRICS{tracks},...
 
-ds.input.path.signals={PATH_SIGNALS}
+input.path.signals={PATH_SIGNALS}
+
 ds.input.columns.signals=userid,lat,lon,ts,city
 
 # tracks
@@ -80,7 +81,7 @@ If run with that config, the Spark's application log will contain the following 
 
 If we change the counting property to '_trackid' (or, 'city' because here it's the same),
 ```properties
-metrics.count.column.tracks=_trackid
+metrics.count.column.tracks=_track_id
 ```
 then we'll count the number of user tracks per each city, and `unique key count` metric will show the number of cities that have users with at least one track. And the output be like:
 ```log
@@ -89,7 +90,7 @@ then we'll count the number of user tracks per each city, and `unique key count`
 21/02/15 15:53:17 INFO TaskWrapper: Total number of objects: 250385.0
 21/02/15 15:53:17 INFO TaskWrapper: Median number of objects per counter: 37253.41730.33333333333
 21/02/15 15:53:17 INFO TaskWrapper: Average number of objects per counter: 41730.83333333333
-21/02/15 15:53:17 INFO TaskWrapper: Count of unique objects by property '_trackid': 6.0
+21/02/15 15:53:17 INFO TaskWrapper: Count of unique objects by property '_track_id': 6.0
 ...
 ```
 

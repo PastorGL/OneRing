@@ -5,9 +5,9 @@
 package ash.nazg.columnar.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
@@ -24,38 +24,31 @@ import java.util.Map;
 
 @SuppressWarnings("unused")
 public class ArrangeColumnsOperation extends Operation {
-    public static final String VERB = "arrangeColumns";
-
     private String inputName;
     private Character inputDelimiter;
+
     private String outputName;
     private Character outputDelimiter;
     private int[] outputColumns;
 
     @Override
-    @Description("This operation rearranges the order of input CSV columns, optionally omitting unneeded in the output")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("arrangeColumns",
+                "This operation rearranges the order of input CSV columns, optionally omitting unneeded in the output",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
+                new PositionalStreamsMetaBuilder()
+                        .ds("Input CSV to rearrange columns",
+                                new StreamType[]{StreamType.CSV}, true
+                        )
+                        .build(),
+
                 null,
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.CSV},
-                                true
+                new PositionalStreamsMetaBuilder()
+                        .ds("Output CSV with columns rearranged",
+                                new StreamType[]{StreamType.CSV}, true
                         )
-                ),
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.CSV},
-                                true
-                        )
-                )
+                        .build()
         );
     }
 

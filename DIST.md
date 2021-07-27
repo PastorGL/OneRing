@@ -33,7 +33,7 @@ Dist has its own layer in `tasks.ini`, prefixed with `dist.`, with a small set o
 
 `dist.tmp` is an alias to `-t` key.
 
-But for the data itself, it uses same `task.input`, `task.output`, `ds.input.` and `ds.output.` layers as CLI, and therefore honors all path, partitioning, and column-related parameters. For instance, `ds.input.path` and `ds.output.path` specify CLI input and output locations for a Task.
+But for the data itself, it uses same `task.input`, `task.output`, `ds.input.` and `ds.output.` layers as CLI, and therefore honors all path, partitioning, and column-related parameters. For instance, `input.path` and `output.path` specify CLI input and output locations for a Task.
 
 When CLI executes on a cluster, it transparently replaces all its absolute input and output paths with relative paths according to the provided input and output locations. In Local mode, it treats all paths as Hadoop FileSystem ones and uses them as is.
 

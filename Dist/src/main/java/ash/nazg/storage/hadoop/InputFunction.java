@@ -61,7 +61,7 @@ public class InputFunction implements FlatMapFunction<List<String>, Text> {
     protected InputStream decorateInputStream(Configuration conf, String inputFile) throws Exception {
         InputStream inputStream;
 
-        String suffix = FileStorage.suffix(inputFile);
+        String suffix = HadoopStorage.suffix(inputFile);
 
         if ("parquet".equalsIgnoreCase(suffix)) {
             inputStream = getParquetInputStream(conf, inputFile);
@@ -70,7 +70,7 @@ public class InputFunction implements FlatMapFunction<List<String>, Text> {
             FileSystem inputFs = inputFilePath.getFileSystem(conf);
             inputStream = inputFs.open(inputFilePath);
 
-            inputStream = getTextInputStream(conf, inputStream, suffix);
+            inputStream = getTextInputStream(conf, inputStream, HadoopStorage.Codec.lookup(suffix));
         }
 
         return inputStream;
@@ -101,10 +101,9 @@ public class InputFunction implements FlatMapFunction<List<String>, Text> {
         return new ParquetRecordInputStream(reader, fieldOrder, _delimiter);
     }
 
-    protected InputStream getTextInputStream(Configuration conf, InputStream inputStream, String codec) throws Exception {
-        codec = codec.toLowerCase();
-        if (FileStorage.CODECS.containsKey(codec)) {
-            Class<? extends CompressionCodec> codecClass = FileStorage.CODECS.get(codec);
+    protected InputStream getTextInputStream(Configuration conf, InputStream inputStream, HadoopStorage.Codec codec) throws Exception {
+        Class<? extends CompressionCodec> codecClass = codec.codec;
+        if (codecClass != null) {
             CompressionCodec cc = codecClass.newInstance();
             ((Configurable) cc).setConf(conf);
 

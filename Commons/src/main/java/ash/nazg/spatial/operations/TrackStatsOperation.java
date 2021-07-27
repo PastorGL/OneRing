@@ -5,9 +5,11 @@
 package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.DefinitionEnum;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.NamedStreamsMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
 import ash.nazg.spark.Operation;
 import ash.nazg.spatial.SegmentedTrack;
 import ash.nazg.spatial.TrackSegment;
@@ -24,69 +26,59 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
 import scala.Tuple2;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 import static ash.nazg.spatial.config.ConfigurationParameters.*;
 
 @SuppressWarnings("unused")
 public class TrackStatsOperation extends Operation {
-    public static final String VERB = "trackStats";
-
-    @Description("Track RDD to calculate the statistics")
     public static final String RDD_INPUT_TRACKS = "tracks";
-    @Description("Optional Point RDD to pin tracks with same _userid property against (for pinning.mode=INPUT_PINS)")
     public static final String RDD_INPUT_PINS = "pins";
-    @Description("Track pinning mode for _radius calculation")
     public static final String OP_PINNING_MODE = "pinning.mode";
-    @Description("By default, pin to points supplied by an external input")
-    public static final PinningMode DEF_PINNING_MODE = PinningMode.INPUT_PINS;
 
-    private String inputName;
+    private String tracksName;
+    private String pinsName;
+
     private String outputName;
 
-    private String pinsName;
     private PinningMode pinningMode;
 
     @Override
-    @Description("Take a Track RDD and augment its Points', TrackSegments' and SegmentedTracks' properties with statistics")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("trackStats", "Take a Track RDD and augment its Points', TrackSegments' and SegmentedTracks' properties with statistics",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(OP_PINNING_MODE, PinningMode.class, DEF_PINNING_MODE),
-                },
+                new NamedStreamsMetaBuilder()
+                        .ds(RDD_INPUT_TRACKS, "SegmentedTrack RDD to calculate the statistics",
+                                new StreamType[]{StreamType.Track}
+                        )
+                        .ds(RDD_INPUT_PINS, "Optional Point RDD to pin tracks with same _userid property against (for pinning.mode=INPUT_PINS)",
+                                new StreamType[]{StreamType.Point}
+                        )
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.NamedStream[]{
-                                new TaskDescriptionLanguage.NamedStream(RDD_INPUT_PINS,
-                                        new StreamType[]{StreamType.Point},
-                                        false
-                                ),
-                                new TaskDescriptionLanguage.NamedStream(RDD_INPUT_TRACKS,
-                                        new StreamType[]{StreamType.Track},
-                                        false
-                                )
-                        }
-                ),
+                new DefinitionMetaBuilder()
+                        .def(OP_PINNING_MODE, "Track pinning mode for _radius calculation", PinningMode.class,
+                                PinningMode.INPUT_PINS.name(), "By default, pin to points supplied by an external input")
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.NamedStream[]{
-                                new TaskDescriptionLanguage.NamedStream(RDD_OUTPUT_TRACKS,
-                                        new StreamType[]{StreamType.Track},
-                                        new String[]{GEN_POINTS, GEN_DURATION, GEN_RADIUS, GEN_DISTANCE}
-                                )
-                        }
-                )
+                new NamedStreamsMetaBuilder()
+                        .ds(RDD_OUTPUT_TRACKS, "SegmentedTrack output RDD with stats",
+                                new StreamType[]{StreamType.Track}, true
+                        )
+                        .genCol(RDD_OUTPUT_TRACKS, GEN_POINTS, "Number of Track or Segment points")
+                        .genCol(RDD_OUTPUT_TRACKS, GEN_DURATION, "Track or Segment duration, seconds")
+                        .genCol(RDD_OUTPUT_TRACKS, GEN_RADIUS, "Track or Segment max distance from its pinning point, meters")
+                        .genCol(RDD_OUTPUT_TRACKS, GEN_DISTANCE, "Track or Segment length, meters")
+                        .build()
         );
     }
 
     @Override
     public void configure() throws InvalidConfigValueException {
-        inputName = opResolver.namedInput(RDD_INPUT_TRACKS);
+        tracksName = opResolver.namedInput(RDD_INPUT_TRACKS);
         pinsName = opResolver.namedInput(RDD_INPUT_PINS);
 
         outputName = opResolver.namedOutput(RDD_OUTPUT_TRACKS);
@@ -115,7 +107,7 @@ public class TrackStatsOperation extends Operation {
                         return result.iterator();
                     });
 
-            JavaPairRDD<Text, SegmentedTrack> tracks = ((JavaRDD<SegmentedTrack>) input.get(inputName))
+            JavaPairRDD<Text, SegmentedTrack> tracks = ((JavaRDD<SegmentedTrack>) input.get(tracksName))
                     .mapPartitionsToPair(it -> {
                         List<Tuple2<Text, SegmentedTrack>> result = new ArrayList<>();
 
@@ -133,7 +125,7 @@ public class TrackStatsOperation extends Operation {
             inp = pins.join(tracks)
                     .mapToPair(Tuple2::_2);
         } else {
-            inp = ((JavaRDD<SegmentedTrack>) input.get(inputName))
+            inp = ((JavaRDD<SegmentedTrack>) input.get(tracksName))
                     .mapToPair(t -> new Tuple2<>(null, t));
         }
 
@@ -280,16 +272,22 @@ public class TrackStatsOperation extends Operation {
         return Collections.singletonMap(outputName, output);
     }
 
-    public enum PinningMode {
-        @Description("Pin TrackSegments by their own centroids")
-        SEGMENT_CENTROIDS,
-        @Description("Pin TrackSegments by parent SegmentedTrack centroid")
-        TRACK_CENTROIDS,
-        @Description("Pin TrackSegments by their own starting points")
-        SEGMENT_STARTS,
-        @Description("Pin TrackSegments by parent SegmentedTrack starting point")
-        TRACK_STARTS,
-        @Description("Pin both SegmentedTracks and TrackSegments by externally supplied pin points")
-        INPUT_PINS
+    public enum PinningMode implements DefinitionEnum {
+        SEGMENT_CENTROIDS("Pin TrackSegments by their own centroids"),
+        TRACK_CENTROIDS("Pin TrackSegments by parent SegmentedTrack centroid"),
+        SEGMENT_STARTS("Pin TrackSegments by their own starting points"),
+        TRACK_STARTS("Pin TrackSegments by parent SegmentedTrack starting point"),
+        INPUT_PINS("Pin both SegmentedTracks and TrackSegments by externally supplied pin points");
+
+        private final String descr;
+
+        PinningMode(String descr) {
+            this.descr = descr;
+        }
+
+        @Override
+        public String descr() {
+            return descr;
+        }
     }
 }

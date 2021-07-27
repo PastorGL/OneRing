@@ -5,8 +5,9 @@
 package ash.nazg.storage.jdbc;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
 import ash.nazg.storage.InputAdapter;
+import ash.nazg.storage.metadata.AdapterMeta;
 import com.opencsv.CSVWriter;
 import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaRDD;
@@ -25,11 +26,12 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
-import java.util.regex.Pattern;
+
+import static ash.nazg.storage.jdbc.JDBCStorage.*;
 
 @SuppressWarnings("unused")
 public class JDBCInput extends InputAdapter {
-    private static final Pattern PATTERN = Pattern.compile("^jdbc:SELECT.+?\\?.+?\\?.*");
+    private static final String SELECT_PATTERN = "^jdbc:SELECT.+?\\?.+?\\?.*";
 
     private JavaSparkContext ctx;
     private int partCount;
@@ -40,31 +42,40 @@ public class JDBCInput extends InputAdapter {
     private char delimiter;
 
     @Override
-    @Description("JDBC Input from an SQL SELECT query against a configured database." +
-            " Must use numeric boundaries for each part")
-    public Pattern proto() {
-        return PATTERN;
+    protected AdapterMeta meta() {
+        return new AdapterMeta("JDBC", "JDBC adapter for reading data from an SQL SELECT query against" +
+                " a configured database. Must use numeric boundaries for each part denoted by two ? placeholders," +
+                " for example, SELECT * FROM table WHERE integer_key BETWEEN ? AND ?",
+                SELECT_PATTERN,
+
+                new DefinitionMetaBuilder()
+                        .def(JDBC_DRIVER, "JDBC driver, fully qualified class name")
+                        .def(JDBC_URL, "JDBC connection string URL")
+                        .def(JDBC_USER, "JDBC connection user", null, "By default, user isn't set")
+                        .def(JDBC_PASSWORD, "JDBC connection password", null, "By default, use no password")
+                        .build()
+        );
     }
 
     @Override
     protected void configure() throws InvalidConfigValueException {
-        dbDriver = inputResolver.get("jdbc.driver." + name);
-        dbUrl = inputResolver.get("jdbc.url." + name);
-        dbUser = inputResolver.get("jdbc.user." + name);
-        dbPassword = inputResolver.get("jdbc.password." + name);
+        dbDriver = inputResolver.definition(JDBC_DRIVER);
+        dbUrl = inputResolver.definition(JDBC_URL);
+        dbUser = inputResolver.definition(JDBC_USER);
+        dbPassword = inputResolver.definition(JDBC_PASSWORD);
 
-        partCount = dsResolver.inputParts(name);
-        delimiter = dsResolver.inputDelimiter(name);
+        partCount = dsResolver.inputParts(dsName);
+        delimiter = dsResolver.inputDelimiter(dsName);
     }
 
     @Override
-    public JavaRDD<Text> load(String path) {
+    public JavaRDD<Text> load(String query) {
         final char _inputDelimiter = delimiter;
 
         return new JdbcRDD<Object[]>(
                 ctx.sc(),
                 new DbConnection(dbDriver, dbUrl, dbUser, dbPassword),
-                path.split(":", 2)[1],
+                query.split(":", 2)[1],
                 0, Math.max(partCount, 0),
                 Math.max(partCount, 1),
                 new RowMapper(),
@@ -117,8 +128,12 @@ public class JDBCInput extends InputAdapter {
             }
 
             Properties properties = new Properties();
-            properties.setProperty("user", _dbUser);
-            properties.setProperty("password", _dbPassword);
+            if (_dbUser != null) {
+                properties.setProperty("user", _dbUser);
+            }
+            if (_dbPassword != null) {
+                properties.setProperty("password", _dbPassword);
+            }
 
             Connection connection = null;
             try {

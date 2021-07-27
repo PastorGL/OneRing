@@ -10,7 +10,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.FIELD,ElementType.METHOD,ElementType.PACKAGE})
-public @interface Description {
+@Target({ElementType.PACKAGE})
+public @interface RegisteredPackage {
     String value() default "";
 }

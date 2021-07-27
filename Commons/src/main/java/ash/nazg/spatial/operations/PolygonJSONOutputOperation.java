@@ -5,9 +5,9 @@
 package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import org.apache.hadoop.io.MapWritable;
 import org.apache.hadoop.io.Text;
@@ -22,35 +22,27 @@ import java.util.function.Function;
 
 @SuppressWarnings("unused")
 public class PolygonJSONOutputOperation extends Operation {
-    public static final String VERB = "polygonJsonOutput";
-
     private String inputName;
+
     private String outputName;
 
     @Override
-    @Description("Take a Polygon RDD and produce a GeoJSON fragment file")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("polygonJsonOutput", "Take a Polygon RDD and produce a GeoJSON fragment RDD",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
+                new PositionalStreamsMetaBuilder()
+                        .ds("Polygon RDD",
+                                new StreamType[]{StreamType.Polygon}
+                        )
+                        .build(),
+
                 null,
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Polygon},
-                                false
+                new PositionalStreamsMetaBuilder()
+                        .ds("Plain RDD with GeoJSON fragment per input Polygon on each line",
+                                new StreamType[]{StreamType.Plain}
                         )
-                ),
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Plain},
-                                false
-                        )
-                )
+                        .build()
         );
     }
 
@@ -72,7 +64,7 @@ public class PolygonJSONOutputOperation extends Operation {
                     Function<Coordinate[], double[][]> convert = (Coordinate[] coordinates) -> {
                         double[][] array = new double[coordinates.length][];
                         for (int i = 0; i < coordinates.length; i++) {
-                            array[i] = new double[] { coordinates[i].x, coordinates[i].y };
+                            array[i] = new double[]{coordinates[i].x, coordinates[i].y};
                         }
                         return array;
                     };

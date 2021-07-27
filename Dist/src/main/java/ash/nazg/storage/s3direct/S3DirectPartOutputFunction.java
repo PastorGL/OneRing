@@ -2,7 +2,7 @@ package ash.nazg.storage.s3direct;
 
 import alex.mojaki.s3upload.MultiPartOutputStream;
 import alex.mojaki.s3upload.StreamTransferManager;
-import ash.nazg.storage.hadoop.FileStorage;
+import ash.nazg.storage.hadoop.HadoopStorage;
 import ash.nazg.storage.hadoop.PartOutputFunction;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
@@ -16,6 +16,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Iterator;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class S3DirectPartOutputFunction extends PartOutputFunction {
     private static final int BUFFER_SIZE = 5 * 1024 * 1024;
@@ -27,7 +28,7 @@ public class S3DirectPartOutputFunction extends PartOutputFunction {
     private final String region;
     private final Path _tmp;
 
-    public S3DirectPartOutputFunction(String _name, String outputPath, String codec, String[] _columns, char _delimiter, String endpoint, String region, String accessKey, String secretKey, String tmpDir, String contentType) {
+    public S3DirectPartOutputFunction(String _name, String outputPath, HadoopStorage.Codec codec, String[] _columns, char _delimiter, String endpoint, String region, String accessKey, String secretKey, String tmpDir, String contentType) {
         super(_name, outputPath, codec, _columns, _delimiter);
 
         this.endpoint = endpoint;
@@ -41,9 +42,9 @@ public class S3DirectPartOutputFunction extends PartOutputFunction {
 
     @Override
     protected OutputStream createOutputStream(Configuration conf, int idx, Iterator<Text> it) throws Exception {
-        String suffix = FileStorage.suffix(outputPath);
+        String suffix = HadoopStorage.suffix(outputPath);
 
-        Matcher m = S3DirectStorage.PATTERN.matcher(outputPath);
+        Matcher m = Pattern.compile(S3DirectStorage.PATH_PATTERN).matcher(outputPath);
         m.matches();
 
         final String bucket = m.group(1);
@@ -52,8 +53,8 @@ public class S3DirectPartOutputFunction extends PartOutputFunction {
         AmazonS3 _s3 = S3DirectStorage.get(endpoint, region, accessKey, secretKey);
 
         String partName = String.format("part-%05d", idx);
-        if (FileStorage.CODECS.containsKey(codec)) {
-            partName += "." + codec;
+        if (codec != HadoopStorage.Codec.NONE) {
+            partName += "." + codec.name().toLowerCase();
         }
         if ("parquet".equalsIgnoreCase(suffix)) {
             partName += ".parquet";

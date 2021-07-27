@@ -5,9 +5,10 @@
 package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVWriter;
 import com.uber.h3core.H3Core;
@@ -27,50 +28,42 @@ import java.io.StringWriter;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static ash.nazg.spatial.config.ConfigurationParameters.*;
+import static ash.nazg.spatial.config.ConfigurationParameters.GEN_RADIUS;
 
 @SuppressWarnings("unused")
 public class H3UniformCoverageOperation extends Operation {
-    @Description("Default hash level")
-    public static final Integer DEF_HASH_LEVEL = 9;
-    @Description("Level of the hash")
     public static final String OP_HASH_LEVEL = "hash.level";
+    private static final String GEN_HASH = "_hash";
 
-    private static final String VERB = "h3UniformCoverage";
-
-    protected Integer level;
     private String inputName;
+
     private String outputName;
     private char outputDelimiter;
     private List<String> outputColumns;
 
-    @Override
-    @Description("Create a uniform (non-compact) H3 coverage from the Polygon or Point RDD. Can pass" +
-            " any properties from the source geometries to the resulting CSV RDD columns, for each hash per each geometry")
-    public String verb() {
-        return VERB;
-    }
+    protected Integer level;
 
     @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(OP_HASH_LEVEL, Integer.class, DEF_HASH_LEVEL),
-                },
+    public OperationMeta meta() {
+        return new OperationMeta("h3UniformCoverage", "Create a uniform (non-compact) H3 coverage" +
+                " from the Polygon or Point RDD. Can pass any properties from the source geometries to the resulting" +
+                " CSV RDD columns, for each hash per each geometry",
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Point, StreamType.Polygon},
-                                true
+                new PositionalStreamsMetaBuilder()
+                        .ds("Point or Polygon RDD",
+                                new StreamType[]{StreamType.Point, StreamType.Polygon}, true
                         )
-                ),
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.CSV},
-                                new String[]{GEN_HASH}
-                        )
-                )
+                new DefinitionMetaBuilder()
+                        .def(OP_HASH_LEVEL, "Level of the hash", Integer.class, "9", "Default hash level")
+                        .build(),
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("CSV RDD with H3 polyfill hashes of set level per each input geometry",
+                                new StreamType[]{StreamType.CSV}, true)
+                        .genCol(GEN_HASH, "H3 hash hexadecimal string")
+                        .build()
         );
 
     }
@@ -162,7 +155,7 @@ public class H3UniformCoverageOperation extends Operation {
 
                     int i = 0;
                     for (String column : _outputColumns) {
-                        if ("_hash".equals(column)) {
+                        if (GEN_HASH.equals(column)) {
                             out[i++] = hash.toString();
                         } else {
                             out[i++] = props.get(new Text(column)).toString();

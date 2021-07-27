@@ -5,68 +5,60 @@
 package ash.nazg.simplefilters.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 @SuppressWarnings("unused")
 public class SkipLinesOperation extends Operation {
-    @Description("Java regex to define line pattern")
     public static final String OP_LINE_PATTERN = "line.pattern";
-    @Description("Exact value to define line to skip (used only if a regex pattern isn't set)")
     public static final String OP_LINE_VALUE = "line.value";
-    @Description("For line pattern, reverse operation to skip non-conforming lines")
     public static final String OP_REVERSE = "reverse";
-    @Description("By default, skip lines conforming to a pattern. If set to 'true', reverse this condition")
-    public static final Boolean DEF_REVERSE = false;
-    @Description("By default, regex pattern is null")
-    public static final String DEF_LINE_PATTERN = null;
-    @Description("By default, exact skip value is null")
-    public static final String DEF_LINE_VALUE = null;
-
-    public static final String VERB = "skipLines";
 
     private String inputName;
+
     private String outputName;
+
     private boolean skip;
     private boolean byPattern;
     private String value;
 
     @Override
-    @Description("Treat input as opaque Text RDD, and skip all lines that conform to a regex pattern (or an exact value)." +
-            " Or, do the opposite for the pattern: skip all non-conforming lines")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("skipLines", "Treat input as opaque Text RDD, and skip all lines that conform" +
+                " to a regex pattern (or an exact value). Or, do the opposite for the pattern: skip all non-conforming lines",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(VERB,
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(OP_REVERSE, Boolean.class, DEF_REVERSE),
-                        new TaskDescriptionLanguage.Definition(OP_LINE_PATTERN, DEF_LINE_PATTERN),
-                        new TaskDescriptionLanguage.Definition(OP_LINE_VALUE, DEF_LINE_VALUE),
-                },
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Plain},
-                                false
+                new PositionalStreamsMetaBuilder()
+                        .ds("Plain RDD",
+                                new StreamType[]{StreamType.Plain}
                         )
-                ),
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Plain},
-                                false
+                new DefinitionMetaBuilder()
+                        .def(OP_REVERSE, "For line pattern, reverse operation to skip non-conforming lines",
+                                Boolean.class, "false", "By default, skip lines conforming to a pattern." +
+                                        " If set to 'true', reverse this condition")
+                        .def(OP_LINE_PATTERN, "Java regex to define line pattern",
+                                null, "By default, regex pattern is null")
+                        .def(OP_LINE_VALUE, "Exact value to define line to skip (used only if a regex pattern isn't set)",
+                                null, "By default, exact skip value is null")
+                        .build(),
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("Filtered Plain RDD",
+                                new StreamType[]{StreamType.Plain}
                         )
-                )
+                        .build()
         );
     }
 

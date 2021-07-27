@@ -4,8 +4,9 @@
  */
 package ash.nazg.storage.jdbc;
 
-import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
 import ash.nazg.storage.OutputAdapter;
+import ash.nazg.storage.metadata.AdapterMeta;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import org.apache.hadoop.io.Text;
@@ -17,11 +18,13 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Properties;
-import java.util.regex.Pattern;
+
+import static ash.nazg.storage.jdbc.JDBCStorage.*;
 
 @SuppressWarnings("unused")
 public class JDBCOutput extends OutputAdapter {
-    private static final Pattern PATTERN = Pattern.compile("^jdbc:(.+)");
+    private static final String JDBC_PATTERN = "^jdbc:(.+)";
+    private static final String BATCH_SIZE = "batch.size";
 
     private String dbDriver;
     private String dbUrl;
@@ -34,22 +37,33 @@ public class JDBCOutput extends OutputAdapter {
     private String[] cols;
 
     @Override
-    @Description("JDBC Output which performs batch INSERT VALUES of columns (in order of incidence)" +
-            " into a table in the configured database")
-    public Pattern proto() {
-        return PATTERN;
+    protected AdapterMeta meta() {
+        return new AdapterMeta("JDBC", "JDBC adapter which performs batch INSERT VALUES of columns (in order of incidence)" +
+                " into a table in the configured database",
+                JDBC_PATTERN,
+
+                new DefinitionMetaBuilder()
+                        .def(JDBC_DRIVER, "JDBC driver, fully qualified class name")
+                        .def(JDBC_URL, "JDBC connection string URL")
+                        .def(JDBC_USER, "JDBC connection user", null, "By default, user isn't set")
+                        .def(JDBC_PASSWORD, "JDBC connection password", null, "By default, use no password")
+                        .def(BATCH_SIZE, "Batch size for SQL INSERTs", Integer.class,
+                                "500", "By default, use 500 records")
+                        .build()
+        );
     }
 
     @Override
     protected void configure() {
-        dbDriver = outputResolver.get("jdbc.driver." + name);
-        dbUrl = outputResolver.get("jdbc.url." + name);
-        dbUser = outputResolver.get("jdbc.user." + name);
-        dbPassword = outputResolver.get("jdbc.password." + name);
+        dbDriver = outputResolver.definition(JDBC_DRIVER);
+        dbUrl = outputResolver.definition(JDBC_URL);
+        dbUser = outputResolver.definition(JDBC_USER);
+        dbPassword = outputResolver.definition(JDBC_PASSWORD);
 
-        batchSize = Integer.parseInt(outputResolver.get("jdbc.batch.size." + name, "500"));
-        cols = dsResolver.outputColumns(name);
-        delimiter = dsResolver.outputDelimiter(name);
+        batchSize = outputResolver.definition(BATCH_SIZE);
+
+        cols = dsResolver.outputColumns(dsName);
+        delimiter = dsResolver.outputDelimiter(dsName);
     }
 
     @Override

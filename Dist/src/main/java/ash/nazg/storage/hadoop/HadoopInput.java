@@ -5,9 +5,9 @@
 package ash.nazg.storage.hadoop;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
 import ash.nazg.storage.InputAdapter;
-import ash.nazg.storage.StorageAdapter;
+import ash.nazg.storage.metadata.AdapterMeta;
 import com.google.common.collect.Lists;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -25,29 +25,45 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class HadoopInput extends InputAdapter {
+    protected static final String MAX_RECORD_SIZE = "max.record.size";
+    protected static final String SCHEMA = "schema";
+
     protected int partCount;
     protected String[] inputSchema;
     protected String[] dsColumns;
     protected char dsDelimiter;
+
     protected int maxRecordSize;
 
-    protected static final int DEFAULT_SIZE = 1024 * 1024;
     protected int numOfExecutors;
 
-    @Description("Default Storage that utilizes Hadoop filesystems")
-    public Pattern proto() {
-        return StorageAdapter.PATH_PATTERN;
+    @Override
+    protected AdapterMeta meta() {
+        return new AdapterMeta("Hadoop", "Default input adapter that utilizes available Hadoop FileSystems." +
+                " Supports text, text-based columnar (CSV/TSV), and Parquet files, optionally compressed",
+                HadoopStorage.PATH_PATTERN,
+
+                new DefinitionMetaBuilder()
+                        .def(MAX_RECORD_SIZE, "Max record size, bytes", Integer.class, "1048576",
+                                "By default, 1M")
+                        .def(SCHEMA, "Loose schema of input records (just column of field names," +
+                                        " optionally with placeholders to skip some, denoted by underscores _)",
+                                String[].class, null, "By default, don't set the schema." +
+                                        " Depending of source file type, built-in schema may be used")
+                        .build()
+        );
     }
 
     @Override
     protected void configure() throws InvalidConfigValueException {
-        inputSchema = inputResolver.getArray("schema." + name);
-        dsColumns = dsResolver.rawInputColumns(name);
-        dsDelimiter = dsResolver.inputDelimiter(name);
+        inputSchema = inputResolver.definition(SCHEMA);
 
-        maxRecordSize = Integer.parseInt(inputResolver.get("max.record.size", String.valueOf(DEFAULT_SIZE)));
+        dsColumns = dsResolver.rawInputColumns(dsName);
+        dsDelimiter = dsResolver.inputDelimiter(dsName);
 
-        partCount = Math.max(dsResolver.inputParts(name), 1);
+        maxRecordSize = inputResolver.definition(MAX_RECORD_SIZE);
+
+        partCount = Math.max(dsResolver.inputParts(dsName), 1);
 
         int executors = Integer.parseInt(context.getConf().get("spark.executor.instances", "-1"));
         numOfExecutors = (executors <= 0) ? 1 : (int) Math.ceil(executors * 0.8);
@@ -61,7 +77,7 @@ public class HadoopInput extends InputAdapter {
     @Override
     public JavaRDD<Text> load(String globPattern) {
         // path, regex
-        List<Tuple2<String, String>> splits = FileStorage.srcDestGroup(globPattern);
+        List<Tuple2<String, String>> splits = HadoopStorage.srcDestGroup(globPattern);
 
         // files
         List<String> discoveredFiles = context.parallelize(splits, numOfExecutors)

@@ -5,9 +5,9 @@
 package ash.nazg.commons.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDDLike;
@@ -20,35 +20,27 @@ import java.util.Map;
 
 @SuppressWarnings("unused")
 public class CountByKeyOperation extends Operation {
-    public static final String VERB = "countByKey";
-
     private String inputName;
+
     private String outputName;
 
     @Override
-    @Description("Count values under the same key in a given PairRDD. Output is key to Long count PairRDD.")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("countByKey", "Count values under the same key in a given PairRDD. Output is key to Long count PairRDD.",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
+                new PositionalStreamsMetaBuilder()
+                        .ds("Pair RDD to count values under each unique key",
+                                new StreamType[]{StreamType.KeyValue}
+                        )
+                        .build(),
+
                 null,
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.KeyValue},
-                                false
+                new PositionalStreamsMetaBuilder()
+                        .ds("Pair RDD with unique keys and count of values of input RDD under each",
+                                new StreamType[]{StreamType.KeyValue}
                         )
-                ),
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.KeyValue},
-                                false
-                        )
-                )
+                        .build()
         );
     }
 

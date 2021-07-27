@@ -6,20 +6,38 @@
     <script src="/js/script.js"></script>
     <link rel="stylesheet" href="/css/styles.css">
 </head>
-<body onload="initPackages();taskNew();">
+<body onload="taskNew();switchLayers('input');">
 <div class="grid-container">
-<div class="cell toolbar"><fieldset><legend>Task</legend><button onclick="taskNew()">New</button> ∙ <button onclick="taskSetCode()">Code</button></fieldset>
-<fieldset><legend>{VARIABLES}</legend><select class="task-vars" id="task-variables"></select><button onclick="taskSetVariables()">Set</button></fieldset>
-<fieldset><legend>Prefix</legend><input oninput="taskSetPrefix()" id='inp-task-prefix' class="task-prefix"></fieldset>
-<fieldset><legend>$DIRECTIVES</legend><button onclick="addNewDir('LET')">LET</button><button onclick="addNewDir('ITER')">ITER</button><button onclick="addNewDir('END')">END</button><button onclick="addNewDir('IF')">IF</button><button onclick="addNewDir('ELSE')">ELSE</button><button onclick="addNewDir('METRICS')">METRICS</button></fieldset>
-<fieldset><legend>Actions</legend><button onclick="taskValidate()">Validate</button> ∙ <button onclick="taskRun()">Run</button><select id="run-where"><option value="local">locally</option><option value="remote/tc">via TeamCity</option></select></fieldset></div>
+<div class="cell toolbar"><fieldset><legend>Task</legend><button onclick="taskNew()">New</button> ∙ <button onclick="taskSetCode()">Code...</button></fieldset>
+<fieldset><legend><label for="inp-task-prefix">Prefix</label></legend><input oninput="taskSetPrefix()" id='inp-task-prefix' class="task-prefix"></fieldset>
+<fieldset><legend>Configuration Layers</legend><button class="switch" id="switch-input" onclick="switchLayers('input')">Input</button>
+∙ <button class="switch" id="switch-operations" onclick="switchLayers('operations')">Task Items</button>
+∙ <button class="switch" id="switch-output" onclick="switchLayers('output')">Output</button>
+| <button class="switch" id="switch-foreign" onclick="switchLayers('foreign')">Foreign</button></fieldset>
+<fieldset><legend><label for="task-variables">{VARIABLES}</label></legend><select class="task-vars" id="task-variables"></select><button onclick="taskSetVariables()">Set...</button></fieldset>
+<fieldset><legend>Actions</legend><button onclick="taskValidate()">Validate</button>
+∙ <button disabled onclick="taskRun()">Run</button><select disabled id="run-where"><option value="local">locally</option><option value="remote/tc">via TeamCity</option></select></fieldset></div>
 <div class="cell sources">
-    Input adapters
-    <ul id="list-inputs"></ul>
-    Operations
-    <ul id="list-operations"></ul>
-    Output adapters
-    <ul id="list-outputs"></ul>
+    <div class="layer" id="layer-input">Input Adapters
+        <ul id="list-input"></ul></div>
+    <div class="layer" id="layer-operations">Control Flow $DIRECTIVES
+        <ul>
+            <li><label><button onclick="addNewDir('LET')">LET</button><small>Create a list variable from data stream</small></label></li>
+            <li><label><button onclick="addNewDir('ITER')">ITER</button><small>Iterate through a list variable</small></label></li>
+            <li><label><button onclick="addNewDir('END')">END</button><small>End loop or conditional</small></label></li>
+            <li><label><button onclick="addNewDir('IF')">IF</button><small>Conditional operator</small></label></li>
+            <li><label><button onclick="addNewDir('ELSE')">ELSE</button><small>Alternate branch of conditional or empty list loop</small></label></li>
+            <li><label><button onclick="addNewDir('METRICS')">METRICS</button><small>Calculate data stream metrics</small></label></li>
+        </ul>
+        Operations
+        <ul id="list-operations"></ul></div>
+    <div class="layer" id="layer-output">Output Adapters
+        <ul id="list-output"></ul></div>
+    <div class="layer" id="layer-foreign">Foreign Layers
+        <ul id="list-foreign"></ul>
+        New Layer
+        <ul><li><input id="new-layer" class="task-prefix"><button onclick="addNewLayer()">Add...</button></li></ul>
+    </div>
 </div>
 <div id="canvas-task" class="cell canvas task"></div><div id="canvas-ds" class="cell canvas data-streams"></div>
 </div>

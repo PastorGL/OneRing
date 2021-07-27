@@ -5,36 +5,45 @@
 package ash.nazg.storage.hadoop;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
 import ash.nazg.storage.OutputAdapter;
-import ash.nazg.storage.StorageAdapter;
+import ash.nazg.storage.metadata.AdapterMeta;
 import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.Function2;
 
 import java.util.Iterator;
-import java.util.regex.Pattern;
 
 public class HadoopOutput extends OutputAdapter {
-    protected String codec;
+    protected static final String CODEC = "codec";
+
+    protected HadoopStorage.Codec codec;
     protected String[] columns;
     protected char delimiter;
 
-    @Description("Default Storage that utilizes Hadoop filesystems")
-    public Pattern proto() {
-        return StorageAdapter.PATH_PATTERN;
+    @Override
+    protected AdapterMeta meta() {
+        return new AdapterMeta("Hadoop", "Default output adapter that utilizes Hadoop FileSystems." +
+                " Supports text, text-based columnar (CSV/TSV), and Parquet files, optionally compressed",
+                HadoopStorage.PATH_PATTERN,
+
+                new DefinitionMetaBuilder()
+                        .def(CODEC, "Codec to compress the output", HadoopStorage.Codec.class, HadoopStorage.Codec.NONE.name(),
+                                "By default, use no compression")
+                        .build()
+        );
     }
 
     protected void configure() throws InvalidConfigValueException {
-        codec = outputResolver.get("codec", "none");
+        codec = outputResolver.definition(CODEC);
 
-        columns = dsResolver.outputColumns(name);
-        delimiter = dsResolver.outputDelimiter(name);
+        columns = dsResolver.outputColumns(dsName);
+        delimiter = dsResolver.outputDelimiter(dsName);
     }
 
     @Override
     public void save(String path, JavaRDD<Text> rdd) {
-        Function2<Integer, Iterator<Text>, Iterator<Void>> outputFunction = new PartOutputFunction(name, path, codec, columns, delimiter);
+        Function2<Integer, Iterator<Text>, Iterator<Void>> outputFunction = new PartOutputFunction(dsName, path, codec, columns, delimiter);
 
         rdd.mapPartitionsWithIndex(outputFunction, true).count();
     }

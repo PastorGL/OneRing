@@ -10,7 +10,7 @@ To make One Ring know your module, include its artifact reference in CLI's `pom.
 
 Now you can proceed to create an Operation package and describe it.
 
-By convention, Operation package must be named `your.package.name.operations` and have `package-info.java` annotated with `@ash.nazg.config.tdl.Description`. That annotation is required by One Ring to recognize the contents of `your.package.name`. [There's an example](./Math/src/main/java/ash/nazg/math/operations/package-info.java).
+By convention, Operation package must be named `your.package.name.operations` and have `package-info.java` annotated with `@ash.nazg.config.tdl.RegisteredPackage`. That annotation is required by One Ring to recognize the contents of `your.package.name`. [There's an example](./Math/src/main/java/ash/nazg/math/operations/package-info.java).
 
 Place all your Operations inside that Package.
 

@@ -5,9 +5,10 @@
 package ash.nazg.proximity.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.NamedStreamsMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
 import ash.nazg.spark.Operation;
 import ash.nazg.spatial.SpatialUtils;
 import net.sf.geographiclib.Geodesic;
@@ -28,11 +29,6 @@ import static ash.nazg.proximity.config.ConfigurationParameters.*;
 
 @SuppressWarnings("unused")
 public class AreaCoversOperation extends Operation {
-    @Description("By default, create a distinct copy of a signal for each area it encounters inside")
-    public static final Boolean DEF_ENCOUNTER_ONCE = false;
-
-    public static final String VERB = "areaCovers";
-
     private String inputGeometriesName;
     private String inputSignalsName;
 
@@ -42,46 +38,34 @@ public class AreaCoversOperation extends Operation {
     private String outputEvictedName;
 
     @Override
-    @Description("Takes a Point RDD and Polygon RDD and generates a Point RDD consisting" +
-            " of all points that are contained inside the polygons")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("areaCovers", "Takes a Point RDD and Polygon RDD and generates a Point RDD consisting" +
+                " of all points that are contained inside the polygons",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(OP_ENCOUNTER_ONCE, Boolean.class, DEF_ENCOUNTER_ONCE)
-                },
+                new NamedStreamsMetaBuilder()
+                        .ds(RDD_INPUT_SIGNALS, "Source Point RDD",
+                                new StreamType[]{StreamType.Point}, false
+                        )
+                        .ds(RDD_INPUT_GEOMETRIES, "Source Polygon RDD",
+                                new StreamType[]{StreamType.Polygon}, false
+                        )
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.NamedStream[]{
-                                new TaskDescriptionLanguage.NamedStream(
-                                        RDD_INPUT_SIGNALS,
-                                        new StreamType[]{StreamType.Point},
-                                        false
-                                ),
-                                new TaskDescriptionLanguage.NamedStream(
-                                        RDD_INPUT_GEOMETRIES,
-                                        new StreamType[]{StreamType.Polygon},
-                                        false
-                                ),
-                        }
-                ),
+                new DefinitionMetaBuilder()
+                        .def(OP_ENCOUNTER_ONCE, "This flag suppresses creation of copies of a signal for each proximal geometry. If set to 'true'," +
+                                        " properties of the source signal will be unchanged. Otherwise a copy of source signal will be created" +
+                                        " for each proximal geometry, and their properties will be augmented with properties of that geometry",
+                                Boolean.class, "false", "By default, create a distinct copy of a signal for each area it encounters inside")
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.NamedStream[]{
-                                new TaskDescriptionLanguage.NamedStream(RDD_OUTPUT_SIGNALS,
-                                        new StreamType[]{StreamType.Point},
-                                        false
-                                ),
-                                new TaskDescriptionLanguage.NamedStream(RDD_OUTPUT_EVICTED,
-                                        new StreamType[]{StreamType.Point},
-                                        false
-                                ),
-                        }
-                )
+                new NamedStreamsMetaBuilder()
+                        .ds(RDD_OUTPUT_SIGNALS, "Output Point RDD with target signals",
+                                new StreamType[]{StreamType.Point}, false
+                        )
+                        .ds(RDD_OUTPUT_EVICTED, "Optional output Point RDD with evicted signals",
+                                new StreamType[]{StreamType.Point}, false
+                        )
+                        .build()
         );
     }
 

@@ -5,9 +5,10 @@
 package ash.nazg.datetime.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.datetime.config.ConfigurationParameters;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
@@ -25,50 +26,21 @@ import java.util.*;
 
 @SuppressWarnings("unused")
 public class TimezoneOperation extends Operation {
-    @Description("Generated full input date column")
     public static final String GEN_INPUT_DATE = "_input_date";
-    @Description("Generated input day of week column")
     public static final String GEN_INPUT_DOW_INT = "_input_dow_int";
-    @Description("Generated input date of month column")
     public static final String GEN_INPUT_DAY_INT = "_input_day_int";
-    @Description("Generated input month column")
     public static final String GEN_INPUT_MONTH_INT = "_input_month_int";
-    @Description("Generated input year column")
     public static final String GEN_INPUT_YEAR_INT = "_input_year_int";
-    @Description("Generated input hour column")
     public static final String GEN_INPUT_HOUR_INT = "_input_hour_int";
-    @Description("Generated input minute column")
     public static final String GEN_INPUT_MINUTE_INT = "_input_minute_int";
-    @Description("Generated full output date column")
     public static final String GEN_OUTPUT_DATE = "_output_date";
-    @Description("Generated output day of week column")
     public static final String GEN_OUTPUT_DOW_INT = "_output_dow_int";
-    @Description("Generated output date of month column")
     public static final String GEN_OUTPUT_DAY_INT = "_output_day_int";
-    @Description("Generated output month column")
     public static final String GEN_OUTPUT_MONTH_INT = "_output_month_int";
-    @Description("Generated output year column")
     public static final String GEN_OUTPUT_YEAR_INT = "_output_year_int";
-    @Description("Generated output hour column")
     public static final String GEN_OUTPUT_HOUR_INT = "_output_hour_int";
-    @Description("Generated output minute column")
     public static final String GEN_OUTPUT_MINUTE_INT = "_output_minute_int";
-    @Description("Generated Epoch time of the timestamp")
     public static final String GEN_EPOCH_TIME = "_epoch_time";
-    @Description("By default, source time zone is GMT")
-    public static final String DEF_SRC_TIMEZONE_DEFAULT = "GMT";
-    @Description("By default, destination time zone is GMT")
-    public static final String DEF_DST_TIMEZONE_DEFAULT = "GMT";
-    @Description("By default, use ISO formatting for the full source date")
-    public static final String DEF_SRC_TIMESTAMP_FORMAT = null;
-    @Description("By default, use ISO formatting for the full destination date")
-    public static final String DEF_DST_TIMESTAMP_FORMAT = null;
-    @Description("By default, do not read source time zone from input column")
-    public static final String DEF_SRC_TIMEZONE_COL = null;
-    @Description("By default, do not read destination time zone from input column")
-    public static final String DEF_DST_TIMEZONE_COL = null;
-
-    public static final String VERB = "timezone";
 
     private String inputName, outputName;
 
@@ -87,43 +59,48 @@ public class TimezoneOperation extends Operation {
     private TimeZone destinationTimezoneDefault;
 
     @Override
-    @Description("Take a CSV RDD with a timestamp column (Epoch seconds or milliseconds, ISO of custom format) and explode" +
-            " timestamp components into individual columns. Perform timezone conversion, using source and destination" +
-            " timezones from the parameters or another source columns")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("timezone", "Take a CSV RDD with a timestamp column (Epoch seconds or" +
+                " milliseconds, ISO of custom format) and explode its components into individual columns." +
+                " Perform timezone conversion, using source and destination timezones from the parameters or" +
+                " another source columns",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(ConfigurationParameters.DS_SRC_TIMESTAMP_COLUMN),
-                        new TaskDescriptionLanguage.Definition(ConfigurationParameters.OP_SRC_TIMESTAMP_FORMAT, DEF_SRC_TIMESTAMP_FORMAT),
-                        new TaskDescriptionLanguage.Definition(ConfigurationParameters.OP_SRC_TIMEZONE_COL, DEF_SRC_TIMEZONE_COL),
-                        new TaskDescriptionLanguage.Definition(ConfigurationParameters.OP_SRC_TIMEZONE_DEFAULT, DEF_SRC_TIMEZONE_DEFAULT),
-                        new TaskDescriptionLanguage.Definition(ConfigurationParameters.OP_DST_TIMESTAMP_FORMAT, DEF_DST_TIMESTAMP_FORMAT),
-                        new TaskDescriptionLanguage.Definition(ConfigurationParameters.OP_DST_TIMEZONE_COL, DEF_DST_TIMEZONE_COL),
-                        new TaskDescriptionLanguage.Definition(ConfigurationParameters.OP_DST_TIMEZONE_DEFAULT, DEF_DST_TIMEZONE_DEFAULT),
-                },
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.CSV},
-                                true
+                new PositionalStreamsMetaBuilder()
+                        .ds("CSV RDD with timestamp and optional timezone columns",
+                                new StreamType[]{StreamType.CSV}, true
                         )
-                ),
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.CSV},
-                                new String[]{
-                                        GEN_INPUT_DATE, GEN_INPUT_DOW_INT, GEN_INPUT_DAY_INT, GEN_INPUT_MONTH_INT, GEN_INPUT_YEAR_INT, GEN_INPUT_HOUR_INT, GEN_INPUT_MINUTE_INT,
-                                        GEN_OUTPUT_DATE, GEN_OUTPUT_DOW_INT, GEN_OUTPUT_DAY_INT, GEN_OUTPUT_MONTH_INT, GEN_OUTPUT_YEAR_INT, GEN_OUTPUT_HOUR_INT, GEN_OUTPUT_MINUTE_INT,
-                                        GEN_EPOCH_TIME
-                                }
+                new DefinitionMetaBuilder()
+                        .def(ConfigurationParameters.DS_SRC_TIMESTAMP_COLUMN, "Source column with a timestamp")
+                        .def(ConfigurationParameters.OP_SRC_TIMESTAMP_FORMAT, "If set, use this format to parse source timestamp", null, "By default, use ISO formatting for the full source date")
+                        .def(ConfigurationParameters.OP_SRC_TIMEZONE_COL, "Source timezone default", null, "By default, do not read source time zone from input column")
+                        .def(ConfigurationParameters.OP_SRC_TIMEZONE_DEFAULT, "If set, use source timezone from this column instead of the default", "GMT", "By default, source time zone is GMT")
+                        .def(ConfigurationParameters.OP_DST_TIMESTAMP_FORMAT, "If set, use this format to output full date", null, "By default, use ISO formatting for the full destination date")
+                        .def(ConfigurationParameters.OP_DST_TIMEZONE_COL, "Destination timezone default", null, "By default, do not read destination time zone from input column")
+                        .def(ConfigurationParameters.OP_DST_TIMEZONE_DEFAULT, "If set, use destination timezone from this column instead of the default", "GMT", "By default, destination time zone is GMT")
+                        .build(),
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("CSV RDD with exploded timestamp component columns",
+                                new StreamType[]{StreamType.CSV}, true
                         )
-                )
+                        .genCol(GEN_INPUT_DATE, "Generated full input date column")
+                        .genCol(GEN_INPUT_DOW_INT, "Generated input day of week column")
+                        .genCol(GEN_INPUT_DAY_INT, "Generated input date of month column")
+                        .genCol(GEN_INPUT_MONTH_INT, "Generated input month column")
+                        .genCol(GEN_INPUT_YEAR_INT, "Generated input year column")
+                        .genCol(GEN_INPUT_HOUR_INT, "Generated input hour column")
+                        .genCol(GEN_INPUT_MINUTE_INT, "Generated input minute column")
+                        .genCol(GEN_OUTPUT_DATE, "Generated full output date column")
+                        .genCol(GEN_OUTPUT_DOW_INT, "Generated output day of week column")
+                        .genCol(GEN_OUTPUT_DAY_INT, "Generated output date of month column")
+                        .genCol(GEN_OUTPUT_MONTH_INT, "Generated output month column")
+                        .genCol(GEN_OUTPUT_YEAR_INT, "Generated output year column")
+                        .genCol(GEN_OUTPUT_HOUR_INT, "Generated output hour column")
+                        .genCol(GEN_OUTPUT_MINUTE_INT, "Generated output minute column")
+                        .genCol(GEN_EPOCH_TIME, "Generated Epoch time of the timestamp")
+                        .build()
         );
     }
 
@@ -176,7 +153,7 @@ public class TimezoneOperation extends Operation {
                 .mapPartitions(it -> {
                     CSVParser parser = new CSVParserBuilder().withSeparator(_inputDelimiter).build();
 
-                    ZoneId GMT = TimeZone.getTimeZone(DEF_SRC_TIMEZONE_DEFAULT).toZoneId();
+                    ZoneId GMT = TimeZone.getTimeZone("GMT").toZoneId();
 
                     DateTimeFormatter dtfInput = (_sourceTimestampFormat != null)
                             ? new DateTimeFormatterBuilder().appendPattern(_sourceTimestampFormat).toFormatter()

@@ -1,13 +1,13 @@
 package ash.nazg.storage;
 
-import java.util.regex.Pattern;
+import ash.nazg.storage.metadata.AdapterMeta;
 
 public class AdapterInfo {
-    public final Pattern proto;
     public final Class<? extends StorageAdapter> adapterClass;
+    public final AdapterMeta meta;
 
-    public AdapterInfo(Pattern proto, Class<? extends StorageAdapter> adapterClass) {
-        this.proto = proto;
+    public AdapterInfo(Class<? extends StorageAdapter> adapterClass, AdapterMeta meta) {
         this.adapterClass = adapterClass;
+        this.meta = meta;
     }
 }

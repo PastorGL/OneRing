@@ -16,10 +16,10 @@ import java.util.regex.Matcher;
 public class TaskDefinitionLanguage {
     public static Operation createOperation(Task task) {
         Operation operation = new Operation();
-        operation.inputs = new OpStreams();
-        operation.inputs.task = task;
-        operation.outputs = new OpStreams();
-        operation.outputs.task = task;
+        operation.input = new OpStreams();
+        operation.input.task = task;
+        operation.output = new OpStreams();
+        operation.output.task = task;
         operation.task = task;
         return operation;
     }
@@ -45,29 +45,29 @@ public class TaskDefinitionLanguage {
         defaultDs.output = new StreamDesc();
         dss.put(Constants.DEFAULT_DS, defaultDs);
         dss.task = task;
-        task.dataStreams = dss;
-        task.taskItems = new ArrayList<>();
+        task.streams = dss;
+        task.items = new ArrayList<>();
         task.input = new ArrayList<>();
         task.output = new ArrayList<>();
         return task;
     }
 
     public static void fixup(Task task) {
-        task.dataStreams.task = task;
-        task.taskItems.forEach(ti -> {
+        task.streams.task = task;
+        task.items.forEach(ti -> {
             ti.task = task;
             if (ti instanceof Operation) {
                 Operation op = (Operation) ti;
                 if (op.definitions != null) {
                     op.definitions.task = task;
                 }
-                op.inputs.task = task;
-                if (op.inputs.named != null) {
-                    op.inputs.named.task = task;
+                op.input.task = task;
+                if (op.input.named != null) {
+                    op.input.named.task = task;
                 }
-                op.outputs.task = task;
-                if (op.outputs.named != null) {
-                    op.outputs.named.task = task;
+                op.output.task = task;
+                if (op.output.named != null) {
+                    op.output.named.task = task;
                 }
             }
         });
@@ -76,28 +76,27 @@ public class TaskDefinitionLanguage {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class Task {
-        @JsonProperty(required = true, value = "op")
+        @JsonProperty(required = true)
         @JsonInclude(JsonInclude.Include.NON_EMPTY)
         @Valid
-        public List<TaskItem> taskItems;
+        public List<TaskItem> items;
 
-        @JsonProperty(required = true, value = "ds")
+        @JsonProperty(required = true)
         @JsonInclude(JsonInclude.Include.NON_EMPTY)
         @Valid
-        public DataStreams dataStreams;
+        public DataStreams streams;
 
-        @JsonProperty(required = true, value = "input")
+        @JsonProperty(required = true)
         @JsonInclude(JsonInclude.Include.NON_EMPTY)
         public List<String> input;
 
-        @JsonProperty(required = true, value = "output")
+        @JsonProperty(required = true)
         @JsonInclude(JsonInclude.Include.NON_EMPTY)
         public List<String> output;
 
-        @JsonProperty(value = "prefix")
+        @JsonInclude(JsonInclude.Include.NON_EMPTY)
         public String prefix;
 
-        @JsonProperty(value = "variables")
         @JsonInclude(JsonInclude.Include.NON_EMPTY)
         public Map<String, String> variables;
 
@@ -106,6 +105,9 @@ public class TaskDefinitionLanguage {
         @JsonAnySetter
         public void setForeignLayer(String key, String value) {
             String[] layer = key.split("\\.", 2);
+            if (layer.length != 2) {
+                throw new InvalidConfigValueException("Configuration key '" + key + "' doesn't adhere to 'layer.value' pattern. Check the syntax");
+            }
             foreignLayer.compute(layer[0], (k, l) -> {
                 if (l == null) {
                     l = new Definitions();
@@ -195,14 +197,43 @@ public class TaskDefinitionLanguage {
 
         @JsonIgnore
         public String[] arrayValue(String value) throws InvalidConfigValueException {
-            String property = value(value);
+            value = value(value);
 
             if (StringUtils.isEmpty(value)) {
                 return null;
             }
 
-            String[] strings = Arrays.stream(property.split(Constants.COMMA)).map(String::trim).filter(s -> !s.isEmpty()).toArray(String[]::new);
-            return (strings.length == 0) ? null : strings;
+            List<String> values = new ArrayList<>();
+            int length = value.length();
+            boolean inBrace = false;
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < length; i++) {
+                char c = value.charAt(i);
+
+                switch (c) {
+                    case '{' : {
+                        inBrace = true;
+                        break;
+                    }
+                    case '}' : {
+                        inBrace = false;
+                        break;
+                    }
+                    case ',' : {
+                        if (!inBrace && (sb.length() != 0)) {
+                            values.add(sb.toString());
+                            sb = new StringBuilder();
+                            continue;
+                        }
+                    }
+                }
+                sb.append(c);
+            }
+            if (sb.length() != 0) {
+                values.add(sb.toString());
+            }
+
+            return (values.size() == 0) ? null : values.toArray(new String[0]);
         }
     }
 
@@ -215,31 +246,30 @@ public class TaskDefinitionLanguage {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class Operation extends TaskItem {
-        @JsonProperty(required = true, value = "verb")
+        @JsonProperty(required = true)
+        @NotEmpty
+        public String name;
+
+        @JsonProperty(required = true)
         @NotEmpty
         public String verb;
 
-        @JsonProperty(value = "definitions")
         @JsonInclude(JsonInclude.Include.NON_EMPTY)
         @Valid
         public Definitions definitions;
 
-        @JsonProperty(value = "inputs")
+        @JsonProperty(required = true)
         @Valid
-        public OpStreams inputs;
+        public OpStreams input;
 
-        @JsonProperty(value = "outputs")
+        @JsonProperty(required = true)
         @Valid
-        public OpStreams outputs;
-
-        @JsonProperty(required = true, value = "name")
-        @NotEmpty
-        public String name;
+        public OpStreams output;
     }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class Directive extends TaskItem {
-        @JsonProperty(required = true, value = "directive")
+        @JsonProperty(required = true)
         @NotEmpty
         public String directive;
 
@@ -275,12 +305,9 @@ public class TaskDefinitionLanguage {
         @JsonIgnore
         protected Task task;
 
-        @JsonProperty(value = "named")
-        @Valid
         public Definitions named;
 
-        @JsonProperty(value = "positional")
-        public String positionalNames;
+        public String positional;
     }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -298,27 +325,19 @@ public class TaskDefinitionLanguage {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class DataStream {
-        @JsonProperty(value = "input")
         @Valid
         public StreamDesc input;
 
-        @JsonProperty(value = "output")
         @Valid
         public StreamDesc output;
     }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class StreamDesc {
-        @JsonProperty(value = "columns")
         public String columns;
 
-        @JsonProperty(value = "delimiter")
         public String delimiter;
 
-        @JsonProperty(value = "partCount")
         public String partCount;
-
-        @JsonProperty(value = "path")
-        public String path;
     }
 }

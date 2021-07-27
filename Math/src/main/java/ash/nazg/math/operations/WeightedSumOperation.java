@@ -5,9 +5,10 @@
 package ash.nazg.math.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
@@ -25,26 +26,14 @@ import java.util.stream.Collectors;
 
 @SuppressWarnings("unused")
 public class WeightedSumOperation extends Operation {
-    @Description("A column with the Long count")
     public static final String DS_COUNT_COL = "count.col";
-    @Description("A column with the Double value")
     public static final String DS_VALUE_COL = "value.col";
-    @Description("A list of default columns for each input, in the case if they are generated or wildcard")
     public static final String OP_DEFAULT_COLS = "default.cols";
-    @Description("A list of payload columns to use as a join key and pass to the output, sans the input prefix")
     public static final String OP_PAYLOAD_COLS = "payload.cols";
-    @Description("Generated weighted sum per payload column")
     public static final String GEN_WEIGHTED_SUM = "_weighted_sum";
-    @Description("Generated total per payload value column")
     public static final String GEN_TOTAL_VALUE = "_total_value";
-    @Description("Generated total count per payload column")
     public static final String GEN_TOTAL_COUNT = "_total_count";
-    @Description("All payload column names in the output will be prefixed with '_payload_'")
     public static final String GEN_PAYLOAD_PREFIX = "_payload_*";
-    @Description("By default, no columns for wildcard inputs are specified")
-    public static final String[] DEF_DEFAULT_COLS = null;
-
-    public static final String VERB = "weightedSum";
 
     private static final Map<String, Integer> KNOWN_COLUMNS = new HashMap<String, Integer>() {{
         put(GEN_WEIGHTED_SUM, -1);
@@ -54,6 +43,7 @@ public class WeightedSumOperation extends Operation {
 
     private String[] inputNames;
     private Map<String, Character> inputDelimiters;
+
     private String outputName;
     private char outputDelimiter;
 
@@ -64,38 +54,36 @@ public class WeightedSumOperation extends Operation {
     private Map<String, Integer> valueColumns;
 
     @Override
-    @Description("Take a number of CSV RDDs, and generate a weighted sum by count and value columns," +
-            " while using a set of payload column values as a key to join inputs." +
-            " Each combined payload value is not required to be unique per its input")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("weightedSum", "Take a number of CSV RDDs, and generate a weighted sum by count and value columns," +
+                " while using a set of payload column values as a key to join inputs." +
+                " Each combined payload value is not required to be unique per its input",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(OP_DEFAULT_COLS, String[].class, DEF_DEFAULT_COLS),
-                        new TaskDescriptionLanguage.Definition(DS_COUNT_COL),
-                        new TaskDescriptionLanguage.Definition(DS_VALUE_COL),
-                        new TaskDescriptionLanguage.Definition(OP_PAYLOAD_COLS, String[].class),
-                },
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.CSV},
-                                true
+                new PositionalStreamsMetaBuilder()
+                        .ds("",
+                                new StreamType[]{StreamType.CSV}, true
                         )
-                ),
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.CSV},
-                                new ArrayList<String>(KNOWN_COLUMNS.keySet()) {{
-                                    add(GEN_PAYLOAD_PREFIX);
-                                }}
+                new DefinitionMetaBuilder()
+                        .def(OP_DEFAULT_COLS, "A list of default columns for each input, in the case if they are" +
+                                " generated or wildcard", String[].class, null, "By default, no columns" +
+                                " for wildcard inputs are specified")
+                        .def(DS_COUNT_COL, "A column with the Long count")
+                        .def(DS_VALUE_COL, "A column with the Double value")
+                        .def(OP_PAYLOAD_COLS, "A list of payload columns to use as a join key and pass to the output," +
+                                " sans the input prefix", String[].class)
+                        .build(),
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("",
+                                new StreamType[]{StreamType.CSV}, true
                         )
-                )
+                        .genCol(GEN_PAYLOAD_PREFIX, "All payload column names in the output will be prefixed with '_payload_'")
+                        .genCol(GEN_WEIGHTED_SUM, "Generated weighted sum per payload column")
+                        .genCol(GEN_TOTAL_VALUE, "Generated total per payload value column")
+                        .genCol(GEN_TOTAL_COUNT, "Generated total count per payload column")
+                        .build()
         );
     }
 

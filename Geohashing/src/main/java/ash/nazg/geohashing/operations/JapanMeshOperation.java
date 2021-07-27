@@ -4,21 +4,42 @@
  */
 package ash.nazg.geohashing.operations;
 
-import ash.nazg.config.tdl.Description;
+import ash.nazg.config.tdl.StreamType;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.geohashing.functions.HasherFunction;
 import ash.nazg.geohashing.functions.JapanMeshFunction;
 
 @SuppressWarnings("unused")
 public class JapanMeshOperation extends GeohashingOperation {
-    @Description("Default hash level")
-    public static final Integer DEF_HASH_LEVEL = 6;
-
-    public static final String VERB = "japanMesh";
+    private static final Integer DEF_HASH_LEVEL = 6;
 
     @Override
-    @Description("For each input row with a coordinate pair, generate Japan Mesh hash with a selected level")
-    public String verb() {
-        return VERB;
+    public OperationMeta meta() {
+        return new OperationMeta("japanMesh", "For each input row with a coordinate pair, generate" +
+                " Japan Mesh hash with a selected level",
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("CSV RDD with coordinates",
+                                new StreamType[]{StreamType.CSV}, true
+                        )
+                        .build(),
+
+                new DefinitionMetaBuilder()
+                        .def(DS_LAT_COLUMN, "Column with latitude, degrees")
+                        .def(DS_LON_COLUMN, "Column with longitude, degrees")
+                        .def(OP_HASH_LEVEL, "Level of the hash", Integer.class,
+                                getDefaultLevel() + "", "Default hash level")
+                        .build(),
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("CSV RDD with coordinates' Japan mesh hash",
+                                new StreamType[]{StreamType.CSV}, true
+                        )
+                        .genCol(GEN_HASH, "Column with a generated Japan mesh string")
+                        .build()
+        );
     }
 
     @Override

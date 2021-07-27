@@ -17,8 +17,8 @@ public class Constants {
     public static final char DEFAULT_DELIMITER = '\t';
     public static final String DS_INPUT_DELIMITER = "ds.input.delimiter";
     public static final String DS_OUTPUT_DELIMITER = "ds.output.delimiter";
-    public static final String DS_INPUT_PATH = "ds.input.path";
-    public static final String DS_OUTPUT_PATH = "ds.output.path";
+    public static final String PATH = "path";
+    public static final String PATH_PREFIX = "path.";
     public static final String REP_SEP = ":";
     public static final Pattern REP_VAR = Pattern.compile("\\{([^:{}]+:?|[^:{}]*?:[^{}]+?)}");
     public static final String DS_INPUT_PREFIX = "ds.input.";
@@ -35,8 +35,6 @@ public class Constants {
     public static final String OP_DEFINITION_PREFIX = "op.definition.";
     public static final String COLUMN_SUFFIX = ".column";
     public static final String COLUMNS_SUFFIX = ".columns";
-    public static final String DS_INPUT_PATH_PREFIX = "ds.input.path.";
-    public static final String DS_OUTPUT_PATH_PREFIX = "ds.output.path.";
     public static final String DS_INPUT_PART_COUNT_PREFIX = "ds.input.part_count.";
     public static final String DS_OUTPUT_PART_COUNT_PREFIX = "ds.output.part_count.";
     public static final String DIST_LAYER = "dist";

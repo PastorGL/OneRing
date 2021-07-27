@@ -5,20 +5,18 @@
 package ash.nazg.storage.hadoop;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.storage.hadoop.FileStorage;
 import org.junit.Test;
 import scala.Tuple2;
-import scala.Tuple3;
 
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-public class FileStorageTests {
+public class HadoopStorageTests {
     @Test
     public void srcDestGroupTest() throws InvalidConfigValueException {
-        List<Tuple2<String, String>> splits = FileStorage.srcDestGroup(
+        List<Tuple2<String, String>> splits = HadoopStorage.srcDestGroup(
                 "s3://mama/asdfasf/{sdf,sdfsdf,sdsdf{sdfsdf,sdf}}" +
                         ",s3://sdfsdf/sdfs/sdf" +
                         ",s3://nnn/sad/\\{sdfsdf??" +
@@ -67,7 +65,7 @@ public class FileStorageTests {
     @Test
     public void splitTestInvalid() {
         try {
-            FileStorage.srcDestGroup(
+            HadoopStorage.srcDestGroup(
                     "s3://mama/xx{sdf,sdfsdf,sdsdf{sdfsdf,sdf}}"
             );
 
@@ -77,7 +75,7 @@ public class FileStorageTests {
         }
 
         try {
-            FileStorage.srcDestGroup(
+            HadoopStorage.srcDestGroup(
                     "s3://sdfsdf"
             );
 
@@ -87,7 +85,7 @@ public class FileStorageTests {
         }
 
         try {
-            FileStorage.srcDestGroup(
+            HadoopStorage.srcDestGroup(
                     "/no/protocol/part"
             );
 
@@ -97,7 +95,7 @@ public class FileStorageTests {
         }
 
         try {
-            FileStorage.srcDestGroup(
+            HadoopStorage.srcDestGroup(
                     "file://shoot/[me"
             );
 
@@ -107,7 +105,7 @@ public class FileStorageTests {
         }
 
         try {
-            FileStorage.srcDestGroup(
+            HadoopStorage.srcDestGroup(
                     "file://shoot/{me,too"
             );
 

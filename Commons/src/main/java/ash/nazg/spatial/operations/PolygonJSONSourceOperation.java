@@ -5,9 +5,9 @@
 package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import org.apache.hadoop.io.DoubleWritable;
 import org.apache.hadoop.io.MapWritable;
@@ -27,41 +27,33 @@ import org.wololo.jts2geojson.GeoJSONReader;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static ash.nazg.spatial.config.ConfigurationParameters.*;
+import static ash.nazg.spatial.config.ConfigurationParameters.GEN_CENTER_LAT;
+import static ash.nazg.spatial.config.ConfigurationParameters.GEN_CENTER_LON;
 
 @SuppressWarnings("unused")
 public class PolygonJSONSourceOperation extends Operation {
-    public static final String VERB = "polygonJsonSource";
-
     private String inputName;
 
     private String outputName;
     private List<String> outputColumns;
 
     @Override
-    @Description("Take GeoJSON fragment file and produce a Polygon RDD")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("polygonJsonSource", "Take GeoJSON fragment file and produce a Polygon RDD",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
+                new PositionalStreamsMetaBuilder()
+                        .ds("Plain RDD with a GeoJSON fragment on each line",
+                                new StreamType[]{StreamType.Plain}
+                        )
+                        .build(),
+
                 null,
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Plain},
-                                false
+                new PositionalStreamsMetaBuilder()
+                        .ds("Polygon RDD",
+                                new StreamType[]{StreamType.Polygon}, true
                         )
-                ),
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Polygon},
-                                true
-                        )
-                )
+                        .build()
         );
     }
 

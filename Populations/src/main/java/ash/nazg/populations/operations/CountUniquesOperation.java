@@ -5,9 +5,10 @@
 package ash.nazg.populations.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.populations.functions.CountUniquesFunction;
 import com.opencsv.CSVWriter;
 import org.apache.hadoop.io.Text;
@@ -17,42 +18,36 @@ import org.apache.spark.api.java.JavaRDDLike;
 import scala.Tuple2;
 
 import java.io.StringWriter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 import static ash.nazg.populations.config.ConfigurationParameters.DS_COUNT_COLUMN;
 import static ash.nazg.populations.config.ConfigurationParameters.DS_VALUE_COLUMN;
 
 @SuppressWarnings("unused")
 public class CountUniquesOperation extends PopulationIndicatorOperation {
-    private static final String VERB = "countUniques";
-
     @Override
-    @Description("Statistical indicator for counting unique values in a column per some other column")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("countUniques", "Statistical indicator for counting unique values in a column per some other column",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(DS_COUNT_COLUMN),
-                        new TaskDescriptionLanguage.Definition(DS_VALUE_COLUMN),
-                },
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.CSV},
-                                true
+                new PositionalStreamsMetaBuilder()
+                        .ds("",
+                                new StreamType[]{StreamType.CSV}, true
                         )
-                ),
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Fixed},
-                                false
+                new DefinitionMetaBuilder()
+                        .def(DS_COUNT_COLUMN, "Column to count unique values of other column")
+                        .def(DS_VALUE_COLUMN, "Column for counting unique values per other column")
+                        .build(),
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("",
+                                new StreamType[]{StreamType.Fixed}
                         )
-                )
+                        .build()
         );
     }
 

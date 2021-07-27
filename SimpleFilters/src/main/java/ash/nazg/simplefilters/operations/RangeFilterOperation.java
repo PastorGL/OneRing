@@ -5,9 +5,10 @@
 package ash.nazg.simplefilters.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
@@ -15,55 +16,48 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 import scala.Tuple2;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 @SuppressWarnings("unused")
 public class RangeFilterOperation extends Operation {
-    @Description("Range syntax is [BOTTOM;TOP) where brackets mean inclusive border and parens exclusive." +
-            " Either boundary is optional, but not both at the same time." +
-            " Examples: (0 1000], []-7.47;7.48, [-1000;)")
     public static final String OP_FILTERING_RANGE = "filtering.range";
-    @Description("Column with Double values to apply the filter")
     public static final String DS_FILTERING_COLUMN = "filtering.column";
-
-    public static final String VERB = "rangeFilter";
 
     private String inputName;
     private char inputDelimiter;
+    private Integer filteringColumn;
+
     private String outputName;
 
     private Tuple2<Double, Double> range;
     private Tuple2<Boolean, Boolean> inclusive;
-    private Integer filteringColumn;
 
     @Override
-    @Description("In a CSV RDD, take a column to filter all rows that have a Double value in this column" +
-            " that lies outside of the set absolute range")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("rangeFilter", "In a CSV RDD, take a column to filter all rows that have" +
+                " a Double value in this column that lies outside of the set absolute range",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(DS_FILTERING_COLUMN),
-                        new TaskDescriptionLanguage.Definition(OP_FILTERING_RANGE),
-                },
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.CSV},
-                                true
+                new PositionalStreamsMetaBuilder()
+                        .ds("CSV RDD",
+                                new StreamType[]{StreamType.CSV}, true
                         )
-                ),
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Passthru},
-                                false
+                new DefinitionMetaBuilder()
+                        .def(DS_FILTERING_COLUMN, "Column with Double values to apply the filter")
+                        .def(OP_FILTERING_RANGE, "Range syntax is [BOTTOM;TOP) where brackets mean inclusive" +
+                                " border and parens exclusive. Either boundary is optional, but not both at the same time." +
+                                " Examples: (0 1000], []-7.47;7.48, [-1000;)")
+                        .build(),
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("Filtered CSV RDD",
+                                new StreamType[]{StreamType.Passthru}
                         )
-                )
+                        .build()
         );
     }
 

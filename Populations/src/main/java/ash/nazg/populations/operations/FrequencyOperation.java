@@ -5,9 +5,10 @@
 package ash.nazg.populations.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.populations.config.ConfigurationParameters;
 import ash.nazg.populations.functions.MedianCalcFunction;
 import com.opencsv.CSVParser;
@@ -22,37 +23,31 @@ import scala.Tuple2;
 import java.io.StringWriter;
 import java.util.*;
 
+import static ash.nazg.populations.config.ConfigurationParameters.DS_COUNT_COLUMN;
+import static ash.nazg.populations.config.ConfigurationParameters.DS_VALUE_COLUMN;
+
 @SuppressWarnings("unused")
 public class FrequencyOperation extends PopulationIndicatorOperation {
-    private static final String VERB = "frequency";
-
     @Override
-    @Description("Statistical indicator for the frequency of a value occurring per other value selected as a count value")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("frequency", "Statistical indicator for the frequency of a value occurring per other value selected as a count value",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(ConfigurationParameters.DS_COUNT_COLUMN),
-                        new TaskDescriptionLanguage.Definition(ConfigurationParameters.DS_VALUE_COLUMN),
-                },
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.CSV},
-                                true
+                new PositionalStreamsMetaBuilder()
+                        .ds("",
+                                new StreamType[]{StreamType.CSV}, true
                         )
-                ),
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Fixed},
-                                false
+                new DefinitionMetaBuilder()
+                        .def(DS_COUNT_COLUMN, "Column to count unique values of other column")
+                        .def(DS_VALUE_COLUMN, "Column for counting unique values per other column")
+                        .build(),
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("",
+                                new StreamType[]{StreamType.Fixed}
                         )
-                )
+                        .build()
         );
     }
 
@@ -121,7 +116,7 @@ public class FrequencyOperation extends PopulationIndicatorOperation {
             List<Tuple2<Text, Double>> ret = new ArrayList<>();
 
             while (it.hasNext()) {
-                //userid, gid -> count, total
+                //userid, groupid -> count, total
                 Tuple2<Text, Tuple2<Map<Text, Long>, Long>> t = it.next();
 
                 t._2._1.forEach((value, count) -> ret.add(new Tuple2<>(value, count.doubleValue() / t._2._2.doubleValue())));

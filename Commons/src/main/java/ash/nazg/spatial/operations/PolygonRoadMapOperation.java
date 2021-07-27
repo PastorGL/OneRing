@@ -5,9 +5,10 @@
 package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import net.sf.geographiclib.Geodesic;
 import net.sf.geographiclib.GeodesicData;
@@ -29,66 +30,47 @@ import java.util.*;
 
 @SuppressWarnings("unused")
 public class PolygonRoadMapOperation extends Operation {
-    public static final String VERB = "polygonRoadMap";
-
-    @Description("Feature attribute with road name")
     public static final String OP_ROAD_NAME_COL = "name.col";
-    @Description("Feature attribute with target road type")
     public static final String OP_ROAD_TYPE_COL = "type.col";
-    @Description("Feature attribute with road width")
     public static final String OP_ROAD_WIDTH_COL = "width.col";
-    @Description("Target road types")
     public static final String OP_ROAD_TYPES = "road.types";
-    @Description("Road type 'primary'")
-    public static final String DEF_TYPE_PRIMARY = "primary";
-    @Description("Road type 'secondary'")
-    public static final String DEF_TYPE_SECONDARY = "secondary";
-    @Description("Road type 'tertiary'")
-    public static final String DEF_TYPE_TERTIARY = "tertiary";
-    @Description("Default target road types")
-    public static final String[] DEF_ROAD_TYPES = {DEF_TYPE_PRIMARY, DEF_TYPE_SECONDARY, DEF_TYPE_TERTIARY};
-    @Description("Multipliers to adjust road width for each target type")
     public static final String OP_TYPE_MULTIPLIER_PREFIX = "type.multiplier.";
 
     private String inputName;
-
-    private String outputName;
-
-    private Map<String, Double> multipliers;
     private String nameColumn;
     private String typeColumn;
     private String widthColumn;
 
-    @Override
-    @Description("Generate a Polygon RDD road map from the GeoJSON fragments with LineString roads")
-    public String verb() {
-        return VERB;
-    }
+    private String outputName;
+
+    private Map<String, Double> multipliers;
 
     @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(OP_ROAD_NAME_COL, String.class),
-                        new TaskDescriptionLanguage.Definition(OP_ROAD_TYPE_COL, String.class),
-                        new TaskDescriptionLanguage.Definition(OP_ROAD_WIDTH_COL, String.class),
-                        new TaskDescriptionLanguage.Definition(OP_ROAD_TYPES, String[].class, DEF_ROAD_TYPES),
-                        new TaskDescriptionLanguage.DynamicDef(OP_TYPE_MULTIPLIER_PREFIX, Double.class),
-                },
+    public OperationMeta meta() {
+        return new OperationMeta("polygonRoadMap", "Generate a Polygon RDD road map from the GeoJSON fragments with LineString roads",
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Plain},
-                                false
+                new PositionalStreamsMetaBuilder()
+                        .ds("Plain RDD with a GeoJSON fragment with LineString or MultiLineString" +
+                                        " per each line, together describing a road map of a region",
+                                new StreamType[]{StreamType.Plain}
                         )
-                ),
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Polygon},
-                                false
+                new DefinitionMetaBuilder()
+                        .def(OP_ROAD_NAME_COL, "Feature attribute with road name")
+                        .def(OP_ROAD_TYPE_COL, "Feature attribute with target road type")
+                        .def(OP_ROAD_WIDTH_COL, "Feature attribute with road width")
+                        .def(OP_ROAD_TYPES, "Target road types", String[].class,
+                                "primary,secondary,tertiary", "Default target road types")
+                        .dynDef(OP_TYPE_MULTIPLIER_PREFIX, "Multipliers to adjust road width for each target type",
+                                Double.class)
+                        .build(),
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("Polygon RDD with each record corresponding to a fragment of a road",
+                                new StreamType[]{StreamType.Polygon}
                         )
-                )
+                        .build()
         );
     }
 

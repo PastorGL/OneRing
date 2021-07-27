@@ -5,9 +5,9 @@
 package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVWriter;
 import org.apache.hadoop.io.MapWritable;
@@ -22,37 +22,29 @@ import java.util.stream.Collectors;
 
 @SuppressWarnings("unused")
 public class PointCSVOutputOperation extends Operation {
-    public static final String VERB = "pointCsvOutput";
-
     private String inputName;
+
     private String outputName;
     private char outputDelimiter;
     private List<String> outputColumns;
 
     @Override
-    @Description("Take a Point RDD and produce a CSV file")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("pointCsvOutput", "Take a Point RDD and produce a CSV file",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
+                new PositionalStreamsMetaBuilder()
+                        .ds("Point RDD",
+                                new StreamType[]{StreamType.Point}
+                        )
+                        .build(),
+
                 null,
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Point},
-                                false
+                new PositionalStreamsMetaBuilder()
+                        .ds("CSV RDD with Point attributes",
+                                new StreamType[]{StreamType.CSV}, true
                         )
-                ),
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.CSV},
-                                true
-                        )
-                )
+                        .build()
         );
     }
 

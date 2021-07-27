@@ -5,9 +5,10 @@
 package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVWriter;
 import com.uber.h3core.H3Core;
@@ -28,22 +29,14 @@ import java.io.StringWriter;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static ash.nazg.spatial.config.ConfigurationParameters.GEN_HASH;
-
 @SuppressWarnings("unused")
 public class H3CompactCoverageOperation extends Operation {
-    public static final String VERB = "h3CompactCoverage";
+    private static final String GEN_HASH = "_hash";
+    private static final String GEN_LEVEL = "_level";
+    private static final String GEN_PARENT = "_parent";
 
-    @Description("Default finest hash level")
-    public static final Integer DEF_HASH_LEVEL_TO = 9;
-    @Description("Default coarsest hash level")
-    public static final Integer DEF_HASH_LEVEL_FROM = 1;
-    @Description("Level of the hash of the finest coverage unit")
     public static final String OP_HASH_LEVEL_TO = "hash.level.to";
-    @Description("Level of the hash of the coarsest coverage unit")
     public static final String OP_HASH_LEVEL_FROM = "hash.level.from";
-    @Description("Column with a generated hash level")
-    public static final String GEN_LEVEL = "_level";
 
     private String inputName;
 
@@ -53,36 +46,33 @@ public class H3CompactCoverageOperation extends Operation {
     private String outputName;
     private char outputDelimiter;
     private List<String> outputColumns;
-    private int outputParts;
 
     @Override
-    @Description("Takes a Polygon RDD (with polygons sized as of a country) and generates a compact H3 coverage Polygon RDD," +
-            " placing _hash property to each generated polygon")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("h3CompactCoverage", "Takes a Polygon RDD (with polygons sized as of" +
+                " a country) and generates a CSV RDD with compact H3 coverage for each Polygon",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(OP_HASH_LEVEL_TO, Integer.class, DEF_HASH_LEVEL_TO),
-                        new TaskDescriptionLanguage.Definition(OP_HASH_LEVEL_FROM, Integer.class, DEF_HASH_LEVEL_FROM),
-                },
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Polygon},
-                                false
+                new PositionalStreamsMetaBuilder()
+                        .ds("A Polygon RDD",
+                                new StreamType[]{StreamType.Polygon}, false
                         )
-                ),
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.CSV},
-                                new String[]{GEN_HASH, GEN_LEVEL}
+                new DefinitionMetaBuilder()
+                        .def(OP_HASH_LEVEL_TO, "Level of the hash of the finest coverage unit",
+                                Integer.class, "9", "Default finest hash level")
+                        .def(OP_HASH_LEVEL_FROM, "Level of the hash of the coarsest coverage unit",
+                                Integer.class, "1", "Default coarsest hash level")
+                        .build(),
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("A CSV RDD",
+                                new StreamType[]{StreamType.CSV}, true
                         )
-                )
+                        .genCol(GEN_HASH, "H3 hash hexadecimal string")
+                        .genCol(GEN_LEVEL, "Hash level, number")
+                        .genCol(GEN_PARENT, "Parent Polygon ID, some randomly assigned number")
+                        .build()
         );
     }
 
@@ -108,8 +98,6 @@ public class H3CompactCoverageOperation extends Operation {
         outputColumns = Arrays.stream(dsResolver.outputColumns(outputName))
                 .map(c -> c.replaceFirst("^" + inputName + "\\.", ""))
                 .collect(Collectors.toList());
-
-        outputParts = dsResolver.outputParts(outputName);
     }
 
     @Override
@@ -133,9 +121,9 @@ public class H3CompactCoverageOperation extends Operation {
                         List<Tuple2<Long, Polygon>> result = new ArrayList<>();
 
                         H3Core h3 = H3Core.newInstance();
-                        Text hashAttr = new Text("_hash");
-                        Text levelAttr = new Text("_level");
-                        Text parentAttr = new Text("_parent");
+                        Text hashAttr = new Text(GEN_HASH);
+                        Text levelAttr = new Text(GEN_LEVEL);
+                        Text parentAttr = new Text(GEN_PARENT);
 
                         while (it.hasNext()) {
                             Tuple2<Long, Polygon> o = it.next();

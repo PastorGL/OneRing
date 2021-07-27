@@ -12,13 +12,15 @@ spark.meta.dist.wrap={WRAP:both}
 spark.meta.task.input=signals,NI
 spark.meta.task.operations=range_filter,h3,timezone,aqua2,create_tracks,track_centroid_filter,motion_filter,track_type,track_centroid_filter_2,$ITER{COUNTRY:GB,FI,IE},select_pedestrians,output1,output2,select_car,output1c,output2c,$END,$ITER{TYPE:clean_pedestrian,auto},match_NI,$END
 
-spark.meta.ds.input.path.signals={PATH_SIGNALS}/{DAILY_PREFIX}/*
+spark.meta.input.path.signals={PATH_SIGNALS}/{DAILY_PREFIX}/*
+
 spark.meta.ds.input.part_count.signals={PARTS_SIGNALS}
 spark.meta.ds.input.delimiter.signals=,
 spark.meta.input.schema.signals={SCHEMA_SIGNALS:userid,_,timestamp,lat,lon,_,accuracy,_,_,_,_,_,final_country,_,_,_,_,_,_,_,_,_,_,_}
 spark.meta.ds.input.columns.signals=userid,lat,lon,final_country,timestamp,accuracy
 
-spark.meta.ds.input.path.NI={PATH_NI}
+spark.meta.input.path.NI={PATH_NI}
+
 spark.meta.ds.input.part_count.NI={PARTS_NI:20}
 spark.meta.ds.input.columns.NI=gid,name
 
@@ -437,17 +439,17 @@ If both `part_count.`s are specifies for some intermediate DataStream, it will b
 
 Input DataStreams of an entire Process come from the outside world, and output DataStreams are stored somewhere outside. CLI does this job via notion of input and output location and with a help of Dist (as discussed in [its own doc](DIST.md)).
 
-`ds.input.path` is a Hadoop FileSystem path where all source files for DataStreams referenced in `task.input` list reside by default, and `ds.output.path` is a path where to place the resulting `task.output`. For example, all-output default key, set via Variables:
+`input.path` is a Hadoop FileSystem path where all source files for DataStreams referenced in `task.input` list reside by default, and `output.path` is a path where to place the resulting `task.output`. For example, all-output default key, set via Variables:
 ```properties
-ds.output.path={PATH_OUTPUT}/{DAILY_PREFIX}
+output.path={PATH_OUTPUT}/{DAILY_PREFIX}
 ```
 
 These properties have some meaningful defaults, if left unset. For Local execution mode they both are automatically set to `.` (current directory), and for on-cluster execution they are defined as `hdfs:///input` and `hdfs:///output`.
 
-These properties can be overridden per each DataStream. For input ones, overrides are set in the layer `ds.input.path.`. In most cases, path overrides are passed via Variables. For example,
+These properties can be overridden per each DataStream. For input ones, overrides are set in the layer `input.path.`. In most cases, path overrides are passed via Variables. For example,
 ```properties
-ds.input.path.signals={PATH_SIGNALS}/{DAILY_PREFIX}/*
-ds.input.path.NI={PATH_NI}
+input.path.signals={PATH_SIGNALS}/{DAILY_PREFIX}/*
+input.path.NI={PATH_NI}
 ```
 
 Same true for `ds.output.path.` keys, that can be specified for each (or some) of DataStreams listed under the `task.output` key.

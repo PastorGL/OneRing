@@ -5,9 +5,10 @@
 package ash.nazg.commons.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
@@ -23,59 +24,45 @@ import java.util.Map;
 
 @SuppressWarnings("unused")
 public class SubtractOperation extends Operation {
-    @Description("Column to match a value in the minuend if it is a CSV RDD")
     public static final String DS_MINUEND_COLUMN = "minuend.column";
-    @Description("By default, treat minuend RDD as a plain one")
-    public static final String DEF_MINUEND_COLUMN = null;
-    @Description("Column to match a value in the subtrahend if it is a CSV RDD")
     public static final String DS_SUBTRAHEND_COLUMN = "subtrahend.column";
-    @Description("By default, treat subtrahend RDD as a plain one")
-    public static final String DEF_SUBTRAHEND_COLUMN = null;
 
-    public static final String VERB = "subtract";
-
-    private Integer minuendCol;
     private String minuendName;
     private char minuendDelimiter;
+    private Integer minuendCol;
 
     private String subtrahendName;
-    private Integer subtrahendCol;
     private char subtrahendDelimiter;
+    private Integer subtrahendCol;
 
     private String outputName;
 
     @Override
-    @Description("Take two RDDs and emit an RDD that consists" +
-            " of rows of first (the minuend) that do not present in the second (the subtrahend)." +
-            " If either RDD is a Plain one, entire rows will be matched." +
-            " If either of RDDs is a PairRDD, its keys will be used to match instead." +
-            " If either RDD is a CSV, you should specify the column to match")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("subtract", "Take two RDDs and emit an RDD that consists" +
+                " of rows of first (the minuend) that do not present in the second (the subtrahend)." +
+                " If either RDD is a Plain one, entire rows will be matched." +
+                " If either of RDDs is a PairRDD, its keys will be used to match instead." +
+                " If either RDD is a CSV, you should specify the column to match",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(DS_SUBTRAHEND_COLUMN, DEF_SUBTRAHEND_COLUMN),
-                        new TaskDescriptionLanguage.Definition(DS_MINUEND_COLUMN, DEF_MINUEND_COLUMN),
-                },
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.KeyValue, StreamType.Plain},
-                                true
-                        ),
-                        2
-                ),
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Passthru},
-                                false
+                new PositionalStreamsMetaBuilder(2)
+                        .ds("Two Plain or Pair RDDs to subtract second from the first",
+                                new StreamType[]{StreamType.KeyValue, StreamType.Plain}, true
                         )
-                )
+                        .build(),
+
+                new DefinitionMetaBuilder()
+                        .def(DS_SUBTRAHEND_COLUMN, "Column to match a value in the subtrahend if it is a CSV RDD",
+                                null, "By default, treat subtrahend RDD as a plain one")
+                        .def(DS_MINUEND_COLUMN, "Column to match a value in the minuend if it is a CSV RDD",
+                                null, "By default, treat minuend RDD as a plain one")
+                        .build(),
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("Output RDD is of same type as the first input",
+                                new StreamType[]{StreamType.Passthru}, false
+                        )
+                        .build()
         );
     }
 

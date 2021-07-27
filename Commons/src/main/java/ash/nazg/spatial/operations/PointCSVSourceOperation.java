@@ -5,9 +5,10 @@
 package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
@@ -27,53 +28,41 @@ import static ash.nazg.spatial.config.ConfigurationParameters.*;
 
 @SuppressWarnings("unused")
 public class PointCSVSourceOperation extends Operation {
-    @Description("By default, don't set Point _radius attribute")
-    public static final Double DEF_DEFAULT_RADIUS = null;
-    @Description("By default, don't set Point _radius attribute")
-    public static final String DEF_CSV_RADIUS_COLUMN = null;
-
-    public static final String VERB = "pointCsvSource";
-
     private String inputName;
     private char inputDelimiter;
     private int latColumn;
     private int lonColumn;
-
     private Integer radiusColumn;
-    private Double defaultRadius;
 
     private String outputName;
     private Map<String, Integer> outputColumns;
 
-    @Override
-    @Description("Take a CSV file and produce a Polygon RDD")
-    public String verb() {
-        return VERB;
-    }
+    private Double defaultRadius;
 
     @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(OP_DEFAULT_RADIUS, Double.class, DEF_DEFAULT_RADIUS),
-                        new TaskDescriptionLanguage.Definition(DS_CSV_RADIUS_COLUMN, DEF_CSV_RADIUS_COLUMN),
-                        new TaskDescriptionLanguage.Definition(DS_CSV_LAT_COLUMN),
-                        new TaskDescriptionLanguage.Definition(DS_CSV_LON_COLUMN),
-                },
+    public OperationMeta meta() {
+        return new OperationMeta("pointCsvSource", "Take a CSV file and produce a Polygon RDD",
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.CSV},
-                                true
+                new PositionalStreamsMetaBuilder()
+                        .ds("CSV RDD with Point attributes",
+                                new StreamType[]{StreamType.CSV}, true
                         )
-                ),
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Point},
-                                true
+                new DefinitionMetaBuilder()
+                        .def(OP_DEFAULT_RADIUS, "If set, generated Points will have this value in the _radius parameter",
+                                Double.class, null, "By default, don't set Point _radius attribute")
+                        .def(DS_CSV_RADIUS_COLUMN, "If set, generated Points will take their _radius parameter from the specified column instead",
+                                null, "By default, don't set Point _radius attribute")
+                        .def(DS_CSV_LAT_COLUMN, "Point latitude column")
+                        .def(DS_CSV_LON_COLUMN, "Point longitude column")
+                        .build(),
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("Point RDD generated from CSV input",
+                                new StreamType[]{StreamType.Point}, true
                         )
-                )
+                        .build()
         );
     }
 

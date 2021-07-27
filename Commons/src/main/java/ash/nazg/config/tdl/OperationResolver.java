@@ -1,41 +1,48 @@
 package ash.nazg.config.tdl;
 
 import ash.nazg.config.InvalidConfigValueException;
+import ash.nazg.config.tdl.metadata.DefinitionMeta;
+import ash.nazg.config.tdl.metadata.OperationMeta;
 
 import java.lang.reflect.Constructor;
 import java.util.Arrays;
 
 public class OperationResolver {
-    private final TaskDescriptionLanguage.Operation opDesc;
-    private final TaskDefinitionLanguage.Operation opConfig;
+    private final OperationMeta meta;
+    private final TaskDefinitionLanguage.Operation config;
 
-    public OperationResolver(TaskDescriptionLanguage.Operation opDesc, TaskDefinitionLanguage.Operation opConfig) {
-        this.opDesc = opDesc;
-        this.opConfig = opConfig;
+    public OperationResolver(OperationMeta meta, TaskDefinitionLanguage.Operation config) {
+        this.meta = meta;
+        this.config = config;
     }
 
     public <T> T definition(String key) {
-        TaskDescriptionLanguage.DefBase db = opDesc.definitions.get(key);
-        if (db == null) {
-            for (String def : opDesc.definitions.keySet()) {
+        DefinitionMeta defMeta = meta.definitions.get(key);
+        if (defMeta == null) {
+            for (String def : meta.definitions.keySet()) {
                 if (key.startsWith(def)) {
-                    db = opDesc.definitions.get(def);
+                    defMeta = meta.definitions.get(def);
                     break;
                 }
             }
         }
-        if (db == null) {
-            throw new InvalidConfigValueException("Invalid property '" + key + "' of operation '" + opConfig.name + "'");
+        if (defMeta == null) {
+            throw new InvalidConfigValueException("Invalid property '" + key + "' of operation '" + config.name + "'");
         }
 
-        Class<T> clazz = db.clazz;
+        Class<T> clazz;
+        try {
+            clazz = (Class<T>) Class.forName(defMeta.type);
+        } catch (ClassNotFoundException e) {
+            throw new InvalidConfigValueException("Cannot resolve class '" + defMeta.type + "' for property '" + key + "' of operation '" + config.name + "'");
+        }
 
-        String value = opConfig.definitions.get(key);
+        String value = config.definitions.get(key);
         if (value == null || value.isEmpty()) {
-            value = db.defaults;
+            value = defMeta.defaults;
         }
 
-        value = opConfig.task.value(value);
+        value = config.task.value(value);
         if (value == null) {
             return null;
         }
@@ -45,7 +52,7 @@ public class OperationResolver {
                 Constructor c = clazz.getConstructor(String.class);
                 return (T) c.newInstance(value);
             } catch (Exception e) {
-                throw new InvalidConfigValueException("Bad numeric value '" + value + "' for '" + clazz.getSimpleName() + "' property '" + key + "' of operation '" + opConfig.name + "'");
+                throw new InvalidConfigValueException("Bad numeric value '" + value + "' for '" + clazz.getSimpleName() + "' property '" + key + "' of operation '" + config.name + "'");
             }
         } else if (String.class == clazz) {
             return (T) value;
@@ -57,11 +64,11 @@ public class OperationResolver {
             return (T) Arrays.stream(value.split(Constants.COMMA)).map(String::trim).toArray(String[]::new);
         }
 
-        throw new InvalidConfigValueException("Improper type '" + clazz.getName() + "' of a property '" + key + "' of operation '" + opConfig.name + "'");
+        throw new InvalidConfigValueException("Improper type '" + clazz.getName() + "' of a property '" + key + "' of operation '" + config.name + "'");
     }
 
     public String[] positionalInputs() {
-        return opConfig.task.arrayValue(opConfig.inputs.positionalNames);
+        return config.task.arrayValue(config.input.positional);
     }
 
     public String positionalInput(int index) {
@@ -69,7 +76,7 @@ public class OperationResolver {
     }
 
     public String[] positionalOutputs() {
-        return opConfig.task.arrayValue(opConfig.outputs.positionalNames);
+        return config.task.arrayValue(config.output.positional);
     }
 
     public String positionalOutput(int index) {
@@ -77,10 +84,10 @@ public class OperationResolver {
     }
 
     public String namedInput(String name) {
-        return opConfig.task.value(opConfig.inputs.named.get(name));
+        return config.task.value(config.input.named.get(name));
     }
 
     public String namedOutput(String name) {
-        return opConfig.task.value(opConfig.outputs.named.get(name));
+        return config.task.value(config.output.named.get(name));
     }
 }

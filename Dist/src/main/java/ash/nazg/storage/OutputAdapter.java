@@ -5,17 +5,17 @@
 package ash.nazg.storage;
 
 import ash.nazg.config.InvalidConfigValueException;
+import ash.nazg.config.tdl.AdapterResolver;
 import ash.nazg.config.tdl.Constants;
-import ash.nazg.config.tdl.LayerResolver;
 import ash.nazg.config.tdl.TaskDefinitionLanguage;
 import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaRDD;
 
 public abstract class OutputAdapter extends StorageAdapter {
-    protected LayerResolver outputResolver;
+    protected AdapterResolver outputResolver;
 
     public void configure(String name, TaskDefinitionLanguage.Task taskConfig) throws InvalidConfigValueException {
-        outputResolver = new LayerResolver(taskConfig.foreignLayer(Constants.OUTPUT_LAYER));
+        outputResolver = new AdapterResolver(name, meta, taskConfig.foreignLayer(Constants.OUTPUT_LAYER));
 
         super.configure(name, taskConfig);
     }

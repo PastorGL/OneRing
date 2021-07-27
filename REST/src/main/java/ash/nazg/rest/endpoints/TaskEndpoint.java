@@ -16,13 +16,11 @@ import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.Base64;
-import java.util.List;
 import java.util.Properties;
-import java.util.stream.Collectors;
 
 @Path("task")
 public class TaskEndpoint {
-    private TaskService taskService;
+    private final TaskService taskService;
 
     @Inject
     public TaskEndpoint(TaskService taskService) {

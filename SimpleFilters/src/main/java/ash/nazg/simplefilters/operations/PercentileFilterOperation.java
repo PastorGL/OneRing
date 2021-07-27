@@ -5,9 +5,10 @@
 package ash.nazg.simplefilters.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
@@ -21,56 +22,44 @@ import java.util.Map;
 
 @SuppressWarnings("unused")
 public class PercentileFilterOperation extends Operation {
-    @Description("By default, do not set top percentile")
-    public static final Byte DEF_PERCENTILE_TOP = -1;
-    @Description("By default, do not set bottom percentile")
-    public static final Byte DEF_PERCENTILE_BOTTOM = -1;
-    @Description("Column with Double values to apply the filter")
     public static final String DS_FILTERING_COLUMN = "filtering.column";
-    @Description("Top of percentile range (inclusive)")
     public static final String OP_PERCENTILE_TOP = "percentile.top";
-    @Description("Bottom of percentile range (inclusive)")
     public static final String OP_PERCENTILE_BOTTOM = "percentile.bottom";
-
-    public static final String VERB = "percentileFilter";
 
     private String inputName;
     private char inputDelimiter;
+    private Integer filteringColumn;
+
     private String outputName;
 
-    private Integer filteringColumn;
     private byte topPercentile;
     private byte bottomPercentile;
 
     @Override
-    @Description("In a CSV RDD, take a column to filter all rows that have a Double value in this column" +
-            " that lies outside of the set percentile range")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("percentileFilter", "In a CSV RDD, take a column to filter all rows that have" +
+                " a Double value in this column that lies outside of the set percentile range",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(DS_FILTERING_COLUMN),
-                        new TaskDescriptionLanguage.Definition(OP_PERCENTILE_BOTTOM, Byte.class, DEF_PERCENTILE_BOTTOM),
-                        new TaskDescriptionLanguage.Definition(OP_PERCENTILE_TOP, Byte.class, DEF_PERCENTILE_TOP),
-                },
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
+                new PositionalStreamsMetaBuilder()
+                        .ds("CSV RDD",
                                 new StreamType[]{StreamType.CSV},
                                 true
                         )
-                ),
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Passthru},
-                                false
+                new DefinitionMetaBuilder()
+                        .def(DS_FILTERING_COLUMN, "Column with Double values to apply the filter")
+                        .def(OP_PERCENTILE_BOTTOM, "Bottom of percentile range (inclusive)", Byte.class,
+                                "-1", "By default, do not set bottom percentile")
+                        .def(OP_PERCENTILE_TOP, "Top of percentile range (inclusive)", Byte.class,
+                                "-1", "By default, do not set top percentile")
+                        .build(),
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("Filtered CSV RDD",
+                                new StreamType[]{StreamType.Passthru}
                         )
-                )
+                        .build()
         );
     }
 

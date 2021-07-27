@@ -5,9 +5,10 @@
 package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import ash.nazg.spatial.SegmentedTrack;
 import ash.nazg.spatial.TrackSegment;
@@ -31,45 +32,38 @@ import static ash.nazg.config.tdl.StreamType.*;
 
 @SuppressWarnings("unused")
 public class SpatialToolboxOperation extends Operation {
-    private static final String VERB = "spatialToolbox";
-
-    @Description("Selector for properties, SQL-like")
     public static final String OP_QUERY = "query";
 
-    private String outputName;
     private String inputName;
+
+    private String outputName;
+
     private List<Expressions.QueryExpr> query;
     private String what;
     private Long limitRecords;
     private Double limitPercent;
 
-    @Description("This operation allows SELECT queries against any Spatially-typed RDDs using any of their properties" +
-            " as criteria, e.g. SELECT Point FROM tracks WHERE trackid LIKE '.+?non.*' OR pt = 'e2e'")
     @Override
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("spatialToolbox", "This operation allows SELECT queries against any Spatially-typed RDDs using any of their properties" +
+                " as criteria, e.g. SELECT Point FROM tracks WHERE trackid LIKE '.+?non.*' OR pt = 'e2e'",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(VERB,
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(OP_QUERY)
-                },
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{Point, Track, Polygon},
-                                true
+                new PositionalStreamsMetaBuilder()
+                        .ds("Any Geometry-type RDD",
+                                new StreamType[]{Point, Track, Polygon}, true
                         )
-                ),
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{Passthru},
-                                false
+                new DefinitionMetaBuilder()
+                        .def(OP_QUERY, "Query for object properties, SQL SELECT-like")
+                        .build(),
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("Same type of input, with objects adhering to a query",
+                                new StreamType[]{Passthru}
                         )
-                ));
+                        .build()
+        );
     }
 
     @Override

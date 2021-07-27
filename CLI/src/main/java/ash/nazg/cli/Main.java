@@ -6,13 +6,16 @@ package ash.nazg.cli;
 
 import ash.nazg.config.TaskWrapperConfigBuilder;
 import ash.nazg.config.tdl.Constants;
+import ash.nazg.config.tdl.Direction;
+import ash.nazg.config.tdl.LayerResolver;
 import ash.nazg.config.tdl.TaskDefinitionLanguage;
 import org.apache.commons.cli.ParseException;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
+
+import java.util.HashSet;
 
 public class Main {
     private static final Logger LOG = Logger.getLogger(Main.class);
@@ -53,32 +56,63 @@ public class Main {
             context.hadoopConfiguration().set(FileInputFormat.INPUT_DIR_RECURSIVE, Boolean.TRUE.toString());
 
             TaskDefinitionLanguage.Task config = configBuilder.build(context);
-            configBuilder.foreignLayerVariable(config, "dist.store", "S");
             configBuilder.foreignLayerVariable(config, "metrics.store", "D");
 
-            TaskDefinitionLanguage.DataStream defaultDs = config.dataStreams.get(Constants.DEFAULT_DS);
-            if (configBuilder.hasOption("i")) {
-                defaultDs.input.path = configBuilder.getOptionValue("i");
-            } else if (StringUtils.isEmpty(defaultDs.input.path)) {
-                defaultDs.input.path = local ? "." : "hdfs:///input";
-            }
-            if (configBuilder.hasOption("o")) {
-                defaultDs.output.path = configBuilder.getOptionValue("o");
-            } else if (StringUtils.isEmpty(defaultDs.output.path)) {
-                defaultDs.output.path = local ? "." : "hdfs:///output";
-            }
+            String inputPath = null;
+            String outputPath = null;
+
             if (!local) {
-                for (String dsName : config.dataStreams.keySet()) {
-                    if (!Constants.DEFAULT_DS.equals(dsName)) {
-                        TaskDefinitionLanguage.DataStream ds = config.dataStreams.get(dsName);
-                        if (ds.input != null) {
-                            ds.input.path = null;
+                TaskDefinitionLanguage.Definitions props = config.foreignLayer(Constants.DIST_LAYER);
+                LayerResolver distResolver = new LayerResolver(props);
+
+                Direction distDirection = Direction.parse(distResolver.get("wrap", "nop"));
+                if (distDirection.toCluster) {
+                    TaskDefinitionLanguage.Definitions inputLayer = config.foreignLayer(Constants.INPUT_LAYER);
+                    new HashSet<>(inputLayer.keySet()).forEach(k -> inputLayer.compute(k, (key, v) -> {
+                        if (key.startsWith(Constants.PATH_PREFIX)) {
+                            return null;
                         }
-                        if (ds.output != null) {
-                            ds.output.path = null;
-                        }
-                    }
+                        return v;
+                    }));
+
+                    config.setForeignLayer(Constants.INPUT_LAYER + "." + Constants.PATH, null);
                 }
+                if (distDirection.fromCluster) {
+                    TaskDefinitionLanguage.Definitions outputLayer = config.foreignLayer(Constants.OUTPUT_LAYER);
+                    new HashSet<>(outputLayer.keySet()).forEach(k -> outputLayer.compute(k, (key, v) -> {
+                        if (key.startsWith(Constants.PATH_PREFIX)) {
+                            return null;
+                        }
+                        return v;
+                    }));
+
+                    config.setForeignLayer(Constants.OUTPUT_LAYER + "." + Constants.PATH, null);
+                }
+            } else {
+                inputPath = config.getForeignValue(Constants.INPUT_LAYER + "." + Constants.PATH);
+                outputPath = config.getForeignValue(Constants.OUTPUT_LAYER + "." + Constants.PATH);
+            }
+
+            if (configBuilder.hasOption("i")) {
+                inputPath = configBuilder.getOptionValue("i");
+            }
+            if (inputPath == null) {
+                inputPath = local ? "." : "hdfs:///input";
+                config.setForeignLayer(Constants.INPUT_LAYER + "." + Constants.PATH, inputPath);
+            }
+            if (local && config.getForeignValue(Constants.INPUT_LAYER + "." + Constants.PATH_PREFIX + Constants.DEFAULT_DS) == null) {
+                config.setForeignLayer(Constants.INPUT_LAYER + "." + Constants.PATH_PREFIX + Constants.DEFAULT_DS, inputPath);
+            }
+
+            if (configBuilder.hasOption("o")) {
+                outputPath = configBuilder.getOptionValue("o");
+            }
+            if (outputPath == null) {
+                outputPath = local ? "." : "hdfs:///output";
+                config.setForeignLayer(Constants.OUTPUT_LAYER + "." + Constants.PATH, outputPath);
+            }
+            if (local && config.getForeignValue(Constants.OUTPUT_LAYER + "." + Constants.PATH_PREFIX + Constants.DEFAULT_DS) == null) {
+                config.setForeignLayer(Constants.OUTPUT_LAYER + "." + Constants.PATH_PREFIX + Constants.DEFAULT_DS, outputPath);
             }
 
             new TaskRunner(context, config)

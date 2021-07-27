@@ -11,26 +11,66 @@ const REP_DOUBLE = /^[-+]?(?:\d*\.?\d+|\d+\.?\d*)(?:[eE][-+]?\d+)?$/;
 
 const $id = id => document.getElementById(id);
 
+
 function getTaskTemplate() {
     return {
-        op: [],
-        ds: [{
-            name: '_default',
-            input: {
-                partCount: 1,
-                delimiter: null
-            },
-            output: {
-                partCount: 1,
-                delimiter: null,
-                path: null
+        items: [],
+        streams: {
+            '_default': {
+                input: {
+                    partCount: '1',
+                    delimiter: ''
+                },
+                output: {
+                    partCount: '1',
+                    delimiter: ''
+                }
             }
-        }],
-        output: [],
+        },
         input: [],
-        prefix: "spark.meta"
+        output: [],
+        prefix: 'spark.meta',
+        variables: {}
     };
 }
+
+function getOpTemplate(opName, verb) {
+    return {
+        name: opName,
+        verb: verb,
+        definitions: {},
+        input: {
+            positional: '',
+            named: {}
+        },
+        output: {
+            positional: '',
+            named: {}
+        }
+    };
+}
+
+function getDirTemplate(directive) {
+    return {
+        directive: directive
+    };
+}
+
+function getDSTemplate() {
+    return {
+        input: {
+            columns: '',
+            delimiter: '',
+            partCount: ''
+        },
+        output: {
+            columns: '',
+            delimiter: '',
+            partCount: ''
+        }
+    };
+}
+
 
 function getNextName(name) {
     let ret = `${name}_${nameCounter}`;
@@ -56,36 +96,133 @@ function getDSColor(dsName) {
     return `#${color}`;
 }
 
-async function initPackages() {
-    let resp = await fetch('/package');
-    let packages = await resp.json();
 
-    let insList = '';
-    let opsList = '';
-    let outList = '';
+async function getApi(apiUrl) {
+    if (apiCache.hasOwnProperty(apiUrl)) {
+        return apiCache[apiUrl];
+    }
 
-    packages.forEach(pkg => {
-        let li = `<li><span onclick="showPackage(this)"><span class="i">i<small>${pkg.descr}</small></span>${pkg.name}</span>`;
-        if (pkg.ins.length) {
-            insList += `${li}<ul class="package-list shown">${pkg.ins.map(inp => `<li><label><button onclick="addNewAdapter('${inp.name}', 'input')">${inp.name}</button><small>${inp.descr}</small></label></li>`).join('')}</ul></li>`;
+    let resp = await fetch(apiUrl);
+    let obj = await resp.json();
+    apiCache[apiUrl] = obj;
+
+    return obj;
+}
+
+
+async function switchLayers(layerId) {
+    if (($id(`list-${layerId}`).innerHTML === '') || (layerId === 'foreign')) {
+        await initLayer(layerId);
+    }
+
+    let switches = document.getElementsByClassName('switch');
+    for (let idx = 0; idx < switches.length; idx++) {
+        let switchEl = switches[idx];
+        if (switchEl.id === `switch-${layerId}`) {
+            switchEl.classList.add('switch-active');
+        } else {
+            switchEl.classList.remove('switch-active');
         }
-        if (pkg.ops.length) {
-            opsList += `${li}<ul class="package-list">${pkg.ops.map(op => `<li><label><button onclick="addNewOp('${op.name}')">${op.name}</button><small>${op.descr}</small></label></li>`).join('')}</ul></li>`;
+    }
+
+    let layers = document.getElementsByClassName('layer');
+    for (let idx = 0; idx < layers.length; idx++) {
+        let layerEl = layers[idx];
+        layerEl.style.display = (layerEl.id === `layer-${layerId}`) ? 'block' : 'none';
+    }
+}
+
+async function initLayer(layerId) {
+    switch (layerId) {
+        case 'operations' : {
+            let opsList = '';
+
+            let packages = await getApi('/package/operations');
+            Object.entries(packages).forEach(([name, descr]) => {
+                opsList += `<li><span onclick="showOpPackage('${name}')"><span class="i">i<small>${descr}</small></span>${name}</span><ul class="package-list" id="package-${name}"></ul>`;
+            });
+
+            $id('list-operations').innerHTML = opsList;
+
+            break;
         }
-        if (pkg.outs.length) {
-            outList += `${li}<ul class="package-list shown">${pkg.outs.map(out => `<li><label><button onclick="addNewAdapter('${out.name}', 'output')">${out.name}</button><small>${out.descr}</small></label></li>`).join('')}</ul></li>`;
+        case 'foreign' : {
+            let layersList = '';
+            let layers = {};
+            Object.keys(task)
+                .filter(key => key.includes('.') && !key.startsWith('input.') && !key.startsWith('output.'))
+                .forEach(key => {
+                    let kk = key.split('.', 2)[0];
+                    layers[kk] = layers[kk] ? layers[kk] + 1 : 1;
+                });
+
+            Object.entries(layers).forEach(([layer, keys]) => {
+                layersList += `<li><label><button onclick="editLayer('${layer}')">${layer}...</button><small>${keys} key(s)</small></label></li>`;
+            });
+
+            $id('list-foreign').innerHTML = layersList;
+            break;
+        }
+        default: {
+            let list = '';
+
+            let packages = await getApi(`/package/${layerId}s`);
+            Object.entries(packages).forEach(([name, descr]) => {
+                list += `<li><span onclick="showAdapterPackage('${name}', '${layerId}')"><span class="i">i<small>${descr}</small></span>${name}</span><ul class="package-list" id="package-${layerId}-${name}"></ul>`;
+            });
+
+            $id(`list-${layerId}`).innerHTML = list;
+        }
+    }
+}
+
+function addNewLayer() {
+    let newLayerEl = $id('new-layer');
+    let layer = newLayerEl.value.trim();
+    if (layer.endsWith('.')) {
+        layer = layer.substring(0, layer.length - 1);
+    }
+
+    if (layer) {
+        editLayer(layer);
+
+        newLayerEl.value = '';
+    } else {
+        newLayerEl.focus();
+    }
+}
+
+function editLayer(layer) {
+    showDialog(`This is current task's foreign configuration layer ${layer}. You may manually edit it as an .ini file fragment`,
+        Object.entries(task)
+            .filter(([key, _]) => key.startsWith(`${layer}.`))
+            .map(([key, value]) => `${key}=${value}`)
+            .join('\n'), 'Accept changes', parseLayer, layer);
+}
+
+async function parseLayer(text, [layer]) {
+    cancelDialog();
+
+    Object.keys(task)
+        .filter(key => key.startsWith(`${layer}.`))
+        .forEach(key => delete task[key]);
+
+    text.split(/[\r\n]+/).forEach(p => {
+        let pair = p.split('=', 2);
+        if (pair.length === 2) {
+            let key = pair[0].trim();
+            if (key) {
+                if (!key.startsWith(`${layer}.`)) {
+                    key = `${layer}.${key}`;
+                }
+                task[key] = pair[1].trim();
+            }
         }
     });
 
-    let insEl = $id('list-inputs');
-    insEl.innerHTML = insList;
-
-    let opsEl = $id('list-operations');
-    opsEl.innerHTML = opsList;
-
-    let outEl = $id('list-outputs');
-    outEl.innerHTML = outList;
+    await switchLayers('foreign');
 }
+
 
 function initDefaultDS() {
     let canvas = $id('canvas-ds');
@@ -94,14 +231,14 @@ function initDefaultDS() {
     let defaultInputEl = document.createElement('DIV');
     defaultInputEl.className = 'ds input';
     defaultInputEl.id = 'default-input';
-    defaultInputEl.innerHTML = `<span id="default-input-btn-extra" class="btn-extra"></span><button id="default-input-btn-props" onclick="editDefaultDS('input')">Edit</button> default <small>input properties</small>`;
+    defaultInputEl.innerHTML = `<span id="default-input-btn-extra" class="btn-extra"></span><button id="default-input-btn-props" onclick="editDefaultDS('input')">Edit</button> <b>Default</b> <small>input properties</small>`;
 
     canvas.insertAdjacentElement('afterbegin', defaultInputEl);
 
     let defaultOutputEl = document.createElement('DIV');
     defaultOutputEl.className = 'ds output';
     defaultOutputEl.id = 'default-output';
-    defaultOutputEl.innerHTML = `<span id="default-output-btn-extra" class="btn-extra"></span><button id="default-output-btn-props" onclick="editDefaultDS('output')">Edit</button> default <small>output properties</small>`;
+    defaultOutputEl.innerHTML = `<span id="default-output-btn-extra" class="btn-extra"></span><button id="default-output-btn-props" onclick="editDefaultDS('output')">Edit</button> <b>Default</b> <small>output properties</small>`;
 
     canvas.insertAdjacentElement('beforeend', defaultOutputEl);
 }
@@ -115,45 +252,30 @@ function editDefaultDS(kind) {
     defaultEditEl.className = 'props';
     defaultEditEl.id = `default-${kind}-props`;
 
-    let defaultDS = task.ds.find(({name}) => name === '_default');
+    let dsKind = task.streams._default[kind];
 
+    let pathId = `default-${kind}-path`;
+    let pathDef = {type: 'String'};
+    let pathSel = getSelectDef(pathId, pathDef, task[`${kind}.path`]);
     let partsId = `default-${kind}-parts`;
     let partsDef = {type: 'Integer'};
-    let partsSel = getSelectDef(partsId, partsDef, defaultDS[kind].partCount);
+    let partsSel = getSelectDef(partsId, partsDef, dsKind.partCount);
     let delId = `default-${kind}-delimiter`;
     let delDef = {type: 'String'};
-    let delSel = getSelectDef(delId, delDef, defaultDS[kind].delimiter);
-    let innerHtml = `<div id="${partsId}" class="tr-def"><dt>Part count</dt><dd>${partsSel}</dd></div>
-<div id="${delId}" class="tr-def"><dt>Delimiter</dt><dd>${delSel}</dd></div>`;
-    if (kind === 'output') {
-        let pathId = `default-${kind}-path`;
-        let pathDef = {type: 'String'};
-        let pathSel = getSelectDef(pathId, pathDef, defaultDS.output.path);
-        innerHtml += `<div id="${pathId}" class="tr-def"><dt>Path</dt><dd>${pathSel}</dd></div>`;
-    }
-    defaultEditEl.innerHTML = innerHtml;
+    let delSel = getSelectDef(delId, delDef, dsKind.delimiter);
 
+    defaultEditEl.innerHTML = `<div id="${pathId}" class="tr-def"><dt><label for="inp-${pathId}">Path</label></dt><dd>${pathSel}</dd></div>
+<div id="${partsId}" class="tr-def"><dt><label for="inp-${partsId}">Part count</label></dt><dd>${partsSel}</dd></div>
+<div id="${delId}" class="tr-def"><dt><label for="inp-${delId}">Delimiter</label></dt><dd>${delSel}</dd></div>`;
     defaultEl.appendChild(defaultEditEl);
 }
 
 function applyDefaultDS(kind) {
-    let defaultDS = task.ds.find(({name}) => name === '_default');
+    let dsKind = task.streams._default[kind];
 
-    let dsKind;
-    switch (kind) {
-        case 'input' : {
-            dsKind = defaultDS.input;
-            break;
-        }
-        case 'output' : {
-            dsKind = defaultDS.output;
-            dsKind.path = $id(`inp-default-${kind}-path`).value;
-            break;
-        }
-    }
-
-    dsKind.delimiter = $id(`inp-default-${kind}-delimiter`).value;
-    dsKind.partCount = $id(`inp-default-${kind}-parts`).value;
+    dsKind.delimiter = $id(`inp-default-${kind}-delimiter`).value.trim();
+    dsKind.partCount = $id(`inp-default-${kind}-parts`).value.trim();
+    task[`${kind}.path`] = $id(`inp-default-${kind}-path`).value.trim();
 
     updateVariables(dsKind);
 }
@@ -165,21 +287,59 @@ function cancelDefaultDS(kind) {
     $id(`default-${kind}-btn-props`).disabled = false;
 }
 
-function showPackage(packageEl) {
-    let pkgList = packageEl.parentElement.getElementsByClassName('package-list')[0];
-    pkgList.style.display = (getComputedStyle(pkgList).display !== 'block') ? 'block' : 'none';
+
+async function showOpPackage(name) {
+    let pkgList = $id(`package-${name}`);
+    if (getComputedStyle(pkgList).display !== 'block') {
+        if (pkgList.innerHTML === '') {
+            let pkgOps = await getApi(`/package/operations/${name}`);
+
+            let pkgHtml = '';
+            Object.entries(pkgOps).forEach(([name, descr]) => {
+                pkgHtml += `<li><label><button onclick="addNewOp('${name}')">${name}</button><small>${descr}</small></label></li>`;
+            });
+
+            pkgList.innerHTML = pkgHtml;
+        }
+
+        pkgList.style.display = 'block';
+    } else {
+        pkgList.style.display = 'none';
+    }
 }
 
+async function showAdapterPackage(name, kind) {
+    let pkgList = $id(`package-${kind}-${name}`);
+    if (getComputedStyle(pkgList).display !== 'block') {
+        if (pkgList.innerHTML === '') {
+            let pkgOps = await getApi(`/package/${kind}s/${name}`);
+
+            let pkgHtml = '';
+            Object.entries(pkgOps).forEach(([name, descr]) => {
+                pkgHtml += `<li><label><button onclick="addNewAdapter('${name}', '${kind}')">${name}</button><small>${descr}</small></label></li>`;
+            });
+
+            pkgList.innerHTML = pkgHtml;
+        }
+
+        pkgList.style.display = 'block';
+    } else {
+        pkgList.style.display = 'none';
+    }
+}
+
+
 async function addAdapter(adapterName, kind, name) {
-    let adapter = await getApi(`/adapter/${kind}/${adapterName}`);
+    let adapterDef = await getApi(`/adapter/${kind}/${adapterName}`);
 
     let adapterEl = document.createElement('DIV');
     let adapterId = getNextId();
     adapterEl.id = adapterId;
-    adapterEl.innerHTML = `<span class="btn-right"><span class="i">i<small>${adapter.descr}</small></span><button class="btn-remove" onclick="removeAdapter('${adapterId}', '${kind}')" title="Remove">×</button></span>
-<input id="inp-${adapterId}" class="inp-rename" value="${name}" readonly><button id="btn-edit-${adapterId}" class="btn-edit" onclick="editAdapter('${adapterId}', '${kind}')">Edit</button>
+    adapterEl.innerHTML = `<span class="btn-right">${kind} ${adapterName}<span class="i">i<small>${adapterDef.descr}</small></span><button class="btn-remove" onclick="removeAdapter('${adapterId}', '${kind}')" title="Remove">×</button></span>
+<span id="name-${adapterId}" class="adapter-name">${name}</span>
+<input id="inp-${adapterId}" value="${name}" type="hidden"><button id="btn-edit-${adapterId}" class="btn-edit" onclick="editAdapter('${adapterId}', '${kind}')">Edit</button>
 <span id="btn-extra-${adapterId}" class="btn-extra"></span>
-<input type="hidden" id="verb-${adapterId}" value="${adapterName}"><input type="hidden" id="name-${adapterId}" value="${name}">`;
+<input type="hidden" id="verb-${adapterId}" value="${adapterName}"><input type="hidden" id="ref-${adapterId}" value="${name}">`;
     adapterEl.className = `adapter ${kind}`;
     adapterEl.style.backgroundColor = getDSColor(name);
 
@@ -203,11 +363,13 @@ async function addAdapter(adapterName, kind, name) {
         canvas.insertAdjacentElement(position, adapterEl);
     }
 
-    return adapterEl;
+    return adapterId;
 }
 
 async function addNewAdapter(adapterName, kind) {
-    let name = getNextName(adapterName);
+    let name = getNextName(kind);
+
+    let adapterDef = await getApi(`/adapter/${kind}/${adapterName}`);
 
     switch (kind) {
         case 'input': {
@@ -219,59 +381,186 @@ async function addNewAdapter(adapterName, kind) {
             break;
         }
     }
-    task.ds.push(getDSTemplate(name));
+    task.streams[name] = getDSTemplate();
+    task[`${kind}.path.${name}`] = adapterDef.pattern;
 
-    let adapterEl = await addAdapter(adapterName, kind, name);
-    flashNew(adapterEl);
+    let adapterId = await addAdapter(adapterName, kind, name);
+    flashNew(adapterId);
     if (!editor) {
-        await editAdapter(adapterEl.id, kind);
+        await editAdapter(adapterId, kind);
+    } else {
+        await describeAdapter(adapterId, kind);
     }
 }
+
+async function describeAdapter(adapterId, kind) {
+    let adapterEl = $id(adapterId);
+
+    let verb = $id(`verb-${adapterId}`).value;
+    let adapterDef = await getApi(`/adapter/${kind}/${verb}`);
+
+    let descrEl = document.createElement('PRE');
+    descrEl.className = 'descr';
+    descrEl.id = `descr-${adapterId}`;
+
+    let dsName = $id(`ref-${adapterId}`).value;
+    let found = task[`${kind}.path.${dsName}`];
+    let adapterDescr = `${kind}.path.${dsName}=${found ? found : ''}\n`;
+
+    if (adapterDef.settings) {
+        adapterDescr += '\n';
+        Object.entries(adapterDef.settings).forEach(([name, def]) => {
+            let found = task[`${kind}.${name}.${dsName}`];
+            adapterDescr += `${kind}.${name}.${dsName}=${found ? found : ''}\n`;
+        });
+    }
+
+    descrEl.innerText = adapterDescr;
+    adapterEl.appendChild(descrEl);
+}
+
+async function editAdapter(adapterId, kind) {
+    if (editor) {
+        flashEditor();
+        return;
+    }
+
+    let adapterEl = $id(adapterId);
+    editor = adapterEl;
+
+    let descrEl = $id(`descr-${adapterId}`);
+    if (descrEl) {
+        adapterEl.removeChild(descrEl);
+    }
+
+    let btnEdit = $id(`btn-edit-${adapterId}`);
+    btnEdit.disabled = true;
+    let verb = $id(`verb-${adapterId}`).value;
+
+    $id(`btn-extra-${adapterId}`).innerHTML = `<button onclick="applyAdapter('${adapterId}', '${kind}');cancelAdapter('${adapterId}');describeAdapter('${adapterId}', '${kind}')">Apply</button><button onclick="cancelAdapter('${adapterId}');describeAdapter('${adapterId}', '${kind}')">Cancel</button>`;
+
+    let adapterDef = await getApi(`/adapter/${kind}/${verb}`);
+
+    let propsEl = document.createElement('DL');
+    propsEl.className = 'props';
+    propsEl.id = `props-${adapterId}`;
+
+    let dsId = `ds-${adapterId}`;
+    let dsName = $id(`ref-${adapterId}`).value;
+    let dsSel = getSelectDS(dsId, {noVariables: true}, dsName);
+
+    let pathId = `path-${adapterId}`;
+    let pathDef = {
+        type: 'String'
+    };
+    let pathSel = getSelectDef(pathId, pathDef, task[`${kind}.path.${dsName}`]);
+    let propsHtml = `<div id="${dsId}" class="tr-${kind}"><dt><label class="label-sel" for="sel-${dsId}">Data stream</label></dt>
+<dd>${dsSel}</dd></div>
+<div id="${pathId}" class="tr-${kind}"><dt><label class="label-sel" for="sel-${pathId}">Path</label><label class="label-inp" for="inp-${pathId}"><small>Pattern is ${adapterDef.pattern}</small></label></dt>
+<dd>${pathSel}</dd></div>`;
+
+    if (adapterDef.settings) {
+        Object.entries(adapterDef.settings).forEach(([name, def]) => {
+            let defId = getNextId();
+            let found = task[`${kind}.${name}.${dsName}`];
+            let defSel = getSelectDef(defId, def, found ? found : '');
+            propsHtml += `<div id="${defId}" class="tr-def"><dt><label class="label-sel" for="sel-${defId}">${name}</label><label class="label-inp" for="inp-${defId}"><small>${def.descr}</small></label></dt>
+<dd id="${defId}">${defSel}<input id="name-${defId}" type="hidden" value="${name}"></dd></div>`;
+        });
+    }
+
+    propsEl.innerHTML = propsHtml;
+    adapterEl.appendChild(propsEl);
+}
+
+function applyAdapter(adapterId, kind) {
+    let adapterEl = $id(adapterId);
+    let nameEl = $id(`ref-${adapterId}`);
+    let oldName = nameEl.value;
+    let reName = $id(`inp-ds-${adapterId}`).value.trim();
+    nameEl.value = reName;
+    $id(`name-${adapterId}`).innerHTML = reName;
+
+    let ds = task.streams[oldName];
+    delete task.streams[oldName];
+
+    let idx = task[kind].length ? task[kind].findIndex(name => name === oldName) : -1;
+    if (idx >= 0) {
+        task[kind].splice(idx, 1);
+    }
+
+    task[kind].push(reName);
+    task.streams[reName] = ds;
+
+    Object.keys(task)
+        .filter(key => key.startsWith(`${kind}.`) && key.endsWith(`.${oldName}`))
+        .forEach(key => delete task[key]);
+
+    let adapterDefs = adapterEl.getElementsByClassName("tr-def");
+    let settings = {};
+    Array.from(adapterDefs).forEach(tr => {
+        let defId = tr.id;
+        let defName = $id(`name-${defId}`).value;
+        let defVal = $id(`inp-${defId}`).value.trim();
+        let defDef = $id(`inp-${defId}`).placeholder;
+
+        let key = `${kind}.${defName}.${reName}`;
+        if ((defVal === '') || (defVal === defDef)) {
+            delete task[key];
+        } else {
+            settings[key] = task[key] = defVal;
+        }
+    });
+
+    let pathKey = `${kind}.path.${reName}`;
+    settings[pathKey] = task[pathKey] = $id(`inp-path-${adapterId}`).value.trim();
+
+    adapterEl.style.backgroundColor = getDSColor(reName);
+
+    updateVariables(settings);
+}
+
+function cancelAdapter(adapterId) {
+    editor = false;
+
+    let adapterEl = $id(adapterId);
+    let adapterName = $id(`name-${adapterId}`).value;
+    let reNameEl = $id(`inp-${adapterId}`);
+    reNameEl.value = adapterName;
+    reNameEl.readOnly = true;
+    adapterEl.removeChild($id(`props-${adapterId}`));
+    $id(`btn-edit-${adapterId}`).disabled = false;
+    $id(`btn-extra-${adapterId}`).innerHTML = '';
+}
+
+function removeAdapter(adapterId, kind) {
+    let adapterEl = $id(adapterId);
+
+    if (editor === adapterEl) {
+        cancelAdapter(adapterId);
+    }
+
+    let adapterName = $id(`name-${adapterId}`).value;
+    adapterEl.parentElement.removeChild(adapterEl);
+
+    Object.keys(task)
+        .filter(key => key.startsWith(`${kind}.`) && key.endsWith(`.${adapterName}`))
+        .forEach(key => delete task[key]);
+
+    let idx = task[kind].length ? task[kind].findIndex(name => name === adapterName) : -1;
+    if (idx >= 0) {
+        task[kind].splice(idx, 1);
+    }
+
+    tryRemoveDS(adapterName);
+}
+
 
 function renumberTaskItems() {
     let taskItems = document.getElementsByClassName('task-item');
     for (let idx = 0; idx < taskItems.length; idx++) {
         let positionEl = taskItems[idx].getElementsByClassName('task-position')[0];
         positionEl.value = idx;
-    }
-}
-
-async function addOp(verb, name) {
-    let op = await getApi(`/operation/${verb}`);
-
-    let opEl = document.createElement('DIV');
-    let opId = getNextId();
-    opEl.id = opId;
-
-    opEl.innerHTML = `<span class="btn-right">${verb}<span class="i">i<small>${op.descr}</small></span><button class="btn-remove" onclick="removeOp('${opId}')" title="Remove">×</button></span>
-<button class="btn-move" onclick="moveUp('${opId}')" title="Move up">↑</button><button class="btn-move" onclick="moveDown('${opId}')" title="Move down">↓</button>
-<input id="inp-${opId}" class="inp-rename" value="${name}" readonly><button id="btn-edit-${opId}" class="btn-edit" onclick="editOp('${opId}')">Edit</button>
-<span id="btn-extra-${opId}" class="btn-extra"></span>
-<input type="hidden" id="verb-${opId}" value="${verb}"><input type="hidden" id="name-${opId}" value="${name}"><input id="position-${opId}" type="hidden" class="task-position">`;
-    opEl.className = 'op task-item';
-
-    let canvas = $id("canvas-task");
-
-    let adapters = canvas.getElementsByClassName('adapter output');
-    if (adapters.length) {
-        adapters[0].before(opEl);
-    } else {
-        canvas.insertAdjacentElement('beforeend', opEl);
-    }
-
-    return opEl;
-}
-
-async function addNewOp(verb) {
-    let name = getNextName(verb);
-    task.op.push(getOpTemplate(name, verb));
-
-    let opEl = await addOp(verb, name);
-    renumberTaskItems();
-
-    flashNew(opEl);
-    if (!editor) {
-        await editOp(opEl.id);
     }
 }
 
@@ -282,8 +571,8 @@ function moveUp(elId) {
         prevEl.before(el);
 
         let position = el.getElementsByClassName('task-position')[0].value;
-        let ti = task.op.splice(position, 1);
-        task.op.splice(position - 1, 0, ti);
+        let ti = task.items.splice(position, 1);
+        task.items.splice(position - 1, 0, ti);
     }
 
     renumberTaskItems();
@@ -296,18 +585,358 @@ function moveDown(elId) {
         nextEl.after(el);
 
         let position = el.getElementsByClassName('task-position')[0].value;
-        let ti = task.op.splice(position, 1);
-        task.op.splice(position + 1, 0, ti);
+        let ti = task.items.splice(position, 1);
+        task.items.splice(position + 1, 0, ti);
     }
 
     renumberTaskItems();
 }
 
-function getSelectDS(dsId, value = '') {
-    let selHtml = `<select id="sel-${dsId}" class="sel-ds" onchange="selectDS('${dsId}', this)"><optgroup label="Task data streams">`;
+
+function flashNew(elId) {
+    let el = $id(elId);
+    el.classList.add('flash-new');
+    el.scrollIntoView();
+    setTimeout(removeFlash, 1100, el, 'flash-new');
+}
+
+function flashEditor() {
+    if (!editor.classList.contains('flash-editor')) {
+        editor.classList.add('flash-editor');
+        editor.scrollIntoView();
+        setTimeout(removeFlash, 1100, editor, 'flash-editor');
+    }
+}
+
+function removeFlash(el, flash) {
+    el.classList.remove(flash);
+}
+
+
+async function addOp(verb, name, idx) {
+    let opDef = await getApi(`/operation/${verb}`);
+
+    let opEl = document.createElement('DIV');
+    let opId = getNextId();
+    opEl.id = opId;
+
+    opEl.innerHTML = `<span class="btn-right">${verb}<span class="i">i<small>${opDef.descr}</small></span><button class="btn-remove" onclick="removeOp('${opId}')" title="Remove">×</button></span>
+<button class="btn-move" onclick="moveUp('${opId}')" title="Move up">↑</button><button class="btn-move" onclick="moveDown('${opId}')" title="Move down">↓</button>
+<input id="inp-${opId}" class="inp-rename" value="${name}" readonly><button id="btn-edit-${opId}" class="btn-edit" onclick="editOp('${opId}')">Edit</button>
+<span id="btn-extra-${opId}" class="btn-extra"></span>
+<input type="hidden" id="verb-${opId}" value="${verb}"><input type="hidden" id="name-${opId}" value="${name}"><input id="position-${opId}" type="hidden" class="task-position" value="${idx}">`;
+    opEl.className = 'op task-item';
+
+    let canvas = $id("canvas-task");
+
+    let adapters = canvas.getElementsByClassName('adapter output');
+    if (adapters.length) {
+        adapters[0].before(opEl);
+    } else {
+        canvas.insertAdjacentElement('beforeend', opEl);
+    }
+
+    return opId;
+}
+
+async function addNewOp(verb) {
+    let name = getNextName(verb);
+    let idx = task.items.length;
+    task.items.push(getOpTemplate(name, verb));
+
+    let opId = await addOp(verb, name, idx);
+
+    flashNew(opId);
+    if (!editor) {
+        await editOp(opId);
+    } else {
+        await describeOp(opId);
+    }
+}
+
+async function describeOp(opId) {
+    let opEl = $id(opId);
+
+    let verb = $id(`verb-${opId}`).value;
+    let op = task.items[$id(`position-${opId}`).value];
+
+    let opDef = await getApi(`/operation/${verb}`);
+
+    let descrEl = document.createElement('PRE');
+    descrEl.className = 'descr';
+    descrEl.id = `descr-${opId}`;
+
+    let opDescr = '';
+    if (opDef.input.positional != null) {
+        opDescr += `op.inputs.${op.name}=${op.input.positional}\n`;
+    } else {
+        Object.entries(opDef.input.streams).forEach(([name, ni]) => {
+            let found = Object.keys(op.input.named).find(n => n === name);
+            opDescr += `op.input.${op.name}.${name}=${found ? op.input.named[found] : ''}\n`;
+        });
+    }
+
+    opDescr += '\n';
+
+    if (opDef.definitions) {
+        Object.entries(opDef.definitions).forEach(([name, def]) => {
+            if (def.optional) {
+                let found = Object.keys(op.definitions).find(n => n === name);
+                opDescr += `op.definition.${op.name}.${name}=${found ? op.definitions[found] : def.defaults}\n`;
+            } else if (def.dynamic) {
+                let found = Object.keys(op.definitions).filter(n => n.startsWith(name));
+                found.forEach(dyn => {
+                    let dynDef = op.definitions[dyn];
+                    opDescr += `op.definition.${op.name}.${dyn}=${dynDef}\n`;
+                });
+            } else {
+                let found = Object.keys(op.definitions).find(n => n === name);
+                opDescr += `op.definition.${op.name}.${name}=${found ? op.definitions[found] : ''}\n`;
+            }
+        });
+
+        opDescr += '\n';
+    }
+
+    if (opDef.output.positional != null) {
+        opDescr += `op.outputs.${op.name}=${op.output.positional}\n`;
+    } else {
+        Object.entries(opDef.output.streams).forEach(([name, no]) => {
+            let found = Object.keys(op.output.named).find(n => n === name);
+            opDescr += `op.output.${op.name}.${name}=${found ? op.output.named[found] : ''}\n`;
+        });
+    }
+
+    descrEl.innerText = opDescr;
+    opEl.appendChild(descrEl);
+}
+
+async function editOp(opId) {
+    if (editor) {
+        flashEditor();
+        return;
+    }
+
+    let opEl = $id(opId);
+    editor = opEl;
+
+    let descrEl = $id(`descr-${opId}`);
+    if (descrEl) {
+        opEl.removeChild(descrEl);
+    }
+
+    let btnEdit = $id(`btn-edit-${opId}`);
+    btnEdit.disabled = true;
+    let verb = $id(`verb-${opId}`).value;
+    let op = task.items[$id(`position-${opId}`).value];
+
+    let opDef = await getApi(`/operation/${verb}`);
+
+    let propsEl = document.createElement('DL');
+    propsEl.className = 'props';
+    propsEl.id = `props-${opId}`;
+
+    let buttonsEl = $id(`btn-extra-${opId}`);
+    buttonsEl.innerHTML = `<button onclick="applyOp('${opId}');cancelOp('${opId}');describeOp('${opId}')">Apply</button><button onclick="cancelOp('${opId}');describeOp('${opId}')">Cancel</button>`;
+
+    let propsHtml = '';
+
+    if (opDef.input.positional != null) {
+        let dsId = getNextId();
+        let dsSel = getSelectDS(dsId, {multiple: true}, op.input.positional);
+        propsHtml += `<div id="${dsId}" class="tr-input"><dt><span class="btn-right"><button onclick="editDS('${dsId}', '${verb}', 'input')" id="btn-props-${dsId}">Properties</button></span>
+<label class="label-sel" for="sel-${dsId}">At least ${opDef.input.positional} positional input(s) of type ${opDef.input.streams.type}</label></dt>
+<dd>${dsSel}<input type="hidden" id="name-${dsId}" value=""></dd></div>`;
+    } else {
+        Object.entries(opDef.input.streams).forEach(([name, ni]) => {
+            let dsId = getNextId();
+            let found = Object.keys(op.input.named).find(n => n === name);
+            let dsSel = getSelectDS(dsId, null, found ? op.input.named[found] : '');
+            propsHtml += `<div id="${dsId}" class="tr-input"><dt><span class="btn-right"><button onclick="editDS('${dsId}', '${verb}', 'input')" id="btn-props-${dsId}">Properties</button></span>
+<label class="label-sel" for="sel-${dsId}">Input <b>${name}</b> of type ${ni.type}</label><label class="label-inp" for="inp-${dsId}"><small>${ni.descr}</small></label></dt>
+<dd>${dsSel}<input type="hidden" id="name-${dsId}" value="${name}"></dd></div>`;
+        });
+    }
+
+    if (opDef.definitions) {
+        Object.entries(opDef.definitions).forEach(([name, def]) => {
+            if (def.optional) {
+                let defId = getNextId();
+                let found = Object.keys(op.definitions).find(n => n === name);
+                let defSel = getSelectDef(defId, def, found ? op.definitions[found] : '');
+                propsHtml += `<div id="${defId}" class="tr-def"><dt><label class="label-sel" for="sel-${defId}">${name}</label><label class="label-inp" for="inp-${defId}"><small>${def.descr}</small></label></dt>
+<dd id="${defId}">${defSel}<input id="name-${defId}" type="hidden" value="${name}"></dd></div>`;
+            } else if (def.dynamic) {
+                let dynId = getNextId();
+                propsHtml += `<div id="${dynId}" class="tr-dyn"><dt><label class="label-sel" for="inp-${dynId}">${name}</label><label class="label-inp" for="inp-${dynId}"><small>${def.descr}</small></label></dt>
+<dd><input id="name-${dynId}" type="hidden" value="${name}"><input id="inp-${dynId}" class="inp-rename"><button onclick="addDynDef('${dynId}', '${verb}')">Add</button></dd>`;
+                let found = Object.keys(op.definitions).filter(n => n.startsWith(name));
+                found.forEach(dyn => {
+                    let dynDef = op.definitions[dyn];
+                    let defId = getNextId();
+                    let defSel = getSelectDef(defId, def, dynDef);
+                    let defName = dyn.substring(name.length);
+                    propsHtml += `<div id="${defId}" class="tr-def"><dd><label class="label-sel" for="sel-${defId}" class="dyn-name">${defName}</label><button onclick="removeDynDef('${defId}')">Remove</button>
+<br>${defSel}<input id="name-${defId}" type="hidden" value="${defName}"></dd></div>`;
+                });
+                propsHtml += '</div>';
+            } else {
+                let defId = getNextId();
+                let found = Object.keys(op.definitions).find(n => n === name);
+                let defSel = getSelectDef(defId, def, found ? op.definitions[found] : '');
+                propsHtml += `<div id="${defId}" class="tr-def"><dt><label class="label-sel" for="sel-${defId}">${name}</label><label class="label-inp" for="inp-${defId}"><small>${def.descr}</small></label></dt>
+<dd id="${defId}">${defSel}<input id="name-${defId}" type="hidden" value="${name}"></dd></div>`;
+            }
+        });
+    }
+
+    if (opDef.output.positional != null) {
+        let dsId = getNextId();
+        let dsSel = getSelectDS(dsId, {multiple: true}, op.output.positional);
+        propsHtml += `<div id="${dsId}" class="tr-output"><dt><span class="btn-right"><button onclick="editDS('${dsId}', '${verb}', 'output')" id="btn-props-${dsId}">Properties</button></span>
+<label class="label-sel" for="sel-${dsId}">Positional output(s) of type ${opDef.output.streams.type}</label></dt>
+<dd>${dsSel}<input type="hidden" id="name-${dsId}" value=""></dd></div>`;
+    } else {
+        Object.entries(opDef.output.streams).forEach(([name, no]) => {
+            let dsId = getNextId();
+            let found = Object.keys(op.output.named).find(n => n === name);
+            let dsSel = getSelectDS(dsId, null, found ? op.output.named[found] : '');
+            propsHtml += `<div id="${dsId}" class="tr-output"><dt><span class="btn-right"><button onclick="editDS('${dsId}', '${verb}', 'output')" id="btn-props-${dsId}">Properties</button></span>
+<label class="label-sel" for="sel-${dsId}">Output ${name} of type ${no.type}</label><label class="label-inp" for="inp-${dsId}"><small>${no.descr}</small></label></dt>
+<dd>${dsSel}<input type="hidden" id="name-${dsId}" value="${name}"></dd></div>`;
+        });
+    }
+
+    propsEl.innerHTML = propsHtml;
+    opEl.appendChild(propsEl);
+
+    let reNameEl = $id(`inp-${opId}`);
+    reNameEl.readOnly = false;
+    reNameEl.focus();
+}
+
+function applyOp(opId) {
+    let opEl = $id(opId);
+    let nameEl = $id(`name-${opId}`);
+    let reName = $id(`inp-${opId}`).value;
+    let verb = $id(`verb-${opId}`).value;
+
+    let op = getOpTemplate(reName, verb);
+    let idx = opEl.getElementsByClassName('task-position')[0].value;
+
+    let oldOp = task.items.splice(idx, 1, op)[0];
+    nameEl.value = reName;
+
+    let dsSaveButtons = $id('canvas-ds').getElementsByClassName('btn-ds-save');
+    Array.from(dsSaveButtons).forEach(btn => btn.click());
+
+    let dataStreams = new Set();
+
+    let opIns = opEl.getElementsByClassName("tr-input");
+    Array.from(opIns).forEach(tr => {
+        let dsId = tr.id;
+        let dsRef = $id(`name-${dsId}`).value;
+        let dsName = $id(`inp-${dsId}`).value.trim();
+        if (dsRef) {
+            op.input.named[dsRef] = dsName;
+            if (dsName) {
+                dataStreams.add(dsName);
+            }
+        } else {
+            let dsNames = dsName.split(',').filter(n => n.trim());
+            op.input.positional = dsNames.join(',');
+            dsNames.forEach(n => dataStreams.add(n));
+        }
+    });
+
+    let opOuts = opEl.getElementsByClassName("tr-output");
+    Array.from(opOuts).forEach(tr => {
+        let dsId = tr.id;
+        let dsRef = $id(`name-${dsId}`).value;
+        let dsName = $id(`inp-${dsId}`).value.trim();
+        if (dsRef) {
+            op.output.named[dsRef] = dsName;
+            if (dsName) {
+                dataStreams.add(dsName);
+            }
+        } else {
+            let dsNames = dsName.split(',').filter(n => n.trim());
+            op.output.positional = dsNames.join(',');
+            dsNames.forEach(n => dataStreams.add(n));
+        }
+    });
+
+    tryRemoveDS(oldOp.input.positional);
+    tryRemoveDS(oldOp.input.named);
+    tryRemoveDS(oldOp.output.positional);
+    tryRemoveDS(oldOp.output.named);
+
+    dataStreams.forEach(dsName => {
+        if (!task.streams[dsName]) {
+            task.streams[dsName] = getDSTemplate();
+        }
+    });
+
+    let opDefs = opEl.getElementsByClassName("tr-def");
+    Array.from(opDefs).forEach(tr => {
+        let defId = tr.id;
+        let defName = $id(`name-${defId}`).value;
+        let defVal = $id(`inp-${defId}`).value.trim();
+        let defDef = $id(`inp-${defId}`).placeholder;
+
+        op.definitions[defName] = ((defVal === '') || (defVal === defDef)) ? null : defVal;
+    });
+
+    updateVariables(op);
+}
+
+function cancelOp(opId) {
+    editor = false;
+
+    let dsCancelButtons = $id('canvas-ds').getElementsByClassName('btn-ds-cancel');
+    Array.from(dsCancelButtons).forEach(btn => btn.click());
+
+    let opEl = $id(opId);
+    let opName = $id(`name-${opId}`).value;
+    let reNameEl = $id(`inp-${opId}`);
+    reNameEl.value = opName;
+    reNameEl.readOnly = true;
+    opEl.removeChild($id(`props-${opId}`));
+    $id(`btn-edit-${opId}`).disabled = false;
+    $id(`btn-extra-${opId}`).innerHTML = '';
+}
+
+function removeOp(opId) {
+    let opEl = $id(opId);
+
+    if (editor === opEl) {
+        cancelOp(opId);
+    }
+
+    let idx = opEl.getElementsByClassName("task-position")[0].value;
+    let op = task.items.splice(idx, 1)[0];
+    tryRemoveDS(op.input.positional);
+    tryRemoveDS(op.input.named);
+    tryRemoveDS(op.output.positional);
+    tryRemoveDS(op.output.named);
+
+    opEl.parentElement.removeChild(opEl);
+
+    renumberTaskItems();
+}
+
+
+function getSelectDS(dsId, def, value = '') {
+    let withVars = true;
+    let multiple = false;
+    if (def) {
+        withVars = !def.noVariables;
+        multiple = def.multiple;
+    }
+    let selHtml = `<select id="sel-${dsId}" class="sel-ds" onchange="selectDS('${dsId}', ${multiple})"><optgroup label="Task data streams">`;
 
     let literal = true;
-    task.ds.forEach(({name}) => {
+    Object.keys(task.streams).forEach((name) => {
         if (name !== '_default') {
             if (name === value) {
                 selHtml += `<option selected>${name}</option>`;
@@ -318,16 +947,17 @@ function getSelectDS(dsId, value = '') {
         }
     });
 
-    selHtml += '</optgroup><optgroup label="Literal or add {VARIABLE}">';
-
-    Object.entries(variables).forEach(([k, v]) => {
-        if (value === `{${k}}`) {
-            selHtml += `<option value="{${k}}" selected>{${k}} ${v}</option>`;
-            literal = false;
-        } else {
-            selHtml += `<option value="{${k}}">{${k}} ${v}</option>`;
-        }
-    });
+    selHtml += `</optgroup><optgroup label="Literal${withVars ? ' or add {VARIABLE}' : ''}">`;
+    if (withVars) {
+        Object.entries(variables).forEach(([k, v]) => {
+            if (value === `{${k}}`) {
+                selHtml += `<option value="{${k}}" selected>{${k}} ${v}</option>`;
+                literal = false;
+            } else {
+                selHtml += `<option value="{${k}}">{${k}} ${v}</option>`;
+            }
+        });
+    }
 
     if (literal) {
         selHtml += `<option value="" selected>Literal</option>`;
@@ -339,8 +969,8 @@ function getSelectDS(dsId, value = '') {
     return selHtml;
 }
 
-function selectDS(dsId, selEl) {
-    let selVal = selEl.value;
+function selectDS(dsId, multiple = false) {
+    let selVal = $id(`sel-${dsId}`).value;
     let dsInp = $id(`inp-${dsId}`);
 
     switch (selVal) {
@@ -351,7 +981,11 @@ function selectDS(dsId, selEl) {
             if (selVal.startsWith('{')) {
                 dsInp.value += selVal;
             } else {
-                dsInp.value += dsInp.value ? `,${selVal}` : selVal;
+                if (multiple && dsInp.value) {
+                    dsInp.value = `${dsInp.value},${selVal}`;
+                } else {
+                    dsInp.value = selVal;
+                }
             }
             break;
         }
@@ -360,77 +994,96 @@ function selectDS(dsId, selEl) {
 }
 
 function getSelectDef(defId, def, value = '') {
-    let selHtml = `<select id="sel-${defId}" class="sel-def" onchange="selectDef('${defId}', this)">`;
+    if (value === null) {
+        value = '';
+    }
+
+    let selHtml = `<select id="sel-${defId}" class="sel-def" onchange="selectDef('${defId}')">`;
 
     let literal = true;
     let inputProps = 'class="inp-value type-literal" type="text"';
-    let withVars = true;
+    let withVars = true, onlyVars = false;
     if (def) {
         if (def.defaults) {
-            let defaults = def.defaults.name;
+            let defaults = def.defaults;
             if (defaults === null) {
                 defaults = '';
             }
-            if ((value === '') || (value === null)) {
-                value = defaults;
+            if (value === '') {
                 literal = false;
             }
-            selHtml += `<optgroup label="Set to default value"><option value="${defaults}" ${(defaults === value) ? 'selected' : ''}>${def.defaults.name} ${def.defaults.descr}</option></optgroup>`;
+            selHtml += `<optgroup label="Set to default value"><option value="${defaults}" ${(defaults === value) ? 'selected' : ''}>${def.defaults} ${def.defDescr}</option></optgroup>`;
+            inputProps += ` placeholder="${def.defaults}"`;
         }
 
         if (def.generated && def.generated.length) {
             selHtml += `<optgroup label="Add generated value">`;
-            def.generated.forEach(g => {
-                if (value === g.name) {
-                    selHtml += `<option value=",${g.name}" selected>${g.name} ${g.descr}</option>`;
+            Object.entries(def.generated).forEach(([name, descr]) => {
+                if (value === name) {
+                    selHtml += `<option value=",${name}" selected>${name} ${descr}</option>`;
                     literal = false;
                 } else {
-                    selHtml += `<option value=",${g.name}">${g.name} ${g.descr}</option>`;
+                    selHtml += `<option value=",${name}">${name} ${descr}</option>`;
                 }
             });
             selHtml += '</optgroup>';
-        } else if (def.values && def.values.length) {
-            selHtml += `<optgroup label="One of ${def.type}">`;
-            def.values.forEach(v => {
-                if (value === v.name) {
-                    selHtml += `<option value="${v.name}" selected>${v.name} ${v.descr}</option>`;
+        }
+
+        if (def.values && def.values.length) {
+            selHtml += `<optgroup label="One of ${def.type ? def.type : 'predefined values'}">`;
+            Object.entries(def.values).forEach(([name, descr]) => {
+                if (value === name) {
+                    selHtml += `<option value="${name}" selected>${name} ${descr}</option>`;
                     literal = false;
                 } else {
-                    selHtml += `<option value="${v.name}">${v.name} ${v.descr}</option>`;
+                    selHtml += `<option value="${name}">${name} ${descr}</option>`;
                 }
             });
             selHtml += '</optgroup>';
-        } else if (def.type && !def.type.startsWith('String')) {
+        }
+
+        if (def.type && !def.type.startsWith('String')) {
             selHtml += `<optgroup label="Of type ${def.type}">`;
             let match = false;
+
             switch (def.type) {
-                case `Double` : {
-                    if (value && value.match(REP_DOUBLE)) {
-                        inputProps = 'class="inp-value type-number" type="number" step="any"';
-                        literal = false;
+                case 'Double' : {
+                    if (value) {
+                        match = value.match(REP_DOUBLE);
+                        if (match) {
+                            inputProps = 'class="inp-value type-number" type="number" step="any"';
+                            literal = false;
+                        }
                     }
                     break;
                 }
                 case 'Byte':
                 case 'Integer':
                 case 'Long': {
-                    if (value && value.match(REP_INTEGER)) {
-                        inputProps = 'class="inp-value type-number" type="number" step="1"';
-                        literal = false;
+                    if (value) {
+                        match = value.match(REP_INTEGER);
+                        if (match) {
+                            inputProps = 'class="inp-value type-number" type="number" step="1"';
+                            literal = false;
+                        }
                     }
                     break;
                 }
                 case 'Boolean' : {
-                    if ((value === 'true') || (value === 'false')) {
-                        inputProps = `class="inp-value type-boolean" type="checkbox" onchange="defCheck" value="${value}"`;
-                        if (value === 'true') {
-                            inputProps += ' checked';
+                    if (value) {
+                        match = (value === 'true') || (value === 'false');
+                        if (match) {
+                            inputProps = `class="inp-value type-boolean" type="checkbox" onchange="defCheck" value="${value}"`;
+                            if (value === 'true') {
+                                inputProps += ' checked';
+                            }
+                            literal = false;
                         }
-                        literal = false;
                     }
                     break;
                 }
             }
+
             if (match) {
                 selHtml += `<option value="${def.type}" selected>Typed</option>`;
             } else {
@@ -438,17 +1091,30 @@ function getSelectDef(defId, def, value = '') {
             }
             selHtml += '</optgroup>';
         }
-        withVars = !def.noVariables;
+
+        onlyVars = def.onlyVars;
+        withVars = !def.noVariables && !onlyVars;
     }
 
-    selHtml += `<optgroup label="Literal${withVars ? ' or add {VARIABLE}' : ''}">`;
     if (withVars) {
+        selHtml += `<optgroup label="Literal or add {VARIABLE}">`;
         Object.entries(variables).forEach(([k, v]) => {
             if (value === `{${k}}`) {
                 selHtml += `<option value="{${k}}" selected>{${k}} ${v}</option>`;
                 literal = false;
             } else {
                 selHtml += `<option value="{${k}}">{${k}} ${v}</option>`;
+            }
+        });
+    }
+    if (onlyVars) {
+        selHtml += `<optgroup label="Select or add new {VARIABLE}">`;
+        Object.entries(variables).forEach(([k, v]) => {
+            if (value === `${k}`) {
+                selHtml += `<option value="${k}" selected>{${k}} ${v}</option>`;
+                literal = false;
+            } else {
+                selHtml += `<option value="${k}">{${k}} ${v}</option>`;
             }
         });
     }
@@ -470,8 +1136,8 @@ function defCheck(ev) {
     ev.stopPropagation();
 }
 
-function selectDef(defId, selEl) {
-    let selVal = selEl.value;
+function selectDef(defId) {
+    let selVal = $id(`sel-${defId}`).value;
     let defInp = $id(`inp-${defId}`);
 
     defInp.readOnly = false;
@@ -517,123 +1183,6 @@ function selectDef(defId, selEl) {
     defInp.focus();
 }
 
-async function getApi(apiUrl) {
-    if (apiCache.hasOwnProperty(apiUrl)) {
-        return apiCache[apiUrl];
-    }
-
-    let resp = await fetch(apiUrl);
-    let obj = await resp.json();
-    apiCache[apiUrl] = obj;
-
-    return obj;
-}
-
-async function editOp(opId) {
-    if (editor) {
-        flashEditor();
-        return;
-    }
-
-    let opEl = $id(opId);
-    editor = opEl;
-
-    let btnEdit = $id(`btn-edit-${opId}`);
-    btnEdit.disabled = true;
-    let verb = $id(`verb-${opId}`).value;
-    let op = task.op[$id(`position-${opId}`).value];
-
-    let opDef = await getApi(`/operation/${verb}`);
-
-    let propsEl = document.createElement('DL');
-    propsEl.className = 'props';
-    propsEl.id = `props-${opId}`;
-
-    let buttonsEl = $id(`btn-extra-${opId}`);
-    buttonsEl.innerHTML = `<button onclick="applyOp('${opId}');cancelOp('${opId}')">Apply</button><button onclick="cancelOp('${opId}')">Cancel</button>`;
-
-    let propsHtml = '';
-    if (opDef.positionalMin !== null) {
-        let dsId = getNextId();
-        let dsSel = getSelectDS(dsId, op.inputs.positional.join(','));
-        propsHtml += `<div id="${dsId}" class="tr-input"><dt><span class="btn-right"><button onclick="editDS('${dsId}', '${verb}', 'input')" id="btn-props-${dsId}">Properties</button></span>
-<label for="sel-${dsId}">At least ${opDef.positionalMin} positional inputs of type ${opDef.positionalInputs.type}</label></dt>
-<dd>${dsSel}<input type="hidden" id="name-${dsId}" value=""></dd></div>`;
-    } else if (opDef.positionalInputs !== null) {
-        let dsId = getNextId();
-        let dsSel = getSelectDS(dsId, op.inputs.positional.join(','));
-        propsHtml += `<div id="${dsId}" class="tr-input"><dt><span class="btn-right"><button onclick="editDS('${dsId}', '${verb}', 'input')" id="btn-props-${dsId}">Properties</button></span>
-<label for="sel-${dsId}">Positional input(s) of type ${opDef.positionalInputs.type}</label></dt>
-<dd>${dsSel}<input type="hidden" id="name-${dsId}" value=""></dd></div>`;
-    } else {
-        opDef.namedInputs.forEach(ni => {
-            let dsId = getNextId();
-            let found = op.inputs.named.find(({name}) => name === ni.name);
-            let dsSel = getSelectDS(dsId, found ? found.value : '');
-            propsHtml += `<div id="${dsId}" class="tr-input"><dt><span class="btn-right"><button onclick="editDS('${dsId}', '${verb}', 'input')" id="btn-props-${dsId}">Properties</button></span>
-<label for="sel-${dsId}">Input ${ni.name} of type ${ni.type}<small>${ni.descr}</small></label></dt>
-<dd>${dsSel}<input type="hidden" id="name-${dsId}" value="${ni.name}"></dd></div>`;
-        });
-    }
-    if (opDef.mandatoryParameters.length) {
-        opDef.mandatoryParameters.forEach(def => {
-            let defId = getNextId();
-            let found = op.definitions.find(({name}) => name === def.name);
-            let defSel = getSelectDef(defId, def, found ? found.value : '');
-            propsHtml += `<div id="${defId}" class="tr-def"><dt><label for="sel-${defId}">${def.name}<small>${def.descr}</small></label></dt>
-<dd id="${defId}">${defSel}<input id="name-${defId}" type="hidden" value="${def.name}"></dd></div>`;
-        });
-    }
-    if (opDef.optionalParameters.length) {
-        opDef.optionalParameters.forEach(def => {
-            let defId = getNextId();
-            let found = op.definitions.find(({name}) => name === def.name);
-            let defSel = getSelectDef(defId, def, found ? found.value : '');
-            propsHtml += `<div id="${defId}" class="tr-def"><dt><label for="sel-${defId}">${def.name}<small>${def.descr}</small></label></dt>
-<dd id="${defId}">${defSel}<input id="name-${defId}" type="hidden" value="${def.name}"></dd></div>`;
-        });
-    }
-    if (opDef.dynamicParameters.length) {
-        opDef.dynamicParameters.forEach(def => {
-            let dynId = getNextId();
-            propsHtml += `<div id="${dynId}" class="tr-dyn"><dt><label for="inp-${dynId}">${def.name}<small>${def.descr}</small></label></dt>
-<dd><input id="name-${dynId}" type="hidden" value="${def.name}"><input id="inp-${dynId}" class="inp-rename"><button onclick="addDynDef('${dynId}', '${verb}')">Add</button></dd>`;
-            let found = op.definitions.filter(({name}) => name.startsWith(def.name));
-            found.forEach(dyn => {
-                let defId = getNextId();
-                let defSel = getSelectDef(defId, def, dyn.value);
-                let defName = dyn.name.substring(def.name.length);
-                propsHtml += `<div id="${defId}" class="tr-def"><dd><label for="sel-${defId}" class="dyn-name">${defName}</label><button onclick="removeDynDef('${defId}')">Remove</button>
-<br>${defSel}<input id="name-${defId}" type="hidden" value="${defName}"></dd></div>`;
-            });
-            propsHtml += '</div>';
-        });
-    }
-    if (opDef.positionalOutputs !== null) {
-        let dsId = getNextId();
-        let dsSel = getSelectDS(dsId, op.outputs.positional.join(','));
-        propsHtml += `<div id="${dsId}" class="tr-output"><dt><span class="btn-right"><button onclick="editDS('${dsId}', '${verb}', 'output')" id="btn-props-${dsId}">Properties</button></span>
-<label for="sel-${dsId}">Positional output(s) of type ${opDef.positionalOutputs.type}</label></dt>
-<dd>${dsSel}<input type="hidden" id="name-${dsId}" value=""></dd></div>`;
-    } else {
-        opDef.namedOutputs.forEach(no => {
-            let dsId = getNextId();
-            let found = op.outputs.named.find(({name}) => name === no.name);
-            let dsSel = getSelectDS(dsId, found ? found.value : '');
-            propsHtml += `<div id="${dsId}" class="tr-output"><dt><span class="btn-right"><button onclick="editDS('${dsId}', '${verb}', 'output')" id="btn-props-${dsId}">Properties</button></span>
-<label for="sel-${dsId}">Output ${no.name} of type ${no.type}<small>${no.descr}</small></label></dt>
-<dd>${dsSel}<input type="hidden" id="name-${dsId}" value="${no.name}"></dd></div>`;
-        });
-    }
-    propsEl.innerHTML = propsHtml;
-
-    opEl.appendChild(propsEl);
-
-    let reNameEl = $id(`inp-${opId}`);
-    reNameEl.readOnly = false;
-    reNameEl.focus();
-}
-
 async function addDynDef(dynId, verb) {
     let dynEl = $id(dynId);
     let reNameEl = $id(`inp-${dynId}`);
@@ -647,17 +1196,17 @@ async function addDynDef(dynId, verb) {
     let dynName = $id(`name-${dynId}`).value;
     let defName = dynName + reName;
 
-    let op = await getApi(`/operation/${verb}`);
+    let opDef = await getApi(`/operation/${verb}`);
 
-    let def = op.dynamicParameters.find(({name}) => name === dynName);
+    let def = Object.keys(opDef.definitions).find(name => name === dynName);
 
     let defId = getNextId();
-    let defSel = getSelectDef(defId, def);
+    let defSel = getSelectDef(defId, opDef.definitions[def]);
 
     let defEl = document.createElement('DIV');
     defEl.id = defId;
     defEl.className = 'tr-def';
-    defEl.innerHTML = `<dd><label for="sel-${defId}" class="dyn-name">${defName}</label><button onclick="removeDynDef('${defId}')">Remove</button>
+    defEl.innerHTML = `<dd><label class="label-sel" for="sel-${defId}" class="dyn-name">${defName}</label><button onclick="removeDynDef('${defId}')">Remove</button>
 <br>${defSel}<input id="name-${defId}" type="hidden" value="${defName}"></dd>`;
 
     dynEl.appendChild(defEl);
@@ -668,54 +1217,6 @@ function removeDynDef(defId) {
     defEl.parentElement.removeChild(defEl);
 }
 
-async function editAdapter(adapterId, kind) {
-    if (editor) {
-        flashEditor();
-        return;
-    }
-
-    let adapterEl = $id(adapterId);
-    editor = adapterEl;
-
-    let btnEdit = $id(`btn-edit-${adapterId}`);
-    btnEdit.disabled = true;
-    let verb = $id(`verb-${adapterId}`).value;
-
-    $id(`btn-extra-${adapterId}`).innerHTML = `<button onclick="applyAdapter('${adapterId}', '${kind}');cancelAdapter('${adapterId}')">Apply</button><button onclick="cancelAdapter('${adapterId}')">Cancel</button>`;
-
-    let adapter = await getApi(`/adapter/${kind}/${verb}`);
-
-    let propsEl = document.createElement('DL');
-    propsEl.className = 'props';
-    propsEl.id = `props-${adapterId}`;
-
-    let dsName = $id(`name-${adapterId}`).value;
-    let ds = task.ds.find(({name}) => name === dsName);
-
-    let pathId = `path-${adapterId}`;
-    let pathDef = {
-        type: 'String',
-        defaults: {
-            name: adapter.proto,
-            descr: 'Path specification'
-        }
-    };
-    let pathSel = getSelectDef(pathId, pathDef, ds[kind].path);
-    let propsHtml = `<div id="${pathId}" class="tr-def"><dt>Path<small>${adapter.proto}</small></dt><dd>${pathSel}</dd></div>`;
-    if (kind === 'input') {
-        let schemaId = `schema-${adapterId}`;
-        let schemaDef = {type: 'String'};
-        let schemaSel = getSelectDef(schemaId, schemaDef, ds.input.schema);
-        propsHtml += `<div id="${schemaId}" class="tr-def"><dt>Input schema</dt><dd>${schemaSel}</dd></div>`;
-    }
-    propsEl.innerHTML = propsHtml;
-
-    adapterEl.appendChild(propsEl);
-
-    let reNameEl = $id(`inp-${adapterId}`);
-    reNameEl.readOnly = false;
-    reNameEl.focus();
-}
 
 async function editDS(dsId, verb, kind) {
     let dsEl = $id(dsId);
@@ -734,19 +1235,16 @@ async function editDS(dsId, verb, kind) {
     let nextColor = getDSColor(dsNames);
     dsEl.style.backgroundColor = nextColor;
 
-    let op = await getApi(`/operation/${verb}`);
-    let dsDef;
-    switch (kind) {
-        case 'input' : {
-            dsDef = (dsRef ? op.namedInputs.find(({name}) => name === dsRef) : op.positionalInputs);
-            break;
-        }
-        case 'output' : {
-            dsDef = (dsRef ? op.namedOutputs.find(({name}) => name === dsRef) : op.positionalOutputs);
-            break;
+    let dsDef = null;
+    if (verb) {
+        let opDef = await getApi(`/operation/${verb}`);
+        if (dsRef) {
+            dsDef = opDef[kind].streams[dsRef];
+        } else {
+            dsDef = opDef[kind].streams;
         }
     }
-    let {columnar, generated} = dsDef;
+    let {columnar, generated} = dsDef ? dsDef : {columnar: false, generated: false};
 
     let names;
     if (dsRef) {
@@ -755,37 +1253,38 @@ async function editDS(dsId, verb, kind) {
         names = dsNames.split(',');
     }
 
-    let msg = `${dsNames}<small>${kind} properties</small>`;
+    let msg = `<b>${dsNames}</b><small>${kind} properties</small>`;
 
-    let editHtml = `<button class="btn-ds-save" onclick="applyDS('${verb}', '${kind}', '${dsRef}', '${dsNames}', ${columnar});cancelDS('${dsId}')">Apply</button><button class="btn-ds-cancel" onclick="cancelDS('${dsId}')">Cancel</button>${msg}<dl class="props">`;
+    let editHtml = `<button class="btn-ds-save" onclick="applyDS('${kind}', '${dsRef}', '${dsNames}', ${columnar});cancelDS('${dsId}')">Apply</button><button class="btn-ds-cancel" onclick="cancelDS('${dsId}')">Cancel</button>${msg}<dl class="props">`;
 
     let editors = 0;
     names.forEach(dsName => {
-        if ($id(`edit-${dsName}`)) {
+        if ($id(`edit-${kind}-${dsName}`)) {
             return;
         }
         editors++;
 
-        let ds = task.ds.find(({name}) => name === dsName);
-        if (!ds) {
-            ds = getDSTemplate(dsName);
+        let ds = getDSTemplate();
+        if (task.streams[dsName] && task.streams[dsName][kind]) {
+            Object.entries(task.streams[dsName][kind])
+                .forEach(([key, value]) => ds[kind][key] = value);
         }
 
-        editHtml += `<div id="edit-${dsName}">`;
+        editHtml += `<div id="edit-${kind}-${dsName}">`;
 
-        let partsId = `parts-${dsName}`;
+        let partsId = `parts-${kind}-${dsName}`;
         let partsDef = {type: 'Integer'};
         let partsSel = getSelectDef(partsId, partsDef, ds[kind].partCount);
-        editHtml += `<div id="${partsId}" class="tr-def"><dt>${dsName} part count</dt><dd>${partsSel}</dd></div>`;
+        editHtml += `<div id="${partsId}" class="tr-def"><dt><label for="inp-${partsId}">${dsName} part count</label></dt><dd>${partsSel}</dd></div>`;
         if (columnar) {
-            let colId = `columns-${dsName}`;
-            let colDef = (generated && generated.length) ? dsDef : {type: 'String'};
-            let colSel = getSelectDef(colId, colDef, ds[kind].columns ? ds[kind].columns.join(',') : null);
-            let delId = `delimiter-${dsName}`;
+            let delId = `delimiter-${kind}-${dsName}`;
             let delDef = {type: 'String'};
             let delSel = getSelectDef(delId, delDef, ds[kind].delimiter);
-            editHtml += `<div id="${delId}" class="tr-def"><dt>${dsName} column delimiter</dt><dd>${delSel}</dd></div>
-<div id="${colId}" class="tr-def"><dt>${dsName} column definitions</dt><dd>${colSel}</dd></div>`;
+            let colId = `columns-${kind}-${dsName}`;
+            let colDef = (generated && generated.length) ? dsDef : {type: 'String'};
+            let colSel = getSelectDef(colId, colDef, ds[kind].columns);
+            editHtml += `<div id="${delId}" class="tr-def"><dt><label for="inp-${delId}">${dsName} column delimiter</label></dt><dd>${delSel}</dd></div>
+<div id="${colId}" class="tr-def"><dt><label for="inp-${colId}">${dsName} column definitions</label></dt><dd>${colSel}</dd></div>`;
         }
 
         editHtml += '</div>';
@@ -813,29 +1312,11 @@ async function editDS(dsId, verb, kind) {
             }
         }
 
-        flashNew(editEl);
+        flashNew(editEl.id);
     }
 }
 
-function getDSTemplate(dsName) {
-    return {
-        name: dsName,
-        input: {
-            columns: [],
-            delimiter: null,
-            partCount: null,
-            path: null
-        },
-        output: {
-            columns: [],
-            delimiter: null,
-            partCount: null,
-            path: null
-        }
-    };
-}
-
-function applyDS(verb, kind, dsRef, dsName, columnar) {
+function applyDS(kind, dsRef, dsName, columnar) {
     let dsNames;
     if (dsRef) {
         dsNames = [dsName];
@@ -845,30 +1326,15 @@ function applyDS(verb, kind, dsRef, dsName, columnar) {
 
     let ds = [];
     dsNames.forEach(dsName => {
-        let idx = task.ds.length ? task.ds.findIndex(({name}) => name === dsName) : -1;
-        if (idx < 0) {
-            idx = task.ds.length;
-            task.ds[idx] = getDSTemplate(dsName);
+        if (!task.streams[dsName]) {
+            task.streams[dsName] = getDSTemplate();
         }
-        let dsTemplate = task.ds[idx];
-
-        let dsKind;
-        switch (kind) {
-            case 'input' : {
-                dsKind = dsTemplate.input;
-                break;
-            }
-            case 'output' : {
-                dsKind = dsTemplate.output;
-                break;
-            }
-        }
-
+        let dsKind = task.streams[dsName][kind];
+        dsKind.partCount = $id(`inp-parts-${kind}-${dsName}`).value.trim();
         if (columnar) {
-            dsKind.columns = $id(`inp-columns-${dsName}`).value.split(',');
-            dsKind.delimiter = $id(`inp-delimiter-${dsName}`).value;
+            dsKind.delimiter = $id(`inp-delimiter-${kind}-${dsName}`).value.trim();
+            dsKind.columns = $id(`inp-columns-${kind}-${dsName}`).value.trim();
         }
-        dsKind.partCount = $id(`inp-parts-${dsName}`).value;
 
         ds.push(dsKind);
     });
@@ -887,136 +1353,42 @@ function cancelDS(dsId) {
     editEl.parentElement.removeChild(editEl);
 }
 
-function applyAdapter(adapterId, kind) {
-    let adapterEl = $id(adapterId);
-    let nameEl = $id(`name-${adapterId}`);
-    let adapterName = nameEl.value;
-    let reName = $id(`inp-${adapterId}`).value;
+function tryRemoveDS(ds) {
+    if (!ds) {
+        return;
+    }
 
-    let ds = task.ds.find(({name}) => name === adapterName);
-    ds.name = reName;
+    let dsList;
 
-    let path = $id(`inp-path-${adapterId}`).value;
-    switch (kind) {
-        case 'input' : {
-            let idx = task.input.length ? task.input.findIndex(name => name === adapterName) : -1;
-            if (idx >= 0) {
-                task.input.splice(idx, 1);
+    if (Array.isArray(ds)) {
+        dsList = ds;
+    } else if (typeof ds === "string") {
+        dsList = ds.split(',');
+    } else {
+        dsList = Object.keys(ds);
+    }
+
+    for (let dsName of dsList) {
+        let hit = false;
+        for (let i = 0; i < task.items.length; i++) {
+            let op = task.items[i];
+            if (op.verb) {
+                hit = op.input.positional && op.input.positional.split(',').includes(dsName) ||
+                    op.input.named && Object.values(op.input.named).includes(dsName) ||
+                    op.output.positional && op.output.positional.split(',').includes(dsName) ||
+                    op.output.named && Object.values(op.output.named).includes(dsName)
+                ;
+                if (hit) {
+                    break;
+                }
             }
-            task.input.push(reName);
-            ds.input.path = path;
-            ds.input.schema = $id(`inp-schema-${adapterId}`).value.split(',');
-            break;
         }
-        case 'output' : {
-            let idx = task.output.length ? task.output.findIndex(name => name === adapterName) : -1;
-            if (idx >= 0) {
-                task.output.splice(idx, 1);
-            }
-            task.output.push(reName);
-            ds.output.path = path;
-            break;
+        if (!hit) {
+            delete task.streams[dsName];
         }
     }
-    nameEl.value = reName;
-
-    adapterEl.style.backgroundColor = getDSColor(reName);
-
-    updateVariables(ds);
 }
 
-function getOpTemplate(opName, verb) {
-    return {
-        name: opName,
-        verb: verb,
-        definitions: [],
-        inputs: {
-            positional: [],
-            named: []
-        },
-        outputs: {
-            positional: [],
-            named: []
-        }
-    };
-}
-
-function updateDS(dataStreams) {
-    let taskDataStreams = task.ds.map(({name}) => name);
-    dataStreams.forEach(n => {
-        if (taskDataStreams.indexOf(n) < 0) {
-            task.ds.push(getDSTemplate(n));
-        }
-    });
-}
-
-function applyOp(opId) {
-    let opEl = $id(opId);
-    let nameEl = $id(`name-${opId}`);
-    let reName = $id(`inp-${opId}`).value;
-    let verb = $id(`verb-${opId}`).value;
-
-    let op = getOpTemplate(reName, verb);
-    let idx = opEl.getElementsByClassName('task-position')[0].value;
-    task.op[idx] = op;
-    nameEl.value = reName;
-
-    let dsSaveButtons = $id('canvas-ds').getElementsByClassName('btn-ds-save');
-    Array.from(dsSaveButtons).forEach(btn => btn.click());
-
-    let dataStreams = new Set();
-
-    let opIns = opEl.getElementsByClassName("tr-input");
-    Array.from(opIns).forEach(tr => {
-        let dsId = tr.id;
-        let dsRef = $id(`name-${dsId}`).value;
-        let dsName = $id(`inp-${dsId}`).value;
-        if (dsRef) {
-            op.inputs.named.push(({
-                name: dsRef,
-                value: dsName
-            }));
-            dataStreams.add(dsName);
-        } else {
-            let dsNames = dsName.split(',');
-            op.inputs.positional = dsNames;
-            dsNames.forEach(n => dataStreams.add(n));
-        }
-    });
-
-    let opOuts = opEl.getElementsByClassName("tr-output");
-    Array.from(opOuts).forEach(tr => {
-        let dsId = tr.id;
-        let dsRef = $id(`name-${dsId}`).value;
-        let dsName = $id(`inp-${dsId}`).value;
-        if (dsRef) {
-            op.outputs.named.push(({
-                name: dsRef,
-                value: dsName
-            }));
-            dataStreams.add(dsName);
-        } else {
-            let dsNames = dsName.split(',');
-            op.outputs.positional = dsNames;
-            dsNames.forEach(n => dataStreams.add(n));
-        }
-    });
-
-    updateDS(dataStreams);
-
-    let opDefs = opEl.getElementsByClassName("tr-def");
-    Array.from(opDefs).forEach(tr => {
-        let defId = tr.id;
-        let defName = $id(`name-${defId}`).value;
-        let defVal = $id(`inp-${defId}`).value;
-        op.definitions.push(({
-            name: defName,
-            value: ((defVal === '') ? null : defVal)
-        }));
-    });
-
-    updateVariables(op);
-}
 
 function updateVariables(obj) {
     let existingVars = Object.entries(variables).map(([k, _]) => k);
@@ -1030,108 +1402,16 @@ function updateVariables(obj) {
     initVariables();
 }
 
-function cancelDir(dirId) {
-    editor = false;
 
-    let dirEl = $id(dirId);
-    dirEl.removeChild($id(`props-${dirId}`));
-    $id(`btn-edit-${dirId}`).disabled = false;
-    $id(`btn-extra-${dirId}`).innerHTML = '';
-}
+function addDir(directive, idx) {
+    let verb = directive.startsWith('$') ? directive.substring(1) : directive;
+    verb = verb.includes('{') ? verb.substring(0, verb.indexOf('{')) : verb;
 
-function cancelOp(opId) {
-    editor = false;
-
-    let dsCancelButtons = $id('canvas-ds').getElementsByClassName('btn-ds-cancel');
-    Array.from(dsCancelButtons).forEach(btn => btn.click());
-
-    let opEl = $id(opId);
-    let opName = $id(`name-${opId}`).value;
-    let reNameEl = $id(`inp-${opId}`);
-    reNameEl.value = opName;
-    reNameEl.readOnly = true;
-    opEl.removeChild($id(`props-${opId}`));
-    $id(`btn-edit-${opId}`).disabled = false;
-    $id(`btn-extra-${opId}`).innerHTML = '';
-}
-
-function cancelAdapter(adapterId) {
-    editor = false;
-
-    let adapterEl = $id(adapterId);
-    let adapterName = $id(`name-${adapterId}`).value;
-    let reNameEl = $id(`inp-${adapterId}`);
-    reNameEl.value = adapterName;
-    reNameEl.readOnly = true;
-    adapterEl.removeChild($id(`props-${adapterId}`));
-    $id(`btn-edit-${adapterId}`).disabled = false;
-    $id(`btn-extra-${adapterId}`).innerHTML = '';
-}
-
-function removeDir(dirId) {
-    let dirEl = $id(dirId);
-
-    if (editor === dirEl) {
-        cancelDir(dirId);
-    }
-
-    let idx = dirEl.getElementsByClassName("task-position")[0].value;
-    task.op.splice(idx, 1);
-
-    dirEl.parentElement.removeChild(dirEl);
-
-    renumberTaskItems();
-}
-
-function removeOp(opId) {
-    let opEl = $id(opId);
-
-    if (editor === opEl) {
-        cancelOp(opId);
-    }
-
-    let idx = opEl.getElementsByClassName("task-position")[0].value;
-    task.op.splice(idx, 1);
-
-    opEl.parentElement.removeChild(opEl);
-
-    renumberTaskItems();
-}
-
-function removeAdapter(adapterId, kind) {
-    let adapterEl = $id(adapterId);
-
-    if (editor === adapterEl) {
-        cancelAdapter(adapterId);
-    }
-
-    let adapterName = $id(`name-${adapterId}`).value;
-    adapterEl.parentElement.removeChild(adapterEl);
-
-    switch (kind) {
-        case 'input' : {
-            let idx = task.input.length ? task.input.findIndex(name => name === adapterName) : -1;
-            if (idx >= 0) {
-                task.input.splice(idx, 1);
-            }
-            break;
-        }
-        case 'output' : {
-            let idx = task.output.length ? task.output.findIndex(name => name === adapterName) : -1;
-            if (idx >= 0) {
-                task.output.splice(idx, 1);
-            }
-            break;
-        }
-    }
-}
-
-function addDir(directive) {
     let msg;
     let editable = true;
-    switch (directive) {
+    switch (verb) {
         case 'IF': {
-            msg = 'Execute following operations if control variable is not empty';
+            msg = 'Execute following operations if the control variable is not empty';
             break;
         }
         case 'ITER': {
@@ -1149,7 +1429,7 @@ function addDir(directive) {
             break;
         }
         case 'LET': {
-            msg = 'Make the control variable a list of all values from specified data stream';
+            msg = 'Make the control variable a list of all values from a specified data stream';
             break;
         }
         case 'METRICS': {
@@ -1168,8 +1448,8 @@ function addDir(directive) {
     }
     dirEl.innerHTML = `<span class="btn-right"><span class="i">i<small>${msg}</small></span><button class="btn-remove" onclick="removeDir('${dirId}')" title="Remove">×</button></span>
 <button class="btn-move" onclick="moveUp('${dirId}')" title="Move up">↑</button><button class="btn-move" onclick="moveDown('${dirId}')" title="Move down">↓</button>
-<span class="dir-name">$${directive}</span>${edit}
-<input type="hidden" id="verb-${dirId}" value="${directive}"><input type="hidden" id="position-${dirId}" class="task-position">`;
+<span class="dir-name">$${verb}</span>${edit}
+<input type="hidden" id="verb-${dirId}" value="${verb}"><input type="hidden" id="position-${dirId}" class="task-position" value="${idx}">`;
     dirEl.className = 'dir task-item';
 
     let canvas = $id("canvas-task");
@@ -1181,63 +1461,34 @@ function addDir(directive) {
         canvas.insertAdjacentElement('beforeend', dirEl);
     }
 
-    return dirEl;
+    return dirId;
 }
 
 async function addNewDir(directive) {
-    task.op.push(getDirTemplate(directive));
+    let idx = task.items.length;
+    task.items.push(getDirTemplate(directive));
 
-    let dirEl = addDir(directive);
-    renumberTaskItems();
+    let dirId = addDir(directive, idx);
 
-    flashNew(dirEl);
+    flashNew(dirId);
     if (!editor) {
-        editDir(dirEl.id);
+        editDir(dirId);
+    } else {
+        describeDir(dirId);
     }
 }
 
-function getDirTemplate(directive) {
-    return {
-        verb: directive,
-        variable: null,
-        value: null
-    };
-}
-
-function applyDir(dirId) {
+function describeDir(dirId) {
     let dirEl = $id(dirId);
-    let verb = $id(`verb-${dirId}`).value;
 
-    let dir = getDirTemplate(verb);
-    let variable = $id(`inp-control-${dirId}`).value;
-    if (variable.startsWith('{')) {
-        variable = variable.substring(1, variable.length - 2);
-    }
-    dir.variable = variable;
-    dir.value = $id(`inp-value-${dirId}`).value;
+    let dir = task.items[$id(`position-${dirId}`).value];
 
-    let idx = dirEl.getElementsByClassName('task-position')[0].value;
-    task.op[idx] = dir;
+    let descrEl = document.createElement('PRE');
+    descrEl.className = 'descr';
+    descrEl.id = `descr-${dirId}`;
+    descrEl.innerText = dir.directive;
 
-    updateVariables({_: `{${variable}}`});
-}
-
-function flashEditor() {
-    if (!editor.classList.contains('flash-editor')) {
-        editor.classList.add('flash-editor');
-        editor.scrollIntoView();
-        setTimeout(removeFlash, 1100, editor, 'flash-editor');
-    }
-}
-
-function flashNew(el) {
-    el.classList.add('flash-new');
-    el.scrollIntoView();
-    setTimeout(removeFlash, 1100, el, 'flash-new');
-}
-
-function removeFlash(el, flash) {
-    el.classList.remove(flash);
+    dirEl.appendChild(descrEl);
 }
 
 function editDir(dirId) {
@@ -1247,55 +1498,70 @@ function editDir(dirId) {
     }
 
     let dirEl = $id(dirId);
+    editor = dirEl;
 
+    let descrEl = $id(`descr-${dirId}`);
+    if (descrEl) {
+        dirEl.removeChild(descrEl);
+    }
+
+    let btnEdit = $id(`btn-edit-${dirId}`);
+    btnEdit.disabled = true;
     let verb = $id(`verb-${dirId}`).value;
-    let dir = task.op[$id(`position-${dirId}`).value];
+    let dir = task.items[$id(`position-${dirId}`).value];
+
+    let variable = '', value = '';
+    let re = [...dir.directive.matchAll(REP_VAR)];
+    if (re.length) {
+        variable = re[0][1];
+        if (variable.indexOf(':') > 0) {
+            [variable, value] = variable.split(':', 2);
+        }
+    }
 
     let propsEl = document.createElement('DL');
     propsEl.className = 'props';
     propsEl.id = `props-${dirId}`;
 
     let buttonsEl = $id(`btn-extra-${dirId}`);
-    buttonsEl.innerHTML = `<button onclick="applyDir('${dirId}');cancelDir('${dirId}')">Apply</button><button onclick="cancelDir('${dirId}')">Cancel</button>`;
+    buttonsEl.innerHTML = `<button onclick="applyDir('${dirId}');cancelDir('${dirId}');describeDir('${dirId}')">Apply</button><button onclick="cancelDir('${dirId}');describeDir('${dirId}')">Cancel</button>`;
 
     let propsHtml = '';
     switch (verb) {
         case 'IF':
         case 'ITER': {
             let varId = `control-${dirId}`;
-            let varSel = getSelectDef(varId, null, dir.variable);
+            let varSel = getSelectDef(varId, {onlyVars: true}, variable);
             let defId = `value-${dirId}`;
-            let defSel = getSelectDef(defId, {
-                noVariables: true
-            }, dir.value);
-            propsHtml = `<div class="tr-def" id="${varId}"><dt>Control variable</dt>
+            let defSel = getSelectDef(defId, {noVariables: true}, value);
+            propsHtml = `<div class="tr-def" id="${varId}"><dt><label for="control-${dirId}">Control variable</label></dt>
 <dd class="dir-control">${varSel}</dd></div>
-<div class="tr-def" id="${defId}"><dt>Default value</dt>
+<div class="tr-def" id="${defId}"><dt><label for="value-${defId}">Default value</label></dt>
 <dd class="dir-value">${defSel}</dd></div>`;
             break;
         }
         case 'LET': {
             let varId = `control-${dirId}`;
-            let varSel = getSelectDef(varId, null, dir.variable);
+            let varSel = getSelectDef(varId, {onlyVars: true}, variable);
             let dsId = `value-${dirId}`;
-            let dsSel = getSelectDS(dsId, dir.value);
-            propsHtml += `<div class="tr-def" id="${varId}"><dt>Control variable</dt>
+            let dsSel = getSelectDS(dsId, {noVariables: true}, value);
+            propsHtml += `<div class="tr-def" id="${varId}"><dt><label for="control-${dirId}">Control variable</label></dt>
 <dd class="dir-control">${varSel}</dd></div>
-<div class="tr-def" id="${dsId}"><dt>Data stream to source values</dt>
+<div class="tr-def" id="${dsId}"><dt><label for="value-${dirId}">Data stream to source values</label></dt>
 <dd class="dir-value">${dsSel}</dd></div>`;
             break;
         }
         case 'METRICS': {
             let dsId = `control-${dirId}`;
-            let dsSel = getSelectDS(dsId, dir.variable);
+            let dsSel = getSelectDS(dsId, {noVariables: true, multiple: true}, variable);
             let predefId = `value-${dirId}`;
             let predefSel = getSelectDef(predefId, {
                 noVariables: true,
-                defaults: [{name: 'input', descr: 'All task inputs'}, {name: 'output', descr: 'All task outputs'}]
-            }, dir.value);
-            propsHtml += `<div class="tr-def" id="${dsId}"><dt>Data stream to instrument</dt>
+                values: {'input': 'All task inputs', 'output': 'All task outputs'}
+            }, value);
+            propsHtml += `<div class="tr-def" id="${dsId}"><dt><label for="control-${dirId}">Data stream to instrument</label></dt>
 <dd class="dir-control">${dsSel}</dd></div>
-<div class="tr-def" id="${predefId}"><dt>Task inputs and outputs</dt>
+<div class="tr-def" id="${predefId}"><dt><label for="value-${dirId}">Task inputs and outputs</label></dt>
 <dd class="dir-value">${predefSel}</dd></div>`;
             break;
         }
@@ -1303,6 +1569,78 @@ function editDir(dirId) {
     propsEl.innerHTML = propsHtml;
 
     dirEl.appendChild(propsEl);
+}
+
+function applyDir(dirId) {
+    let dirEl = $id(dirId);
+    let verb = $id(`verb-${dirId}`).value;
+
+    let dir = getDirTemplate(verb);
+    let variable = $id(`inp-control-${dirId}`).value.trim().toUpperCase();
+    if (variable.startsWith('{')) {
+        variable = variable.substring(1, variable.length - 2);
+    }
+    let value = $id(`inp-value-${dirId}`).value.trim();
+
+    if (variable || value) {
+        dir.directive += `{${variable}:${value}}`;
+    }
+
+    let idx = dirEl.getElementsByClassName('task-position')[0].value;
+    task.items[idx] = dir;
+
+    updateVariables({_: `{${variable}}`});
+}
+
+function cancelDir(dirId) {
+    editor = false;
+
+    let dirEl = $id(dirId);
+    dirEl.removeChild($id(`props-${dirId}`));
+    $id(`btn-edit-${dirId}`).disabled = false;
+    $id(`btn-extra-${dirId}`).innerHTML = '';
+}
+
+function removeDir(dirId) {
+    let dirEl = $id(dirId);
+
+    if (editor === dirEl) {
+        cancelDir(dirId);
+    }
+
+    let idx = dirEl.getElementsByClassName("task-position")[0].value;
+    task.items.splice(idx, 1);
+
+    dirEl.parentElement.removeChild(dirEl);
+
+    renumberTaskItems();
+}
+
+
+function showDialog(message, content, buttonText, buttonFunction, ...args) {
+    let modalEl = $id('modal');
+    modalEl.style.display = 'flex';
+
+    let headerEl = $id('dialog-message');
+    headerEl.innerText = message;
+
+    let textEl = $id('dialog-text');
+    textEl.value = content;
+    textEl.focus();
+
+    let buttonEl = $id('dialog-button');
+    let cancelEl = $id('dialog-cancel');
+    if (buttonText) {
+        buttonEl.innerText = buttonText;
+        buttonEl.onclick = async function () {
+            await buttonFunction(textEl.value, args);
+        };
+        buttonEl.style.display = null;
+        cancelEl.innerText = 'Cancel';
+    } else {
+        buttonEl.style.display = 'none';
+        cancelEl.innerText = 'Close';
+    }
 }
 
 function cancelDialog() {
@@ -1320,29 +1658,36 @@ function cancelDialog() {
     textEl.value = '';
 }
 
-function showDialog(message, content, buttonText, buttonFunction) {
-    let modalEl = $id('modal');
-    modalEl.style.display = 'flex';
 
-    let headerEl = $id('dialog-message');
-    headerEl.innerText = message;
+function taskNew() {
+    editor = false;
+    nameCounter = 1;
+    variables = {};
+    initVariables();
+    task = getTaskTemplate();
 
-    let textEl = $id('dialog-text');
-    textEl.value = content;
-    textEl.focus();
+    $id('inp-task-prefix').value = task.prefix;
 
-    let buttonEl = $id('dialog-button');
-    let cancelEl = $id('dialog-cancel');
-    if (buttonText) {
-        buttonEl.innerText = buttonText;
-        buttonEl.onclick = async function () {
-            await buttonFunction(textEl.value);
-        };
-        buttonEl.style.display = null;
-        cancelEl.innerText = 'Cancel';
+    initDefaultDS();
+
+    $id('canvas-task').innerHTML = '';
+}
+
+function taskSetCode() {
+    showDialog("This is current task's source code. You may manually edit it, copy, and even paste as JSON or .ini. " +
+        "Changes in task's JSON will be validated by server before applied. If pasted in .ini format, it'll be converted on server to JSON before loaded",
+        JSON.stringify(task, null, 2), 'Accept changes', taskValidateOnServer);
+}
+
+function taskSetPrefix() {
+    let prefix = $id('inp-task-prefix').value.trim();
+    if (prefix.endsWith('.')) {
+        prefix = prefix.substring(0, prefix.length - 1);
+    }
+    if (prefix) {
+        task.prefix = prefix;
     } else {
-        buttonEl.style.display = 'none';
-        cancelEl.innerText = 'Close';
+        delete task.prefix;
     }
 }
 
@@ -1352,7 +1697,12 @@ function parseVariables(text) {
     variables = {};
     text.split(/[\r\n]+/).forEach(p => {
         let pair = p.split('=', 2);
-        variables[pair[0]] = pair[1];
+        if (pair.length === 2) {
+            let variable = pair[0].trim().toUpperCase();
+            if (variable) {
+                variables[variable] = pair[1].trim();
+            }
+        }
     });
 
     initVariables();
@@ -1368,15 +1718,6 @@ function taskSetVariables() {
         Object.entries(variables).map(([k, v]) => `${k}=${v}`).join('\n'), 'Set', parseVariables);
 }
 
-function taskSetCode() {
-    showDialog("This is current task's source code. You may manually edit it, copy, and even paste as JSON or .ini. " +
-        "Changes in task's JSON will be validated by server before applied. If pasted in .ini format, it'll be converted on server to JSON before loaded",
-        JSON.stringify(task, null, 2), 'Accept changes', taskValidateOnServer);
-}
-
-function taskSetPrefix() {
-    task.prefix = $id('inp-task-prefix').value;
-}
 
 async function taskValidate() {
     await taskValidateOnServer(JSON.stringify(task));
@@ -1399,7 +1740,7 @@ async function taskValidateOnServer(text) {
 
         if (resp.ok) {
             task = JSON.parse(text);
-            taskLoad();
+            await taskLoad();
 
             showDialog("Server successfully validated task code. This is its .ini format representation in the case you need it for further work outside this UI", await resp.text());
         } else {
@@ -1423,26 +1764,13 @@ async function taskValidateOnServer(text) {
             cancelDialog();
 
             task = await resp.json();
-            taskLoad();
+            await taskLoad();
         } else {
             showDialog("Server returned an error. This is full text of error message", await resp.text());
         }
     }
 }
 
-function taskNew() {
-    editor = false;
-    nameCounter = 1;
-    variables = {};
-    initVariables();
-    task = getTaskTemplate();
-
-    $id('inp-task-prefix').value = task.prefix;
-
-    initDefaultDS();
-
-    $id('canvas-task').innerHTML = '';
-}
 
 async function taskLoad() {
     editor = false;
@@ -1454,19 +1782,49 @@ async function taskLoad() {
     $id('canvas-task').innerHTML = '';
 
     for (const ds of task.input) {
-        await addAdapter('HadoopInput', 'input', ds);
+        let adapter = 'Hadoop';
+        let path = task[`input.path.${ds}`];
+        if (path && !path.startsWith('{')) {
+            let form = new URLSearchParams();
+            form.set('path', path);
+            let resp = await fetch(`/adapter/forPath/input`, {
+                method: 'POST',
+                body: form,
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            });
+            adapter = await resp.text();
+        }
+        let adapterId = await addAdapter(adapter, 'input', ds);
+        await describeAdapter(adapterId, 'input');
     }
-    for (let i = 0; i < task.op.length; i++) {
-        let {verb, name = null} = task.op[i];
-        if (name) {
-            await addOp(verb, name, i);
+    for (let i = 0; i < task.items.length; i++) {
+        if (task.items[i].verb) {
+            let opId = await addOp(task.items[i].verb, task.items[i].name, i);
+            await describeOp(opId);
         } else {
-            await addDir(verb, i);
+            let dirId = await addDir(task.items[i].directive, i);
+            describeDir(dirId);
         }
     }
-    renumberTaskItems();
     for (const ds of task.output) {
-        await addAdapter('HadoopOutput', 'output', ds);
+        let adapter = 'Hadoop';
+        let path = task[`output.path.${ds}`];
+        if (path && !path.startsWith('{')) {
+            let form = new URLSearchParams();
+            form.set('path', path);
+            let resp = await fetch(`/adapter/forPath/output`, {
+                method: 'POST',
+                body: form,
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            });
+            adapter = await resp.text();
+        }
+        let adapterId = await addAdapter(adapter, 'output', ds);
+        await describeAdapter(adapterId, 'output');
     }
 
     updateVariables(task);

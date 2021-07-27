@@ -4,6 +4,6 @@ $H There are following packages available
 
 Package | Description
 --- | ---
-#foreach( $pkg in $pkgs )
-[`${pkg.name}`](./package/${pkg.name}.md) | $pkg.descr
+#foreach( $pkg in $pkgs.entrySet() )
+[`${pkg.key}`](./package/${pkg.key}.md) | $pkg.value
 #end

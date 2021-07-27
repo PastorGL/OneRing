@@ -34,14 +34,14 @@ public class Composer {
                 return alias + "_" + s;
             };
 
-            if (task.dataStreams != null) {
+            if (task.streams != null) {
                 final int _i = i;
 
-                StreamResolver dsResolver = new StreamResolver(task.dataStreams);
-                task.dataStreams.forEach((oldName, oldDs) -> {
+                StreamResolver dsResolver = new StreamResolver(task.streams);
+                task.streams.forEach((oldName, oldDs) -> {
                     if (oldName.equals(Constants.DEFAULT_DS)) {
                         if (_i == last) {
-                            TaskDefinitionLanguage.DataStream defDs = composed.dataStreams.get(Constants.DEFAULT_DS);
+                            TaskDefinitionLanguage.DataStream defDs = composed.streams.get(Constants.DEFAULT_DS);
                             defDs.input = oldDs.input;
                             defDs.output = oldDs.output;
                         }
@@ -58,10 +58,6 @@ public class Composer {
 
                         if (oldDs.input.columns != null) {
                             ds.input.columns = String.join(Constants.COMMA, dsResolver.rawInputColumns(oldName));
-                        }
-
-                        if (task.input.contains(oldName)) {
-                            ds.input.path = dsResolver.inputPath(oldName);
                         }
 
                         if (oldDs.input.partCount != null) {
@@ -86,16 +82,12 @@ public class Composer {
                             ds.output.columns = String.join(Constants.COMMA, columns);
                         }
 
-                        if (task.output.contains(oldName)) {
-                            ds.output.path = dsResolver.outputPath(oldName);
-                        }
-
                         if (oldDs.output.partCount != null) {
                             ds.output.partCount = String.valueOf(dsResolver.outputParts(oldName));
                         }
                     }
 
-                    TaskDefinitionLanguage.DataStream existing = composed.dataStreams.get(name);
+                    TaskDefinitionLanguage.DataStream existing = composed.streams.get(name);
 
                     if (existing != null) {
                         if ((existing.input == null) && (ds.input != null)) {
@@ -105,16 +97,16 @@ public class Composer {
                             existing.output = ds.output;
                         }
                     } else {
-                        composed.dataStreams.put(name, ds);
+                        composed.streams.put(name, ds);
                     }
                 });
             }
 
-            if (task.taskItems != null) {
-                for (TaskDefinitionLanguage.TaskItem ti : task.taskItems) {
+            if (task.items != null) {
+                for (TaskDefinitionLanguage.TaskItem ti : task.items) {
                     if (ti instanceof TaskDefinitionLanguage.Operation) {
                         TaskDefinitionLanguage.Operation oldOp = (TaskDefinitionLanguage.Operation) ti;
-                        OperationResolver opResolver = new OperationResolver(Operations.availableOperations.get(oldOp.verb).description, oldOp);
+                        OperationResolver opResolver = new OperationResolver(Operations.OPERATIONS.get(oldOp.verb).meta, oldOp);
 
                         TaskDefinitionLanguage.Operation op = TaskDefinitionLanguage.createOperation(composed);
                         op.name = alias + "_" + oldOp.name;
@@ -145,28 +137,28 @@ public class Composer {
                             });
                         }
 
-                        if (oldOp.inputs.positionalNames != null) {
-                            op.inputs.positionalNames = Arrays.stream(opResolver.positionalInputs())
+                        if (oldOp.input.positional != null) {
+                            op.input.positional = Arrays.stream(opResolver.positionalInputs())
                                     .map(replacer)
                                     .collect(Collectors.joining(Constants.COMMA));
                         }
-                        if (oldOp.inputs.named != null) {
-                            oldOp.inputs.named.keySet()
-                                    .forEach(in -> op.inputs.named.put(in, replacer.apply(opResolver.namedInput(in))));
+                        if (oldOp.input.named != null) {
+                            oldOp.input.named.keySet()
+                                    .forEach(in -> op.input.named.put(in, replacer.apply(opResolver.namedInput(in))));
                         }
-                        if (oldOp.outputs.positionalNames != null) {
-                            op.outputs.positionalNames = Arrays.stream(opResolver.positionalOutputs())
+                        if (oldOp.output.positional != null) {
+                            op.output.positional = Arrays.stream(opResolver.positionalOutputs())
                                     .map(replacer)
                                     .collect(Collectors.joining(Constants.COMMA));
                         }
-                        if (oldOp.outputs.named != null) {
-                            oldOp.outputs.named.keySet()
-                                    .forEach(in -> op.outputs.named.put(in, replacer.apply(oldOp.outputs.named.get(in))));
+                        if (oldOp.output.named != null) {
+                            oldOp.output.named.keySet()
+                                    .forEach(in -> op.output.named.put(in, replacer.apply(oldOp.output.named.get(in))));
                         }
 
-                        composed.taskItems.add(oldOp);
+                        composed.items.add(oldOp);
                     } else {
-                        composed.taskItems.add(ti);
+                        composed.items.add(ti);
                     }
                 }
 

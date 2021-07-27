@@ -30,8 +30,8 @@ usage: One Ring CLI utility
 * `-m` sets the amount of Spark memory, like `4g` or `512m`. Spark's current default is 1g.
 * `-u` to start Spark UI for debugging purposes.
 
-`-i` overrides the default input path (`ds.input.path`) for the Process.
-`-o` overrides the default output path (`ds.output.path`) for the Process.
+`-i` overrides the default input path (`input.path`) for the Process.
+`-o` overrides the default output path (`output.path`) for the Process.
 
 `-x` sets the current task prefix, if needed. If you're planning to pass `tasks.ini` to your cluster via Spark context, you should use prefixed `tasks.ini` locally too. If your configuration file contains a number of different tasks, set the prefix to select one of them.
 

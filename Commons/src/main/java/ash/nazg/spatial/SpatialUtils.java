@@ -56,4 +56,8 @@ public class SpatialUtils implements Serializable {
 
         return h3.geoToH3(lat, lon, resolution);
     }
+
+    public int getResolution() {
+        return resolution;
+    }
 }

@@ -5,89 +5,77 @@
 package ash.nazg.commons.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.DefinitionEnum;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVWriter;
 import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 import org.apache.spark.api.java.Optional;
 import scala.Tuple2;
 
-import java.io.Serializable;
 import java.io.StringWriter;
 import java.util.*;
 
 @SuppressWarnings("unused")
 public class JoinByKeyOperation extends Operation {
-    @Description("Type of the join")
     public static final String OP_JOIN = "join";
-    @Description("Default value for the missing right row values")
+    public static final String OP_DEFAULT = "default";
     public static final String OP_DEFAULT_RIGHT = "default.right";
-    @Description("Default value for the missing left row values")
     public static final String OP_DEFAULT_LEFT = "default.left";
-    @Description("By default, any missing row from left is an empty string")
-    public static final String DEF_DEFAULT_LEFT = "";
-    @Description("By default, any missing row from right is an empty string")
-    public static final String DEF_DEFAULT_RIGHT = "";
-    @Description("By default, perform an inner join")
-    public static final Join DEF_JOIN = Join.INNER;
-
-    public static final String VERB = "joinByKey";
 
     private String[] inputNames;
     private char[] inputDelimiters;
+
     private String outputName;
-    private Tuple2<Integer, Integer>[] outputColumns;
     private char outputDelimiter;
+    private Tuple2<Integer, Integer>[] outputColumns;
 
     private Join joinType;
     private String inputDefaultL;
     private String inputDefaultR;
+    private String[] outputTemplate;
 
     @Override
-    @Description("Takes two or more Pair RDDs and joins them by key. Missing rows from either Pair RDDs on left and" +
-            " right side of the join are settable and must have a proper column count")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("joinByKey", "Takes two or more Pair RDDs and joins them by key." +
+                " Missing rows' values from either Pair RDDs on left and right side of the join are settable" +
+                " via result template, or left and right default values",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(OP_JOIN, Join.class, DEF_JOIN),
-                        new TaskDescriptionLanguage.Definition(OP_DEFAULT_LEFT, DEF_DEFAULT_LEFT),
-                        new TaskDescriptionLanguage.Definition(OP_DEFAULT_RIGHT, DEF_DEFAULT_RIGHT),
-                },
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.KeyValue},
-                                true
+                new PositionalStreamsMetaBuilder(2)
+                        .ds("A list of Pair RDDs to join by key values",
+                                new StreamType[]{StreamType.KeyValue}, true
                         )
-                ),
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.CSV},
-                                true
+                new DefinitionMetaBuilder()
+                        .def(OP_JOIN, "Type of the join", Join.class, Join.INNER.name(), "Type of the join")
+                        .def(OP_DEFAULT, "Template for resulting rows", String[].class, null,
+                                "By default, there is no join result template, defaults for left and right are used")
+                        .def(OP_DEFAULT_LEFT, "Default value for the missing left rows' values", null,
+                                "By default, there is no left default, join result template is used")
+                        .def(OP_DEFAULT_RIGHT, "Default value for the missing right rows' values", null,
+                                "By default, there is no right default, join result template is used")
+                        .build(),
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("Output CSV RDD made from value columns of source RDDs",
+                                new StreamType[]{StreamType.CSV}, true
                         )
-                )
+                        .build()
         );
     }
 
     @Override
     public void configure() throws InvalidConfigValueException {
         inputNames = opResolver.positionalInputs();
-        if (inputNames.length < 2) {
-            throw new InvalidConfigValueException("There must be at least two Pair RDDs to join by '" + name + "'");
-        }
-
         outputName = opResolver.positionalOutput(0);
 
         Map<String, Tuple2<Integer, Integer>> inputColumns = new HashMap<>();
@@ -107,56 +95,65 @@ public class JoinByKeyOperation extends Operation {
         }
 
         joinType = opResolver.definition(OP_JOIN);
-        if (joinType == Join.RIGHT || joinType == Join.OUTER) {
-            inputDefaultL = opResolver.definition(OP_DEFAULT_LEFT);
-        }
-        if (joinType == Join.LEFT || joinType == Join.OUTER) {
-            inputDefaultR = opResolver.definition(OP_DEFAULT_RIGHT);
-        }
 
         outputColumns = out.toArray(new Tuple2[0]);
         outputDelimiter = dsResolver.outputDelimiter(outputName);
+
+        outputTemplate = opResolver.definition(OP_DEFAULT);
+        if (outputTemplate != null) {
+            if (outputColumns.length != outputTemplate.length) {
+                throw new InvalidConfigValueException("Operation '" + name + "' output template and output columns specifications doesn't match");
+            }
+        } else {
+            if (joinType == Join.RIGHT || joinType == Join.OUTER) {
+                inputDefaultL = opResolver.definition(OP_DEFAULT_LEFT);
+                if (inputDefaultL == null) {
+                    throw new InvalidConfigValueException("Operation '" + name + "' has no output template neither default for left side of the join");
+                }
+            }
+            if (joinType == Join.LEFT || joinType == Join.OUTER) {
+                inputDefaultR = opResolver.definition(OP_DEFAULT_RIGHT);
+                if (inputDefaultR == null) {
+                    throw new InvalidConfigValueException("Operation '" + name + "' has no output template neither default for right side of the join");
+                }
+            }
+        }
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         final char[] _inputDelimiters = inputDelimiters;
-        final char _outputDelimiter = outputDelimiter;
+
         final String _inputDefaultL = inputDefaultL;
         final String _inputDefaultR = inputDefaultR;
         final Tuple2<Integer, Integer>[] _outputColumns = outputColumns;
+        final String[] _outputTemplate = outputTemplate;
+        final char _outputDelimiter = outputDelimiter;
 
-        JavaPairRDD<Object, Object> leftInputRDD = (JavaPairRDD<Object, Object>) input.get(inputNames[0]);
+        JavaPairRDD<Object, Object[]> leftInputRDD = ((JavaPairRDD<Object, Object>) input.get(inputNames[0])).mapPartitionsToPair(it -> {
+            List<Tuple2<Object, Object[]>> res = new ArrayList<>();
 
-        JavaPairRDD<Object, Object> j = leftInputRDD.mapPartitionsToPair(it -> {
-            List<Tuple2<Object, Object>> res = new ArrayList<>();
+            CSVParser parse0 = new CSVParserBuilder().withSeparator(_inputDelimiters[0]).build();
+            final String[] accTemplate = (_outputTemplate != null) ? _outputTemplate : new String[_outputColumns.length];
 
             while (it.hasNext()) {
                 Tuple2<Object, Object> o = it.next();
 
-                String l1 = String.valueOf(o._2);
-                CSVParser parser1 = new CSVParserBuilder().withSeparator(_inputDelimiters[0]).build();
-                String[] line1 = parser1.parseLine(l1);
+                String l = String.valueOf(o._2);
+                String[] line = parse0.parseLine(l);
 
-                StringWriter buffer = new StringWriter();
-
-                String[] acc = new String[_outputColumns.length];
+                String[] acc = accTemplate.clone();
                 int i = 0;
                 for (Tuple2<Integer, Integer> col : _outputColumns) {
                     if (col._1 == 0) {
-                        acc[i] = line1[col._2];
+                        acc[i] = line[col._2];
                     }
 
                     i++;
                 }
 
-                CSVWriter writer = new CSVWriter(buffer, _outputDelimiter, CSVWriter.DEFAULT_QUOTE_CHARACTER,
-                        CSVWriter.DEFAULT_ESCAPE_CHARACTER, "");
-                writer.writeNext(acc, false);
-                writer.close();
-
-                res.add(new Tuple2<>(o._1, new Text(buffer.toString())));
+                res.add(new Tuple2<>(o._1, acc));
             }
 
             return res.iterator();
@@ -165,81 +162,118 @@ public class JoinByKeyOperation extends Operation {
         for (int r = 1; r < inputNames.length; r++) {
             JavaPairRDD<Object, Object> rightInputRDD = (JavaPairRDD<Object, Object>) input.get(inputNames[r]);
 
-            JavaPairRDD jj;
+            JavaPairRDD partialJoin;
             switch (joinType) {
                 case LEFT:
-                    jj = j.leftOuterJoin(rightInputRDD);
+                    partialJoin = leftInputRDD.leftOuterJoin(rightInputRDD);
                     break;
                 case RIGHT:
-                    jj = j.rightOuterJoin(rightInputRDD);
+                    partialJoin = leftInputRDD.rightOuterJoin(rightInputRDD);
                     break;
                 case OUTER:
-                    jj = j.fullOuterJoin(rightInputRDD);
+                    partialJoin = leftInputRDD.fullOuterJoin(rightInputRDD);
                     break;
                 default:
-                    jj = j.join(rightInputRDD);
+                    partialJoin = leftInputRDD.join(rightInputRDD);
             }
 
             final int _r = r;
-            j = jj.mapPartitionsToPair(ito -> {
+            final int _l = r - 1;
+            leftInputRDD = partialJoin.mapPartitionsToPair(ito -> {
                 List<Tuple2> res = new ArrayList<>();
 
                 Iterator<Tuple2> it = (Iterator) ito;
+                CSVParser parseRight = new CSVParserBuilder().withSeparator(_inputDelimiters[_r]).build();
+                final String[] accTemplate = (_outputTemplate != null) ? _outputTemplate : new String[_outputColumns.length];
 
                 while (it.hasNext()) {
                     Tuple2<Object, Object> o = it.next();
 
                     Tuple2<Object, Object> v = (Tuple2<Object, Object>) o._2;
 
-                    String l1 = (v._1 instanceof String) ?
-                            (String) v._1 : String.valueOf((v._1 instanceof Optional) ?
-                            ((Optional) v._1).orElse(_inputDefaultL) : v._1);
-                    CSVParser parser1 = new CSVParserBuilder().withSeparator(_outputDelimiter).build();
-                    String[] line1 = parser1.parseLine(l1);
+                    String[] left = null;
+                    if (v._1 instanceof Optional) {
+                        Optional o1 = (Optional) v._1;
+                        if (o1.isPresent()) {
+                            left = (String[]) o1.get();
+                        }
+                    } else {
+                        left = (String[]) v._1;
+                    }
 
-                    String l2 = (v._2 instanceof String) ?
-                            (String) v._2 : String.valueOf((v._2 instanceof Optional) ?
-                            ((Optional) v._2).orElse(_inputDefaultR) : v._2);
-                    CSVParser parser2 = new CSVParserBuilder().withSeparator(_inputDelimiters[_r]).build();
-                    String[] line2 = parser2.parseLine(l2);
+                    String line = null;
+                    if (v._2 instanceof Optional) {
+                        Optional o2 = (Optional) v._2;
+                        if (o2.isPresent()) {
+                            line = String.valueOf(o2.get());
+                        }
+                    } else {
+                        line = String.valueOf(v._2);
+                    }
+                    String[] right = (line != null) ? parseRight.parseLine(line) : null;
 
-                    StringWriter buffer = new StringWriter();
-
-                    String[] acc = new String[_outputColumns.length];
+                    String[] acc = (left != null) ? left : accTemplate.clone();
                     int i = 0;
                     for (Tuple2<Integer, Integer> col : _outputColumns) {
                         if (col._1 == _r) {
-                            acc[i] = line2[col._2];
-                        } else {
-                            acc[i] = line1[i];
+                            if (right != null) {
+                                acc[i] = right[col._2];
+                            } else if (_inputDefaultR != null) {
+                                acc[i] = _inputDefaultR;
+                            }
+                        } else if (col._1 <= _l) {
+                            if ((left == null) && (_inputDefaultL != null)) {
+                                acc[i] = _inputDefaultL;
+                            }
                         }
 
                         i++;
                     }
 
-                    CSVWriter writer = new CSVWriter(buffer, _outputDelimiter, CSVWriter.DEFAULT_QUOTE_CHARACTER,
-                            CSVWriter.DEFAULT_ESCAPE_CHARACTER, "");
-                    writer.writeNext(acc, false);
-                    writer.close();
-
-                    res.add(new Tuple2<>(o._1, new Text(buffer.toString())));
+                    res.add(new Tuple2<>(o._1, acc));
                 }
 
                 return res.iterator();
             });
         }
 
-        return Collections.singletonMap(outputName, j.values());
+        JavaRDD<Text> output = leftInputRDD.values().mapPartitions(it -> {
+            List<Text> res = new ArrayList<>();
+
+            while (it.hasNext()) {
+                String[] acc = (String[]) it.next();
+
+                StringWriter buffer = new StringWriter();
+
+                CSVWriter writer = new CSVWriter(buffer, _outputDelimiter, CSVWriter.DEFAULT_QUOTE_CHARACTER,
+                        CSVWriter.DEFAULT_ESCAPE_CHARACTER, "");
+                writer.writeNext(acc, false);
+                writer.close();
+
+                res.add(new Text(buffer.toString()));
+            }
+
+            return res.iterator();
+        });
+
+        return Collections.singletonMap(outputName, output);
     }
 
-    public enum Join implements Serializable {
-        @Description("Inner join")
-        INNER,
-        @Description("Left outer join")
-        LEFT,
-        @Description("Right outer join")
-        RIGHT,
-        @Description("Full outer join")
-        OUTER;
+    public enum Join implements DefinitionEnum {
+        INNER("Inner join"),
+        LEFT("Left outer join"),
+        RIGHT("Right outer join"),
+        OUTER("Full outer join");
+
+        private final String descr;
+
+        Join(String descr) {
+            this.descr = descr;
+        }
+
+        @Override
+        public String descr() {
+            return descr;
+        }
     }
 }

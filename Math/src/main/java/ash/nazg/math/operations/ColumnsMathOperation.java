@@ -5,62 +5,58 @@
 package ash.nazg.math.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.math.config.CalcFunction;
-import ash.nazg.math.config.ConfigurationParameters;
 import ash.nazg.math.functions.columns.*;
 import ash.nazg.spark.Operation;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 import org.sparkproject.guava.primitives.Ints;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
+import static ash.nazg.math.config.ConfigurationParameters.*;
 
 @SuppressWarnings("unused")
 public class ColumnsMathOperation extends Operation {
-    @Description("Columns with source values")
     public static final String OP_CALC_COLUMNS = "calc.columns";
-    @Description("By default the constant isn't set")
-    public static final Double DEF_CALC_CONST = null;
-
-    public static final String VERB = "columnsMath";
 
     private String inputName;
+
     private String outputName;
 
     private ColumnsMathFunction mathFunc;
 
     @Override
-    @Description("This operation performs one of the predefined mathematical operations on selected set of columns" +
-            " inside each input row, generating a column with a result. Data type is implied Double")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("columnsMath", "This operation performs one of the predefined mathematical operations on selected set of columns" +
+                " inside each input row, generating a column with a result. Data type is implied Double",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(OP_CALC_COLUMNS, String[].class),
-                        new TaskDescriptionLanguage.Definition(ConfigurationParameters.OP_CALC_FUNCTION, CalcFunction.class),
-                        new TaskDescriptionLanguage.Definition(ConfigurationParameters.OP_CALC_CONST, Double.class, DEF_CALC_CONST),
-                },
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.CSV},
-                                true
+                new PositionalStreamsMetaBuilder()
+                        .ds("CSV RDD with a set of columns of type Double",
+                                new StreamType[]{StreamType.CSV}, true
                         )
-                ),
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.CSV},
-                                new String[]{ConfigurationParameters.GEN_RESULT}
+                new DefinitionMetaBuilder()
+                        .def(OP_CALC_COLUMNS, "Columns with source values", String[].class)
+                        .def(OP_CALC_FUNCTION, "The mathematical function to perform", CalcFunction.class)
+                        .def(OP_CALC_CONST, "An optional constant value for the selected function", Double.class,
+                                null, "By default the constant isn't set")
+                        .build(),
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("CSV RDD with calculation result",
+                                new StreamType[]{StreamType.CSV}, true
                         )
-                )
+                        .genCol(GEN_RESULT, "Generated column with a result of the mathematical function")
+                        .build()
         );
     }
 
@@ -96,30 +92,30 @@ public class ColumnsMathOperation extends Operation {
         int[] outputCols = new int[outputColumns.length];
         int i = 0;
         for (String outputColumn : outputColumns) {
-            if (!outputColumn.equals(ConfigurationParameters.GEN_RESULT)) {
+            if (!outputColumn.equals(GEN_RESULT)) {
                 outputCols[i++] = inputColumns.get(outputColumn);
             } else {
                 outputCols[i++] = -1;
             }
         }
 
-        CalcFunction cf = opResolver.definition(ConfigurationParameters.OP_CALC_FUNCTION);
+        CalcFunction cf = opResolver.definition(OP_CALC_FUNCTION);
         switch (cf) {
             case SUM: {
-                Double _const = opResolver.definition(ConfigurationParameters.OP_CALC_CONST);
+                Double _const = opResolver.definition(OP_CALC_CONST);
                 mathFunc = new SumFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, _const);
                 break;
             }
             case POWERMEAN: {
-                Double pow = opResolver.definition(ConfigurationParameters.OP_CALC_CONST);
+                Double pow = opResolver.definition(OP_CALC_CONST);
                 if (pow == null) {
-                    throw new InvalidConfigValueException("POWERMEAN function of the operation '" + name + "' requires " + ConfigurationParameters.OP_CALC_CONST + " set");
+                    throw new InvalidConfigValueException("POWERMEAN function of the operation '" + name + "' requires " + OP_CALC_CONST + " set");
                 }
                 mathFunc = new PowerMeanFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, pow);
                 break;
             }
             case AVERAGE: {
-                Double shift = opResolver.definition(ConfigurationParameters.OP_CALC_CONST);
+                Double shift = opResolver.definition(OP_CALC_CONST);
                 mathFunc = new AverageFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, shift);
                 break;
             }
@@ -128,23 +124,28 @@ public class ColumnsMathOperation extends Operation {
                 break;
             }
             case MIN: {
-                Double floor = opResolver.definition(ConfigurationParameters.OP_CALC_CONST);
+                Double floor = opResolver.definition(OP_CALC_CONST);
                 mathFunc = new MinFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, floor);
                 break;
             }
             case MAX: {
-                Double ceil = opResolver.definition(ConfigurationParameters.OP_CALC_CONST);
+                Double ceil = opResolver.definition(OP_CALC_CONST);
                 mathFunc = new MaxFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, ceil);
                 break;
             }
             case MUL: {
-                Double _const = opResolver.definition(ConfigurationParameters.OP_CALC_CONST);
+                Double _const = opResolver.definition(OP_CALC_CONST);
                 mathFunc = new MulFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, _const);
                 break;
             }
             case DIV: {
-                Double _const = opResolver.definition(ConfigurationParameters.OP_CALC_CONST);
+                Double _const = opResolver.definition(OP_CALC_CONST);
                 mathFunc = new DivFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, _const);
+                break;
+            }
+            case EQUALITY: {
+                Double _const = opResolver.definition(OP_CALC_CONST);
+                mathFunc = new EqualityFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, _const);
                 break;
             }
         }
@@ -157,5 +158,4 @@ public class ColumnsMathOperation extends Operation {
 
         return Collections.singletonMap(outputName, output);
     }
-
 }

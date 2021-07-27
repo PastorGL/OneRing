@@ -5,9 +5,6 @@
 package ash.nazg.geohashing.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
-import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
 import ash.nazg.geohashing.functions.HasherFunction;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
@@ -21,16 +18,15 @@ import scala.Tuple2;
 import scala.Tuple3;
 
 import java.io.StringWriter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 public abstract class GeohashingOperation extends Operation {
-    @Description("Column with latitude, degrees")
     public static final String DS_LAT_COLUMN = "lat.column";
-    @Description("Column with longitude, degrees")
     public static final String DS_LON_COLUMN = "lon.column";
-    @Description("Level of the hash")
     public static final String OP_HASH_LEVEL = "hash.level";
-    @Description("Column with a generated hash value")
     public static final String GEN_HASH = "_hash";
 
     protected Integer level;
@@ -42,31 +38,6 @@ public abstract class GeohashingOperation extends Operation {
     private Integer latColumn;
     private Integer lonColumn;
     private HasherFunction hasher;
-
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(DS_LAT_COLUMN),
-                        new TaskDescriptionLanguage.Definition(DS_LON_COLUMN),
-                        new TaskDescriptionLanguage.Definition(OP_HASH_LEVEL, Integer.class, getDefaultLevel()),
-                },
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.CSV},
-                                true
-                        )
-                ),
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.CSV},
-                                new String[]{GEN_HASH}
-                        )
-                )
-        );
-    }
 
     @Override
     public void configure() throws InvalidConfigValueException {

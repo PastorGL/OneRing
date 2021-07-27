@@ -5,9 +5,11 @@
 package ash.nazg.columnar.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.NamedStreamsMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
@@ -22,17 +24,10 @@ import static ash.nazg.config.tdl.StreamType.*;
 
 @SuppressWarnings("unused")
 public class SplitByColumnOperation extends Operation {
-    @Description("Template for output names wildcard part in form of 'prefix{split.column}suffix'")
     public static final String OP_SPLIT_TEMPLATE = "split.template";
-    @Description("Template output with a wildcard part, i.e. output_*")
     public static final String RDD_OUTPUT_SPLITS_TEMPLATE = "template";
-    @Description("Optional output that contains all the distinct splits occurred on the input data," +
-            " in the form of names of the generated inputs")
     public static final String RDD_OUTPUT_DISTINCT_SPLITS = "distinct_splits";
-    @Description("If set, split by date of month column value")
     public static final String DS_SPLIT_COLUMN = "split.column";
-
-    public static final String VERB = "splitByColumn";
 
     private String inputName;
     private String outputNameTemplate;
@@ -43,42 +38,31 @@ public class SplitByColumnOperation extends Operation {
     private char inputDelimiter;
 
     @Override
-    @Description("Take a CSV RDD and split it into several RDDs" +
-            " by selected column value. Output 'template' name is treated as a template for a set of" +
-            " generated outputs that can reference to encountered unique values of a selected column")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("splitByColumn", "Take a CSV RDD and split it into several RDDs" +
+                " by selected column value. Output 'template' name is treated as a template for a set of" +
+                " generated outputs that can reference to encountered unique values of a selected column",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(DS_SPLIT_COLUMN),
-                        new TaskDescriptionLanguage.Definition(OP_SPLIT_TEMPLATE),
-                },
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{CSV},
-                                true
+                new PositionalStreamsMetaBuilder()
+                        .ds("Input CSV to split into different outputs by column value",
+                                new StreamType[]{CSV}, true
                         )
-                ),
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.NamedStream[]{
-                                new TaskDescriptionLanguage.NamedStream(
-                                        RDD_OUTPUT_SPLITS_TEMPLATE,
-                                        new StreamType[]{Passthru},
-                                        true
-                                ),
-                                new TaskDescriptionLanguage.NamedStream(
-                                        RDD_OUTPUT_DISTINCT_SPLITS,
-                                        new StreamType[]{Fixed},
-                                        false
-                                )
-                        }
-                )
+                new DefinitionMetaBuilder()
+                        .def(DS_SPLIT_COLUMN, "If set, split by date of month column value")
+                        .def(OP_SPLIT_TEMPLATE, "Template for output names wildcard part in form of 'prefix{split.column}suffix'")
+                        .build(),
+
+                new NamedStreamsMetaBuilder()
+                        .ds(RDD_OUTPUT_SPLITS_TEMPLATE, "Template output with a wildcard part, i.e. output_*",
+                                new StreamType[]{Passthru}, true
+                        )
+                        .ds(RDD_OUTPUT_DISTINCT_SPLITS, "Optional output that contains all the distinct splits occurred on the input data," +
+                                        " in the form of names of the generated inputs",
+                                new StreamType[]{Fixed}
+                        )
+                        .build()
         );
     }
 

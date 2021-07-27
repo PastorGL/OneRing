@@ -1,7 +1,7 @@
 package ash.nazg.config.tdl;
 
 public class LayerResolver {
-    private final TaskDefinitionLanguage.Definitions layerConfig;
+    final TaskDefinitionLanguage.Definitions layerConfig;
 
     public LayerResolver(TaskDefinitionLanguage.Definitions layerConfig) {
         this.layerConfig = layerConfig;

@@ -5,9 +5,9 @@
 package ash.nazg.commons.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
@@ -26,38 +26,29 @@ import java.util.Map;
 
 @SuppressWarnings("unused")
 public class CollapsePairOperation extends Operation {
-    private static final String VERB = "collapsePair";
-
     private String inputName;
+    private char inputDelimiter;
+
     private String outputName;
     private char outputDelimiter;
     private int[] outputColumns;
-    private char inputDelimiter;
 
     @Override
-    @Description("Collapse Pair RDD into a CSV RDD")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("collapsePair", "Collapse Pair RDD into a CSV RDD",
+                new PositionalStreamsMetaBuilder()
+                        .ds("Pair RDD to transform into CSV RDD",
+                                new StreamType[]{StreamType.KeyValue}, true
+                        )
+                        .build(),
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
                 null,
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.KeyValue},
-                                true
+                new PositionalStreamsMetaBuilder()
+                        .ds("Collapsed CSV RDD",
+                                new StreamType[]{StreamType.CSV}, true
                         )
-                ),
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.CSV},
-                                true
-                        )
-                )
+                        .build()
         );
     }
 

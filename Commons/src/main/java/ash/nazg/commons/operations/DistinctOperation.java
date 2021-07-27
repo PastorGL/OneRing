@@ -5,9 +5,10 @@
 package ash.nazg.commons.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
@@ -23,45 +24,37 @@ import java.util.Map;
 
 @SuppressWarnings("unused")
 public class DistinctOperation extends Operation {
-    @Description("Input column that contains a value treated as a distinction key")
     public static final String DS_UNIQUE_COLUMN = "unique.column";
-    @Description("By default, no unique column is set for an RDD")
-    public static final String DEF_UNIQUE_COLUMN = null;
-
-    public static final String VERB = "distinct";
 
     private String inputName;
-    private String outputName;
     private char inputDelimiter;
+
+    private String outputName;
+
     private Integer uniqueColumn;
 
     @Override
-    @Description("If input is an CSV RDD, this operation takes a column and extract a list of distinct values occurred in this column." +
-            " If input is a PairRDD, it returns distinct elements from this PairRDD.")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("distinct", "If input is an CSV RDD, this operation takes a column" +
+                " and extract a list of distinct values occurred in this column. If input is a PairRDD, it returns" +
+                " distinct elements from this PairRDD",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(DS_UNIQUE_COLUMN, String.class, DEF_UNIQUE_COLUMN),
-                },
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.KeyValue, StreamType.CSV},
-                                true
+                new PositionalStreamsMetaBuilder()
+                        .ds("Pair or CSV RDD",
+                                new StreamType[]{StreamType.KeyValue, StreamType.CSV}, true
                         )
-                ),
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Passthru},
-                                false
+                new DefinitionMetaBuilder()
+                        .def(DS_UNIQUE_COLUMN, "Input column that contains a value treated as a distinction key",
+                                String.class, null, "By default, no unique column is set for an RDD")
+                        .build(),
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("Same type as input RDD, but with uniquesced values",
+                                new StreamType[]{StreamType.Passthru}
                         )
-                )
+                        .build()
         );
     }
 

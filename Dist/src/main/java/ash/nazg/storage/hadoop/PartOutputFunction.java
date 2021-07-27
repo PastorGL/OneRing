@@ -31,11 +31,11 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 public class PartOutputFunction implements Function2<Integer, Iterator<Text>, Iterator<Void>> {
     protected final String _name;
     protected final String outputPath;
-    protected final String codec;
+    protected final HadoopStorage.Codec codec;
     protected final String[] _columns;
     protected final char _delimiter;
 
-    public PartOutputFunction(String _name, String outputPath, String codec, String[] _columns, char _delimiter) {
+    public PartOutputFunction(String _name, String outputPath, HadoopStorage.Codec codec, String[] _columns, char _delimiter) {
         this.outputPath = outputPath;
         this.codec = codec;
         this._columns = _columns;
@@ -67,18 +67,18 @@ public class PartOutputFunction implements Function2<Integer, Iterator<Text>, It
     }
 
     protected OutputStream createOutputStream(Configuration conf, int idx, Iterator<Text> it) throws Exception {
-        String suffix = FileStorage.suffix(outputPath);
+        String suffix = HadoopStorage.suffix(outputPath);
 
         if ("parquet".equalsIgnoreCase(suffix)) {
             String partName = outputPath.substring(0, outputPath.lastIndexOf(".")) + "/" + String.format("part-%05d", idx)
-                    + (FileStorage.CODECS.containsKey(codec) ? "." + codec : "") + ".parquet";
+                    + ((codec != HadoopStorage.Codec.NONE) ? "." + codec.name().toLowerCase() : "") + ".parquet";
 
             writeToParquetFile(conf, new Path(partName), it);
 
             return null;
         } else {
             String partName = outputPath + "/" + String.format("part-%05d", idx)
-                    + (FileStorage.CODECS.containsKey(codec) ? "." + codec : "");
+                    + ((codec != HadoopStorage.Codec.NONE) ? "." + codec.name().toLowerCase() : "");
 
             Path partPath = new Path(partName);
 
@@ -102,8 +102,8 @@ public class PartOutputFunction implements Function2<Integer, Iterator<Text>, It
                 .withConf(conf)
                 .withType(schema)
                 .withPageWriteChecksumEnabled(false);
-        if (!"none".equalsIgnoreCase(codec)) {
-            builder.withCompressionCodec(CompressionCodecName.fromCompressionCodec(FileStorage.CODECS.get(codec)));
+        if (codec != HadoopStorage.Codec.NONE) {
+            builder.withCompressionCodec(CompressionCodecName.fromCompressionCodec(codec.codec));
         }
         ParquetWriter<Group> writer = builder.build();
 
@@ -126,8 +126,8 @@ public class PartOutputFunction implements Function2<Integer, Iterator<Text>, It
     }
 
     protected OutputStream writeToTextFile(Configuration conf, OutputStream outputStream) throws Exception {
-        if (FileStorage.CODECS.containsKey(codec)) {
-            Class<? extends CompressionCodec> cc = FileStorage.CODECS.get(codec);
+        if (codec != HadoopStorage.Codec.NONE) {
+            Class<? extends CompressionCodec> cc = codec.codec;
             CompressionCodec codec = cc.newInstance();
             ((Configurable) codec).setConf(conf);
 

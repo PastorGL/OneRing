@@ -2,11 +2,16 @@
  * Copyright (C) 2020 Locomizer team and Contributors
  * This project uses New BSD license with do no evil clause. For full text, check the LICENSE file in the root directory.
  */
-package ash.nazg.config;
+package ash.nazg.doc;
 
-import ash.nazg.config.tdl.*;
-import ash.nazg.spark.OpInfo;
+import ash.nazg.config.RegisteredPackages;
+import ash.nazg.config.tdl.PropertiesWriter;
+import ash.nazg.config.tdl.TDLObjectMapper;
+import ash.nazg.config.tdl.TaskDefinitionLanguage;
+import ash.nazg.spark.OperationInfo;
 import ash.nazg.spark.Operations;
+import ash.nazg.storage.AdapterInfo;
+import ash.nazg.storage.Adapters;
 import com.fasterxml.jackson.core.util.DefaultIndenter;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,6 +22,8 @@ import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.Velocity;
 import org.apache.velocity.runtime.RuntimeConstants;
 import org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader;
+import org.apache.velocity.util.introspection.UberspectImpl;
+import org.apache.velocity.util.introspection.UberspectPublicFields;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -42,35 +49,36 @@ public class DocGen {
             }
             Files.createDirectories(Paths.get(outputDirectory, "package"));
             Files.createDirectories(Paths.get(outputDirectory, "operation"));
+            Files.createDirectories(Paths.get(outputDirectory, "adapter", "input"));
+            Files.createDirectories(Paths.get(outputDirectory, "adapter", "output"));
 
             Velocity.setProperty(RuntimeConstants.RESOURCE_LOADERS, "classpath");
             Velocity.setProperty(RuntimeConstants.RESOURCE_LOADER + ".classpath.class", ClasspathResourceLoader.class.getCanonicalName());
+            Velocity.setProperty(RuntimeConstants.UBERSPECT_CLASSNAME, UberspectImpl.class.getName() + "," + UberspectPublicFields.class.getName());
+//Velocity.setProperty(RuntimeConstants.RUNTIME_LOG_INSTANCE, new org.apache.logging.slf4j.Log4jLogger(new SimpleLogger("velocity", Level.ALL, false, true, false,false,null,null,new PropertiesUtil(new Properties()),System.err), "velocity"));
             Velocity.init();
 
-            Map<String, String> pkgs = Packages.getRegisteredPackages();
+            Map<String, String> pkgs = Operations.PACKAGES;
 
-            for (Map.Entry<String, String> pkg : pkgs.entrySet()) {
-                String pkgName = pkg.getKey();
-
+            for (String pkgName : pkgs.keySet()) {
                 ObjectMapper om = new TDLObjectMapper();
                 om.configure(SerializationFeature.INDENT_OUTPUT, true);
                 DefaultPrettyPrinter pp = new DefaultPrettyPrinter();
                 pp.indentArraysWith(DefaultIndenter.SYSTEM_LINEFEED_INSTANCE);
                 final ObjectWriter ow = om.writer(pp);
 
-                for (Map.Entry<String, OpInfo> entry : Operations.getAvailableOperations(pkgName).entrySet()) {
+                for (Map.Entry<String, OperationInfo> entry : Operations.packageOperations(pkgName).entrySet()) {
                     String verb = entry.getKey();
-                    OpInfo opInfo = entry.getValue();
+                    OperationInfo opInfo = entry.getValue();
                     try (FileWriter mdWriter = new FileWriter(outputDirectory + "/operation/" + verb + ".md")) {
-                        TaskDocumentationLanguage.Operation opDoc = DocumentationGenerator.operationDoc(opInfo);
-
                         VelocityContext vc = new VelocityContext();
-                        vc.put("op", opDoc);
+                        vc.put("op", opInfo.meta);
+                        vc.put("pkgName", pkgName);
 
                         Template operation = Velocity.getTemplate("operation.vm", StandardCharsets.UTF_8.name());
                         operation.merge(vc, mdWriter);
 
-                        TaskDefinitionLanguage.Task exampleTask = DocumentationGenerator.createExampleTask(opInfo, opDoc, null);
+                        TaskDefinitionLanguage.Task exampleTask = DocumentationGenerator.createExampleTask(opInfo, null);
                         String exampleDir = outputDirectory + "/operation/" + verb;
                         Files.createDirectories(Paths.get(exampleDir));
                         try (FileWriter jsonWriter = new FileWriter(new File(exampleDir, "example.json"))) {
@@ -83,7 +91,16 @@ public class DocGen {
                         throw new Exception("Operation '" + verb + "'", e);
                     }
                 }
+            }
 
+            pkgs = Adapters.INPUT_PACKAGES;
+            adapterDoc(outputDirectory, pkgs, "input");
+            pkgs = Adapters.OUTPUT_PACKAGES;
+            adapterDoc(outputDirectory, pkgs, "output");
+
+            pkgs = RegisteredPackages.REGISTERED_PACKAGES;
+
+            for (String pkgName : pkgs.keySet()) {
                 try (FileWriter writer = new FileWriter(outputDirectory + "/package/" + pkgName + ".md")) {
                     DocumentationGenerator.packageDoc(pkgName, writer);
                 } catch (Exception e) {
@@ -101,6 +118,27 @@ public class DocGen {
             e.printStackTrace();
 
             System.exit(-7);
+        }
+    }
+
+    private static void adapterDoc(String outputDirectory, Map<String, String> pkgs, String kind) throws Exception {
+        for (String pkgName : pkgs.keySet()) {
+            Map<String, AdapterInfo> adapters = "input".equals(kind) ? Adapters.packageInputs(pkgName) : Adapters.packageOutputs(pkgName);
+            for (Map.Entry<String, AdapterInfo> entry : adapters.entrySet()) {
+                String verb = entry.getKey();
+                AdapterInfo info = entry.getValue();
+                try (FileWriter mdWriter = new FileWriter(outputDirectory + "/adapter/" + kind + "/" + verb + ".md")) {
+                    VelocityContext vc = new VelocityContext();
+                    vc.put("op", info.meta);
+                    vc.put("pkgName", pkgName);
+                    vc.put("kind", kind);
+
+                    Template operation = Velocity.getTemplate("adapter.vm", StandardCharsets.UTF_8.name());
+                    operation.merge(vc, mdWriter);
+                } catch (Exception e) {
+                    throw new Exception("Adapter '" + verb + "' (" + kind + ")", e);
+                }
+            }
         }
     }
 }

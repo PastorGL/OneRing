@@ -4,6 +4,8 @@
  */
 package ash.nazg.config.tdl;
 
+import org.apache.commons.lang3.StringUtils;
+
 import java.io.IOException;
 import java.io.Writer;
 import java.util.*;
@@ -15,7 +17,7 @@ public class PropertiesWriter {
         Map<String, String> properties = new HashMap<>();
 
         List<String> opNames = new ArrayList<>();
-        for (TaskDefinitionLanguage.TaskItem ti : task.taskItems) {
+        for (TaskDefinitionLanguage.TaskItem ti : task.items) {
             if (ti instanceof TaskDefinitionLanguage.Operation) {
                 TaskDefinitionLanguage.Operation op = (TaskDefinitionLanguage.Operation) ti;
 
@@ -26,23 +28,32 @@ public class PropertiesWriter {
 
                 if (op.definitions != null) {
                     for (Map.Entry<String, String> entry : op.definitions.entrySet()) {
-                        properties.put(Constants.OP_DEFINITION_PREFIX + opName + "." + entry.getKey(), entry.getValue());
+                        String value = entry.getValue();
+                        if (!StringUtils.isEmpty(value)) {
+                            properties.put(Constants.OP_DEFINITION_PREFIX + opName + "." + entry.getKey(), value);
+                        }
                     }
                 }
 
-                if (op.inputs.positionalNames != null) {
-                    properties.put(Constants.OP_INPUTS_PREFIX + opName, op.inputs.positionalNames);
-                } else if (op.inputs.named != null) {
-                    for (Map.Entry<String, String> entry : op.inputs.named.entrySet()) {
-                        properties.put(Constants.OP_INPUT_PREFIX + opName + "." + entry.getKey(), entry.getValue());
+                if (!StringUtils.isEmpty(op.input.positional)) {
+                    properties.put(Constants.OP_INPUTS_PREFIX + opName, op.input.positional);
+                } else if (op.input.named != null) {
+                    for (Map.Entry<String, String> entry : op.input.named.entrySet()) {
+                        String value = entry.getValue();
+                        if (!StringUtils.isEmpty(value)) {
+                            properties.put(Constants.OP_INPUT_PREFIX + opName + "." + entry.getKey(), value);
+                        }
                     }
                 }
 
-                if (op.outputs.positionalNames != null) {
-                    properties.put(Constants.OP_OUTPUTS_PREFIX + opName, op.outputs.positionalNames);
-                } else if (op.outputs.named != null) {
-                    for (Map.Entry<String, String> entry : op.outputs.named.entrySet()) {
-                        properties.put(Constants.OP_OUTPUT_PREFIX + opName + "." + entry.getKey(), entry.getValue());
+                if (!StringUtils.isEmpty(op.output.positional)) {
+                    properties.put(Constants.OP_OUTPUTS_PREFIX + opName, op.output.positional);
+                } else if (op.output.named != null) {
+                    for (Map.Entry<String, String> entry : op.output.named.entrySet()) {
+                        String value = entry.getValue();
+                        if (!StringUtils.isEmpty(value)) {
+                            properties.put(Constants.OP_OUTPUT_PREFIX + opName + "." + entry.getKey(), value);
+                        }
                     }
                 }
             } else if (ti instanceof TaskDefinitionLanguage.Directive) {
@@ -52,21 +63,18 @@ public class PropertiesWriter {
             }
         }
 
-        for (Map.Entry<String, TaskDefinitionLanguage.DataStream> dss : task.dataStreams.entrySet()) {
+        for (Map.Entry<String, TaskDefinitionLanguage.DataStream> dss : task.streams.entrySet()) {
             String dsName = dss.getKey();
             TaskDefinitionLanguage.DataStream ds = dss.getValue();
 
             if (dsName.equals(Constants.DEFAULT_DS)) {
                 if (ds.output != null) {
-                    if (ds.output.path != null) {
-                        properties.put(Constants.DS_OUTPUT_PATH, ds.output.path);
-                    }
-                    if ((ds.output.delimiter != null) && (ds.output.delimiter.charAt(0) != Constants.DEFAULT_DELIMITER)) {
+                    if (!StringUtils.isEmpty(ds.output.delimiter) && (ds.output.delimiter.charAt(0) != Constants.DEFAULT_DELIMITER)) {
                         properties.put(Constants.DS_OUTPUT_DELIMITER, ds.output.delimiter);
                     }
                 }
                 if (ds.input != null) {
-                    if ((ds.input.delimiter != null) && (ds.input.delimiter.charAt(0) != Constants.DEFAULT_DELIMITER)) {
+                    if (!StringUtils.isEmpty(ds.input.delimiter) && (ds.input.delimiter.charAt(0) != Constants.DEFAULT_DELIMITER)) {
                         properties.put(Constants.DS_INPUT_DELIMITER, ds.input.delimiter);
                     }
                 }
@@ -75,31 +83,25 @@ public class PropertiesWriter {
             }
 
             if (ds.input != null) {
-                if (ds.input.path != null) {
-                    properties.put(Constants.DS_INPUT_PATH_PREFIX + dsName, ds.input.path);
-                }
-                if (ds.input.partCount != null) {
+                if (!StringUtils.isEmpty(ds.input.partCount)) {
                     properties.put(Constants.DS_INPUT_PART_COUNT_PREFIX + dsName, ds.input.partCount);
                 }
-                if (ds.input.columns != null) {
+                if (!StringUtils.isEmpty(ds.input.columns)) {
                     properties.put(Constants.DS_INPUT_COLUMNS_PREFIX + dsName, ds.input.columns);
                 }
-                if ((ds.input.delimiter != null) && (ds.input.delimiter.charAt(0) != Constants.DEFAULT_DELIMITER)) {
+                if (!StringUtils.isEmpty(ds.input.delimiter) && (ds.input.delimiter.charAt(0) != Constants.DEFAULT_DELIMITER)) {
                     properties.put(Constants.DS_INPUT_DELIMITER_PREFIX + dsName, ds.input.delimiter);
                 }
             }
 
             if (ds.output != null) {
-                if (ds.output.path != null) {
-                    properties.put(Constants.DS_OUTPUT_PATH_PREFIX + dsName, ds.output.path);
-                }
-                if (ds.output.partCount != null) {
+                if (!StringUtils.isEmpty(ds.output.partCount)) {
                     properties.put(Constants.DS_OUTPUT_PART_COUNT_PREFIX + dsName, ds.output.partCount);
                 }
-                if (ds.output.columns != null) {
+                if (!StringUtils.isEmpty(ds.output.columns)) {
                     properties.put(Constants.DS_OUTPUT_COLUMNS_PREFIX + dsName, ds.output.columns);
                 }
-                if ((ds.output.delimiter != null) && (ds.output.delimiter.charAt(0) != Constants.DEFAULT_DELIMITER)) {
+                if (!StringUtils.isEmpty(ds.output.delimiter) && (ds.output.delimiter.charAt(0) != Constants.DEFAULT_DELIMITER)) {
                     properties.put(Constants.DS_OUTPUT_DELIMITER_PREFIX + dsName, ds.output.delimiter);
                 }
             }
@@ -119,17 +121,13 @@ public class PropertiesWriter {
             }
         }
 
-        if (task.prefix != null) {
-            properties = properties.entrySet().stream()
-                    .collect(Collectors.toMap(e -> task.prefix + "." + e.getKey(), Map.Entry::getValue));
-        }
-
         DocComparator cmp = new DocComparator(opNames);
 
         Map<String, String> sorted = properties.keySet().stream()
                 .sorted(cmp)
                 .collect(Collectors.toMap(k -> k, properties::get, (o, n) -> n, LinkedHashMap::new));
 
+        String prefix = StringUtils.isEmpty(task.prefix) ? "" : task.prefix + ".";
         String kk = null;
         for (Map.Entry<String, String> e : sorted.entrySet()) {
             String k = e.getKey();
@@ -142,7 +140,7 @@ public class PropertiesWriter {
                     writer.write("\n");
                 }
             }
-            writer.write(k + "=" + String.join("\\", replNL.split(e.getValue())));
+            writer.write(prefix + k + "=" + String.join("\\", replNL.split(e.getValue())));
             kk = k;
         }
         writer.write("\n");

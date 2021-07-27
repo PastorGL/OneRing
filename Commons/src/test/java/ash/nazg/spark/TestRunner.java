@@ -47,11 +47,10 @@ public class TestRunner implements AutoCloseable {
             String rootResourcePath = getClass().getResource("/").getPath();
             for (Object p : source.keySet()) {
                 String prop = (String) p;
-                if (prop.startsWith(Constants.DS_INPUT_PATH_PREFIX)) {
+                if (prop.startsWith("input.path.")) {
                     source.setProperty(prop, rootResourcePath + source.get(p));
                 }
             }
-            source.setProperty(Constants.DS_OUTPUT_PATH, "goes to nowhere");
 
             taskConfig = PropertiesReader.toTask(source, overrides);
         } catch (Exception e) {
@@ -62,10 +61,11 @@ public class TestRunner implements AutoCloseable {
     public Map<String, JavaRDDLike> go() throws Exception {
         Map<String, JavaRDDLike> rdds = new HashMap<>();
 
-        StreamResolver dsResolver = new StreamResolver(taskConfig.dataStreams);
+        StreamResolver dsResolver = new StreamResolver(taskConfig.streams);
+        InOutResolver ioResolver = new InOutResolver(taskConfig);
 
         for (String input : taskConfig.input) {
-            rdds.put(input, context.textFile(dsResolver.inputPath(input), Math.max(dsResolver.inputParts(input), 1)));
+            rdds.put(input, context.textFile(ioResolver.inputPath(input), Math.max(dsResolver.inputParts(input), 1)));
         }
 
         new Interpreter(taskConfig, context).processTaskChain(rdds);

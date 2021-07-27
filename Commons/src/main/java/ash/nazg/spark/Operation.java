@@ -8,15 +8,18 @@ import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.OperationResolver;
 import ash.nazg.config.tdl.StreamResolver;
 import ash.nazg.config.tdl.TaskDefinitionLanguage;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.OperationMeta;
 import org.apache.spark.api.java.JavaRDDLike;
 import org.apache.spark.api.java.JavaSparkContext;
 
 import java.io.Serializable;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 
 public abstract class Operation implements Serializable {
-    public final TaskDescriptionLanguage.Operation description;
+    public final OperationMeta meta;
 
     protected JavaSparkContext ctx;
     protected OperationResolver opResolver;
@@ -24,7 +27,7 @@ public abstract class Operation implements Serializable {
     protected String name;
 
     public Operation() {
-        this.description = description();
+        this.meta = meta();
     }
 
     public void initialize(JavaSparkContext ctx) {
@@ -32,16 +35,14 @@ public abstract class Operation implements Serializable {
     }
 
     public void configure(TaskDefinitionLanguage.Operation opConfig, TaskDefinitionLanguage.DataStreams dsConfig) throws InvalidConfigValueException {
-        this.opResolver = new OperationResolver(description, opConfig);
+        this.opResolver = new OperationResolver(meta, opConfig);
         this.dsResolver = new StreamResolver(dsConfig);
         this.name = opConfig.name;
 
         configure();
     }
 
-    abstract public String verb();
-
-    abstract protected TaskDescriptionLanguage.Operation description();
+    abstract public OperationMeta meta();
 
     abstract protected void configure() throws InvalidConfigValueException;
 

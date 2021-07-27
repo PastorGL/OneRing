@@ -5,9 +5,9 @@
 package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import net.sf.geographiclib.Geodesic;
 import net.sf.geographiclib.PolygonArea;
@@ -17,43 +17,43 @@ import org.apache.hadoop.io.MapWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
-import org.locationtech.jts.geom.*;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.Polygon;
 
-import java.util.*;
-
-import static ash.nazg.spatial.config.ConfigurationParameters.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 @SuppressWarnings("unused")
 public class PolygonStatsOperation extends Operation {
-    public static final String VERB = "polygonStats";
+    private static final String GEN_AREA = "_area";
+    private static final String GEN_PERIMETER = "_perimeter";
 
     private String inputName;
+
     private String outputName;
 
     @Override
-    @Description("Take a Polygon RDD and augment its properties with statistics")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("polygonStats", "Take a Polygon RDD and augment its properties with statistics",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
+                new PositionalStreamsMetaBuilder()
+                        .ds("Polygon RDD to count the stats",
+                                new StreamType[]{StreamType.Polygon}
+                        )
+                        .build(),
+
                 null,
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Polygon},
-                                false
+                new PositionalStreamsMetaBuilder()
+                        .ds("Polygon RDD with stat parameters calculated",
+                                new StreamType[]{StreamType.Polygon}, true
                         )
-                ),
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Polygon},
-                                new String[]{GEN_PERIMETER, GEN_AREA}
-                        )
-                )
+                        .genCol(GEN_AREA, "Polygon area in square meters")
+                        .genCol(GEN_PERIMETER, "Polygon perimeter in meters")
+                        .build()
         );
     }
 

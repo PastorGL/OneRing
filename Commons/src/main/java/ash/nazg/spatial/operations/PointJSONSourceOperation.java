@@ -5,9 +5,10 @@
 package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import org.apache.hadoop.io.DoubleWritable;
 import org.apache.hadoop.io.MapWritable;
@@ -28,43 +29,33 @@ import static ash.nazg.spatial.config.ConfigurationParameters.*;
 
 @SuppressWarnings("unused")
 public class PointJSONSourceOperation extends Operation {
-    @Description("By default, don't add _radius attribute to the point")
-    public static final Double DEF_DEFAULT_RADIUS = null;
-
-    public static final String VERB = "pointJsonSource";
-
     private String inputName;
 
     private String outputName;
     private List<String> outputColumns;
+
     private Double defaultRadius;
 
     @Override
-    @Description("Take GeoJSON fragment file and produce a Point RDD")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("pointJsonSource", "Take GeoJSON fragment file and produce a Point RDD",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(OP_DEFAULT_RADIUS, Double.class, DEF_DEFAULT_RADIUS),
-                },
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Plain},
-                                false
+                new PositionalStreamsMetaBuilder()
+                        .ds("Plain RDD with GeoJSON fragments on each line",
+                                new StreamType[]{StreamType.Plain}
                         )
-                ),
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new StreamType[]{StreamType.Point},
-                                true
+                new DefinitionMetaBuilder()
+                        .def(OP_DEFAULT_RADIUS, "If set, generated Points will have this value in the _radius parameter",
+                                Double.class, null, "By default, don't add _radius attribute to the point")
+                        .build(),
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("Resulting Point RDD",
+                                new StreamType[]{StreamType.Point}, true
                         )
-                )
+                        .build()
         );
     }
 
