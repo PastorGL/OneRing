@@ -25,18 +25,16 @@ public abstract class MatchFilterOperation extends Operation {
     protected String outputEvictedName;
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputSourceName = opResolver.namedInput(RDD_INPUT_SOURCE);
+        inputSourceDelimiter = dsResolver.inputDelimiter(inputSourceName);
 
-        inputSourceName = describedProps.namedInputs.get(RDD_INPUT_SOURCE);
-        inputSourceDelimiter = dataStreamsProps.inputDelimiter(inputSourceName);
+        outputMatchedName = opResolver.namedOutput(RDD_OUTPUT_MATCHED);
+        outputEvictedName = opResolver.namedOutput(RDD_OUTPUT_EVICTED);
 
-        outputMatchedName = describedProps.namedOutputs.get(RDD_OUTPUT_MATCHED);
-        outputEvictedName = describedProps.namedOutputs.get(RDD_OUTPUT_EVICTED);
+        Map<String, Integer> inputSourceColumns = dsResolver.inputColumns(inputSourceName);
 
-        Map<String, Integer> inputSourceColumns = dataStreamsProps.inputColumns.get(inputSourceName);
-
-        String prop = describedProps.defs.getTyped(DS_SOURCE_MATCH_COLUMN);
+        String prop = opResolver.definition(DS_SOURCE_MATCH_COLUMN);
         matchColumn = inputSourceColumns.get(prop);
     }
 

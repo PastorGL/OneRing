@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>One Ring</title>
+    <script src="/js/script.js"></script>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body onload="taskNew();switchLayers('input');">
+<div class="grid-container">
+<div class="cell toolbar"><fieldset><legend>Task</legend><button onclick="taskNew()">New</button> ∙ <button onclick="taskSetCode()">Code...</button></fieldset>
+<fieldset><legend><label for="inp-task-prefix">Prefix</label></legend><input oninput="taskSetPrefix()" id='inp-task-prefix' class="task-prefix"></fieldset>
+<fieldset><legend>Configuration Layers</legend><button class="switch" id="switch-input" onclick="switchLayers('input')">Input</button>
+∙ <button class="switch" id="switch-operations" onclick="switchLayers('operations')">Task Items</button>
+∙ <button class="switch" id="switch-output" onclick="switchLayers('output')">Output</button>
+| <button class="switch" id="switch-foreign" onclick="switchLayers('foreign')">Foreign</button></fieldset>
+<fieldset><legend><label for="task-variables">{VARIABLES}</label></legend><select class="task-vars" id="task-variables"></select><button onclick="taskSetVariables()">Set...</button></fieldset>
+<fieldset><legend>Actions</legend><button onclick="taskValidate()">Validate</button>
+∙ <button disabled onclick="taskRun()">Run</button><select disabled id="run-where"><option value="local">locally</option><option value="remote/tc">via TeamCity</option></select></fieldset></div>
+<div class="cell sources">
+    <div class="layer" id="layer-input">Input Adapters
+        <ul id="list-input"></ul></div>
+    <div class="layer" id="layer-operations">Control Flow $DIRECTIVES
+        <ul>
+            <li><label><button onclick="addNewDir('LET')">LET</button><small>Create a list variable from data stream</small></label></li>
+            <li><label><button onclick="addNewDir('ITER')">ITER</button><small>Iterate through a list variable</small></label></li>
+            <li><label><button onclick="addNewDir('END')">END</button><small>End loop or conditional</small></label></li>
+            <li><label><button onclick="addNewDir('IF')">IF</button><small>Conditional operator</small></label></li>
+            <li><label><button onclick="addNewDir('ELSE')">ELSE</button><small>Alternate branch of conditional or empty list loop</small></label></li>
+            <li><label><button onclick="addNewDir('METRICS')">METRICS</button><small>Calculate data stream metrics</small></label></li>
+        </ul>
+        Operations
+        <ul id="list-operations"></ul></div>
+    <div class="layer" id="layer-output">Output Adapters
+        <ul id="list-output"></ul></div>
+    <div class="layer" id="layer-foreign">Foreign Layers
+        <ul id="list-foreign"></ul>
+        New Layer
+        <ul><li><input id="new-layer" class="task-prefix"><button onclick="addNewLayer()">Add...</button></li></ul>
+    </div>
+</div>
+<div id="canvas-task" class="cell canvas task"></div><div id="canvas-ds" class="cell canvas data-streams"></div>
+</div>
+<div class="modal" id="modal"><div class="dialog"><div class="dialog-header"><span class="btn-right"><button id="dialog-button"></button><button id="dialog-cancel" onclick="cancelDialog()"></button></span><span id="dialog-message"></span></div><textarea class="dialog-content" spellcheck="false" id="dialog-text"></textarea></div></div>
+</body>
+</html>

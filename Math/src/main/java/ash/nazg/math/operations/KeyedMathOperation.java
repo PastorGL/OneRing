@@ -5,186 +5,226 @@
 package ash.nazg.math.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.StreamType;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
+import ash.nazg.math.config.CalcFunction;
 import ash.nazg.math.functions.keyed.*;
 import ash.nazg.spark.Operation;
-import ash.nazg.config.OperationConfig;
-import ash.nazg.math.config.CalcFunction;
-import ash.nazg.math.config.ConfigurationParameters;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 import scala.Tuple2;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
+import static ash.nazg.math.config.ConfigurationParameters.*;
 
 @SuppressWarnings("unused")
 public class KeyedMathOperation extends Operation {
-    @Description("By default the constant isn't set")
-    public static final Double DEF_CALC_CONST = null;
-    @Description("By default, use entire value as calculation source")
-    public static final String DEF_CALC_COLUMN = null;
-
-    private static final String VERB = "keyedMath";
+    private static final String OP_MINIMAX_FULL = "minimax.full";
 
     private String inputName;
     private char inputDelimiter;
-    private String outputName;
-
     private Integer calcColumn;
+    private CalcFunction calcFunction;
+    private Boolean minimaxFull = false;
+
+    private String outputName;
 
     private KeyedFunction keyedFunc;
 
     @Override
-    @Description("Take an PairRDD and calculate a 'series' mathematical function over all values (or a selected" +
-            " value column), treated as a Double, under each unique key")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("keyedMath", "Take an PairRDD and calculate a 'series' mathematical" +
+                " function over all values (or a selected value column), treated as a Double, under each unique key",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(ConfigurationParameters.DS_CALC_COLUMN, DEF_CALC_COLUMN),
-                        new TaskDescriptionLanguage.Definition(ConfigurationParameters.OP_CALC_FUNCTION, CalcFunction.class),
-                        new TaskDescriptionLanguage.Definition(ConfigurationParameters.OP_CALC_CONST, Double.class, DEF_CALC_CONST),
-                },
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.KeyValue},
-                                true
+                new PositionalStreamsMetaBuilder()
+                        .ds("Pair RDD with a set of columns of type Double that comprise a series under each unique key",
+                                new StreamType[]{StreamType.KeyValue}, true
                         )
-                ),
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.KeyValue},
-                                false
+                new DefinitionMetaBuilder()
+                        .def(DS_CALC_COLUMN, "Column with a Double to use as series source",
+                                null, "By default, use entire value as calculation source")
+                        .def(OP_MINIMAX_FULL, "If set to true, output full source value for MIN and" +
+                                " MAX. Constant will be ignored", Boolean.class, Boolean.FALSE.toString(),
+                                "By default, output only subject column")
+                        .def(OP_CALC_FUNCTION, "The mathematical function to perform", CalcFunction.class)
+                        .def(OP_CALC_CONST, "An optional constant value for the selected function", Double.class,
+                                null, "By default the constant isn't set")
+                        .build(),
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("Pair RDD with calculation result under each input series' key",
+                                new StreamType[]{StreamType.KeyValue}
                         )
-                )
+                        .build()
         );
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        outputName = opResolver.positionalOutput(0);
+        inputDelimiter = dsResolver.inputDelimiter(inputName);
 
-        inputName = describedProps.inputs.get(0);
-        outputName = describedProps.outputs.get(0);
-        inputDelimiter = dataStreamsProps.inputDelimiter(inputName);
-
-        Map<String, Integer> inputColumns = dataStreamsProps.inputColumns.get(inputName);
+        Map<String, Integer> inputColumns = dsResolver.inputColumns(inputName);
 
         String prop;
-        prop = describedProps.defs.getTyped(ConfigurationParameters.DS_CALC_COLUMN);
+        prop = opResolver.definition(DS_CALC_COLUMN);
         calcColumn = inputColumns.get(prop);
 
-        CalcFunction cf = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_FUNCTION);
-        switch (cf) {
+        calcFunction = opResolver.definition(OP_CALC_FUNCTION);
+        switch (calcFunction) {
             case SUM: {
-                Double _const = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
+                Double _const = opResolver.definition(OP_CALC_CONST);
                 keyedFunc = new SumFunction(_const);
                 break;
             }
-            case POWERMEAN:
-            case POWER_MEAN: {
-                Double pow = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
+            case POWERMEAN: {
+                Double pow = opResolver.definition(OP_CALC_CONST);
                 if (pow == null) {
-                    throw new InvalidConfigValueException("POWERMEAN function of the operation '" + name + "' requires " + ConfigurationParameters.OP_CALC_CONST + " set");
+                    throw new InvalidConfigValueException("POWERMEAN function of the operation '" + name + "' requires " + OP_CALC_CONST + " set");
                 }
                 keyedFunc = new PowerMeanFunction(pow);
                 break;
             }
-            case MEAN:
             case AVERAGE: {
-                Double shift = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
+                Double shift = opResolver.definition(OP_CALC_CONST);
                 keyedFunc = new AverageFunction(shift);
                 break;
             }
-            case RMS:
-            case ROOTMEAN:
-            case ROOT_MEAN:
-            case ROOTMEANSQUARE:
-            case ROOT_MEAN_SQUARE: {
+            case RMS: {
                 keyedFunc = new PowerMeanFunction(2.D);
                 break;
             }
             case MIN: {
-                Double floor = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
+                Double floor = opResolver.definition(OP_CALC_CONST);
                 keyedFunc = new MinFunction(floor);
                 break;
             }
             case MAX: {
-                Double ceil = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
+                Double ceil = opResolver.definition(OP_CALC_CONST);
                 keyedFunc = new MaxFunction(ceil);
                 break;
             }
-            case MULTIPLY:
             case MUL: {
-                Double _const = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
+                Double _const = opResolver.definition(OP_CALC_CONST);
                 keyedFunc = new MulFunction(_const);
                 break;
             }
-            case DIVIDE:
-            case PROPORTION:
             case DIV: {
-                Double _const = describedProps.defs.getTyped(ConfigurationParameters.OP_CALC_CONST);
+                Double _const = opResolver.definition(OP_CALC_CONST);
                 keyedFunc = new DivFunction(_const);
+                break;
+            }
+            case EQUALITY: {
+                Double _const = opResolver.definition(OP_CALC_CONST);
+                keyedFunc = new EqualityFunction(_const);
                 break;
             }
         }
 
+        if ((calcColumn != null) && ((calcFunction == CalcFunction.MIN) || (calcFunction == CalcFunction.MAX))) {
+            minimaxFull = opResolver.definition(OP_MINIMAX_FULL);
+        }
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         JavaPairRDD<Object, Object> inputRDD = (JavaPairRDD<Object, Object>) input.get(inputName);
-        JavaPairRDD<Object, Double> doubleRDD;
 
-        if (calcColumn != null) {
-            char _inputDelimiter = inputDelimiter;
-            int _calcColumn = calcColumn;
-            doubleRDD = inputRDD.mapPartitionsToPair(it -> {
-                CSVParser parser = new CSVParserBuilder().withSeparator(_inputDelimiter).build();
-                List<Tuple2<Object, Double>> ret = new ArrayList<>();
+        if (!minimaxFull) {
+            JavaPairRDD<Object, Double> doubleRDD;
 
-                while (it.hasNext()) {
-                    Tuple2<Object, Object> t = it.next();
+            if (calcColumn != null) {
+                final char _inputDelimiter = inputDelimiter;
+                final int _calcColumn = calcColumn;
+                doubleRDD = inputRDD.mapPartitionsToPair(it -> {
+                    CSVParser parser = new CSVParserBuilder().withSeparator(_inputDelimiter).build();
+                    List<Tuple2<Object, Double>> ret = new ArrayList<>();
 
-                    Object o = t._2;
-                    String l = o instanceof String ? (String) o : String.valueOf(o);
-                    String[] row = parser.parseLine(l);
+                    while (it.hasNext()) {
+                        Tuple2<Object, Object> t = it.next();
 
-                    ret.add(new Tuple2<>(t._1, new Double(row[_calcColumn])));
-                }
+                        Object o = t._2;
+                        String l = o instanceof String ? (String) o : String.valueOf(o);
+                        String[] row = parser.parseLine(l);
 
-                return ret.iterator();
-            });
-        } else {
-            doubleRDD = inputRDD.mapToPair(t -> new Tuple2<>(t._1, new Double(String.valueOf(t._2))));
+                        ret.add(new Tuple2<>(t._1, new Double(row[_calcColumn])));
+                    }
+
+                    return ret.iterator();
+                });
+            } else {
+                doubleRDD = inputRDD.mapToPair(t -> new Tuple2<>(t._1, new Double(String.valueOf(t._2))));
+            }
+
+            JavaPairRDD<Object, Double> output = doubleRDD
+                    .combineByKey(
+                            t -> {
+                                List<Double> ret = new ArrayList<>();
+                                ret.add(t);
+                                return ret;
+                            },
+                            (l, t) -> {
+                                l.add(t);
+                                return l;
+                            },
+                            (l1, l2) -> {
+                                l1.addAll(l2);
+                                return l1;
+                            }
+                    )
+                    .mapPartitionsToPair(keyedFunc);
+
+            return Collections.singletonMap(outputName, output);
         }
 
-        JavaPairRDD<Object, Double> output = doubleRDD
-                .combineByKey(
-                        t -> {
-                            List<Double> ret = new ArrayList<>();
-                            ret.add(t);
-                            return ret;
-                        },
-                        (l, t) -> {
-                            l.add(t);
-                            return l;
-                        },
-                        (l1, l2) -> {
-                            l1.addAll(l2);
-                            return l1;
+        final char _inputDelimiter = inputDelimiter;
+        final int _calcColumn = calcColumn;
+        final CalcFunction _calcFunction = calcFunction;
+        JavaPairRDD<Object, Object> output = inputRDD.mapPartitionsToPair(it -> {
+            CSVParser parser = new CSVParserBuilder().withSeparator(_inputDelimiter).build();
+            List<Tuple2<Object, Tuple2<Object, Double>>> ret = new ArrayList<>();
+
+            while (it.hasNext()) {
+                Tuple2<Object, Object> t = it.next();
+
+                Object o = t._2;
+                String l = o instanceof String ? (String) o : String.valueOf(o);
+                String[] row = parser.parseLine(l);
+
+                ret.add(new Tuple2<>(t._1, new Tuple2<>(o, new Double(row[_calcColumn]))));
+            }
+
+            return ret.iterator();
+        })
+        .reduceByKey(
+                (t1, t2) -> {
+                    if (_calcFunction == CalcFunction.MIN) {
+                        if (t1._2 < t2._2) {
+                            return t1;
+                        } else {
+                            return t2;
                         }
-                )
-                .mapPartitionsToPair(keyedFunc);
+                    }
+                    if (t1._2 > t2._2) {
+                        return t1;
+                    } else {
+                        return t2;
+                    }
+                }
+        )
+        .mapValues(Tuple2::_1);
 
         return Collections.singletonMap(outputName, output);
     }

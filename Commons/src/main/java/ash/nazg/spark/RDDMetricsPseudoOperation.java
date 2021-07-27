@@ -1,9 +1,18 @@
+/**
+ * Copyright (C) 2020 Locomizer team and Contributors
+ * This project uses New BSD license with do no evil clause. For full text, check the LICENSE file in the root directory.
+ */
 package ash.nazg.spark;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.Constants;
+import ash.nazg.config.tdl.StreamType;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
+import com.opencsv.CSVWriter;
 import org.apache.hadoop.io.MapWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -13,65 +22,64 @@ import org.locationtech.jts.geom.Geometry;
 import scala.Tuple2;
 
 import javax.xml.bind.DatatypeConverter;
+import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.*;
 
-import static ash.nazg.config.tdl.TaskDescriptionLanguage.StreamType.*;
-
 public abstract class RDDMetricsPseudoOperation extends Operation {
     private Map<String, String> counterColumns;
-
-    private Map<String, Map<String, Double>> metrics;
-
-    @Override
-    public String verb() {
-        return null;
-    }
+    private char outputDelimiter;
 
     @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(null,
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.DynamicDef("count.column.", String.class)
-                },
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(new TaskDescriptionLanguage.StreamType[]{
-                                CSV, Fixed, // per column
-                                KeyValue, // per key
-                                Point, Track, Polygon, // per property
-                                Plain // per record
+    public OperationMeta meta() {
+        return new OperationMeta(null, null,
+                new PositionalStreamsMetaBuilder()
+                        .ds(null, new StreamType[]{
+                                StreamType.CSV, StreamType.Fixed, // per column
+                                StreamType.KeyValue, // per key
+                                StreamType.Point, StreamType.Track, StreamType.Polygon, // per property
+                                StreamType.Plain // per record
                         }, true)
-                ),
+                        .build(),
+
+                new DefinitionMetaBuilder()
+                        .def("count.column.", null)
+                        .build(),
 
                 null
         );
     }
 
     @Override
-    public void configure(Properties config, Properties variables) throws InvalidConfigValueException {
-        super.configure(config, variables);
-
+    public void configure() throws InvalidConfigValueException {
         counterColumns = new HashMap<>();
-        for (String inputName : describedProps.inputs) {
-            String column = describedProps.defs.getTyped("count.column." + inputName);
+        for (String inputName : opResolver.positionalInputs()) {
+            String column = opResolver.definition("count.column." + inputName);
             counterColumns.put(inputName, column); // null effectively converts input to Plain
         }
+
+        outputDelimiter = dsResolver.outputDelimiter(Constants.METRICS_DS);
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) throws Exception {
-        metrics = new HashMap<>();
+        JavaRDD<Text> metricsRdd = (JavaRDD<Text>) input.get(Constants.METRICS_DS);
+        if (metricsRdd == null) {
+            metricsRdd = ctx.emptyRDD();
+        }
+
+        List<Text> metricsList = new ArrayList<>();
 
         for (String inputName : counterColumns.keySet()) {
-            String[] columns = dataStreamsProps.inputColumnsRaw.get(inputName);
-            Character delim = dataStreamsProps.inputDelimiter(inputName);
+            String[] columns = dsResolver.rawInputColumns(inputName);
+            final char _inputDelimiter = dsResolver.inputDelimiter(inputName);
 
             List<String> inputs = getMatchingInputs(input.keySet(), inputName);
             for (String matchingInput : inputs) {
                 if (columns == null) {
-                    columns = dataStreamsProps.inputColumnsRaw.get(matchingInput);
+                    columns = dsResolver.rawInputColumns(matchingInput);
                 }
                 int idx = -1;
                 final String counterColumn = counterColumns.get(inputName);
@@ -84,14 +92,6 @@ public abstract class RDDMetricsPseudoOperation extends Operation {
                     }
                 }
                 final int counterIndex = idx;
-
-                if (delim == null) {
-                    delim = dataStreamsProps.inputDelimiter(matchingInput);
-                }
-                if (delim == null) {
-                    delim = dataStreamsProps.defaultInputDelimiter();
-                }
-                final char _inputDelimiter = delim;
 
                 JavaRDDLike inputRdd = input.get(matchingInput);
                 JavaPairRDD<Object, Object> rdd2 = null;
@@ -137,50 +137,39 @@ public abstract class RDDMetricsPseudoOperation extends Operation {
                         .sortBy(t -> t, true, 1)
                         .collect();
 
-                int size = counts.size();
-                Map<String, Double> map = new HashMap<>();
-                String counter, values;
+                int counters = counts.size();
+                String values;
                 if (counterColumn != null) {
                     if (counterIndex < 0) { // Point, Track, Polygon
-                        counter = "Count of unique objects by property '" + counterColumn + "'";
                         values = "objects";
                     } else { // CSV, Fixed
-                        counter = "Count of unique records by column '" + counterColumn + "'";
                         values = "records";
                     }
                 } else {
                     if (pair) { // KeyValue
-                        counter = "Count of unique pair keys";
                         values = "pairs";
                     } else { // Plain
-                        counter = "Count of unique opaque records";
                         values = "opaque records";
                     }
                 }
-                map.put(counter, (double) size);
-                double num = counts.stream().reduce(Long::sum).orElse(0L).doubleValue();
-                map.put("Total number of " + values, num);
-                map.put("Average number of " + values + " per counter", (size == 0) ? 0.D : (num / size));
-                String median = "Median number of " + values + " per counter";
-                if (size == 0) {
-                    map.put(median, 0.D);
-                } else {
-                    int m = size >> 1;
-                    if (size % 2 == 0) {
-                        map.put(median, (counts.get(m) + counts.get(m + 1)) / 2.D);
-                    } else {
-                        map.put(median, counts.get(m).doubleValue());
-                    }
+                long total = counts.stream().reduce(Long::sum).orElse(0L);
+                double average = (counters == 0) ? 0.D : ((double) total / counters);
+                double median = 0.D;
+                if (counters != 0) {
+                    int m = (counters <= 2) ? 0 : (counters >> 1);
+                    median = ((counters % 2) == 0) ? (counts.get(m) + counts.get(m + 1)) / 2.D : counts.get(m).doubleValue();
                 }
 
-                metrics.put(matchingInput, map);
+                StringWriter buffer = new StringWriter();
+
+                CSVWriter writer = new CSVWriter(buffer, outputDelimiter, CSVWriter.DEFAULT_QUOTE_CHARACTER, CSVWriter.DEFAULT_ESCAPE_CHARACTER, "");
+                writer.writeNext(new String[]{inputName, values, String.valueOf(counterColumn), String.valueOf(total), String.valueOf(counters), String.valueOf(average), String.valueOf(median)}, false);
+                writer.close();
+
+                metricsList.add(new Text(buffer.toString()));
             }
         }
 
-        return null;
-    }
-
-    public Map<String, Map<String, Double>> getMetrics() {
-        return metrics;
+        return Collections.singletonMap(Constants.METRICS_DS, ctx.union(metricsRdd, ctx.parallelize(metricsList, 1)));
     }
 }

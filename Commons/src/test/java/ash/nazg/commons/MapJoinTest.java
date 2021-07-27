@@ -17,9 +17,8 @@ import static org.junit.Assert.assertEquals;
 
 public class MapJoinTest {
     @Test
-    public void mapJoinTest() throws Exception {
+    public void innerJoinTest() throws Exception {
         try (TestRunner underTest = new TestRunner("/test.mapjoin.properties")) {
-
             Map<String, JavaRDDLike> ret = underTest.go();
 
             JavaPairRDD<Text, Text> left = (JavaPairRDD<Text, Text>) ret.get("left_pair");
@@ -35,9 +34,46 @@ public class MapJoinTest {
             );
 
             JavaRDD<Text> resultRDD = (JavaRDD<Text>) ret.get("joined");
-
             assertEquals(
                     12,
+                    resultRDD.count()
+            );
+        }
+    }
+
+    @Test
+    public void mapDifferentJoinsTest() throws Exception {
+        try (TestRunner underTest = new TestRunner("/test.mapjoin.properties")) {
+            Map<String, JavaRDDLike> ret = underTest.go();
+
+            JavaRDD<Text> resultRDD = (JavaRDD<Text>) ret.get("joined_left");
+            assertEquals(
+                    6,
+                    resultRDD.count()
+            );
+
+            resultRDD = (JavaRDD<Text>) ret.get("joined_right");
+            assertEquals(
+                    4,
+                    resultRDD.count()
+            );
+
+            resultRDD = (JavaRDD<Text>) ret.get("joined_outer");
+            assertEquals(
+                    8,
+                    resultRDD.count()
+            );
+        }
+    }
+
+    @Test
+    public void joinThreeMapsTest() throws Exception {
+        try (TestRunner underTest = new TestRunner("/test.join3.properties")) {
+            Map<String, JavaRDDLike> ret = underTest.go();
+
+            JavaRDD<Text> resultRDD = (JavaRDD<Text>) ret.get("joined_3");
+            assertEquals(
+                    14,
                     resultRDD.count()
             );
         }

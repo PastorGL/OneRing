@@ -9,6 +9,7 @@ import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 import org.junit.Test;
+import scala.Tuple2;
 
 import java.util.Map;
 
@@ -49,6 +50,30 @@ public class KeyedMathOperationTest {
             res = ((JavaPairRDD)ret.get("mul")).collectAsMap();
             assertEquals(20196938.49, res.get(cd27220b), 1E-2D);
             assertNotEquals(0.D, res.get(c7e5a6f9), 0.D);
+        }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void keyedMinimaxTest() throws Exception {
+        try (TestRunner underTest = new TestRunner("/test.keyedMinimax.properties")) {
+
+            Map<String, JavaRDDLike> ret = underTest.go();
+
+            Text cd27220b = new Text("cd27220b-11e9-4d00-b914-eb567d4df6e7");
+            Text c7e5a6f9 = new Text("c7e5a6f9-ca03-4554-a046-541ff46cd88b");
+
+            Map<Text, Double> res = ((JavaPairRDD<Text, Text>) ret.get("min"))
+                    .mapToPair(t-> new Tuple2<>(t._1, Double.parseDouble(t._2.toString().split("\t")[1])))
+                    .collectAsMap();
+            assertEquals(0.D, res.get(cd27220b), 0.D);
+            assertEquals(0.D, res.get(c7e5a6f9), 0.D);
+
+            res = ((JavaPairRDD<Text, Text>)ret.get("max"))
+                    .mapToPair(t-> new Tuple2<>(t._1, Double.parseDouble(t._2.toString().split("\t")[1])))
+                    .collectAsMap();
+            assertEquals(0.D, res.get(cd27220b), 0.D);
+            assertEquals(27.5995511D, res.get(c7e5a6f9), 1E-6D);
         }
     }
 }

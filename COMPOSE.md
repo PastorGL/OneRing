@@ -1,14 +1,14 @@
 ### One Ring Composer
 
-There is an utility in the CLI to merge (or Compose) two or more One Ring Process Templates into one larger Template.
+There is a utility in the CLI's JAR to merge (or Compose) two or more One Ring Process Templates into one larger Template.
 
-This action is final and should be performed only when the pipeline of all participating Processes is fully established, as it mangles most of named entities from the composed `tasks.ini`s and emits a much less readable config.
+This action is final and should be performed only when the pipeline of all participating Processes is fully established, as it mangles most of named entities from the composed `tasks.ini`s and emits a much less human-readable config.
  
-Name mangling is necessary because `tasks.ini` from different Processes may contain Operations and DataStreams with same names, and we want to avoid reference clashes. DataStreams may persist they names and carry over the resulting config, though.
+Name mangling is necessary because `tasks.ini` from different Processes may contain Operations and DataStreams with same names, and we want to avoid reference clashes. DataStreams may persist their names and carry over the resulting config, though.
 
 Command line invocation of Composer is as follows (also available via [REST](REST.md)):
 ```bash
-java -cp ./TaskWrapper/target/one-ring-cli.jar ash.nazg.composer.Composer -X spark.meta -C "/path/to/process1.ini=alias1,/path/to/process2.ini=alias2" -o /path/to/process1and2.ini -M /path/to/mapping.file -v /path/to/variables.file -F
+java -cp ./CLI/target/one-ring-cli.jar ash.nazg.composer.Composer -X spark.meta -C "/path/to/process1.ini=alias1,/path/to/process2.ini=alias2" -o /path/to/process1and2.ini -M /path/to/mapping.file -v /path/to/variables.file -F
 ```
 
 `-C` parameter is a list of config files `path=alias` pairs, separated by a comma. Order of Operations in the resulting config follows the order of this list. Source configs may be in `.ini` and JSON formats, and even freely mixed, just use `.json` extension for JSON configs.
@@ -30,4 +30,4 @@ This example's first line means that the DataStream `name1` from the Process `al
 
 `-o` path to the composed output config file, in `.ini` format by default. For JSON output use `.json` extension.
 
-`-F` perform a Full Compose, if this switch is given. Resulting `task.tee.outputs` will only contain same outputs as the very last config in the chain, otherwise it'll contain outputs from all merged tasks.
+`-F` perform a Full Compose, if this switch is given. Resulting `task.output` will only contain same outputs as the very last config in the chain, otherwise it'll contain outputs from all merged tasks.

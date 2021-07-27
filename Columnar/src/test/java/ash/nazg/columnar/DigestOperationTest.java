@@ -47,8 +47,11 @@ public class DigestOperationTest {
                 assertEquals(DatatypeConverter.printHexBinary(md5.digest(row[0].getBytes())), row[3]);
                 assertEquals(DatatypeConverter.printHexBinary(sha.digest(row[1].getBytes())), row[4]);
                 assertEquals(DatatypeConverter.printHexBinary(sha256.digest(row[2].getBytes())), row[5]);
+                md5.update(row[1].getBytes());
+                md5.update((byte) 0);
+                md5.update(row[2].getBytes());
+                assertEquals(DatatypeConverter.printHexBinary(md5.digest()), row[6]);
             }
-
         }
     }
 }

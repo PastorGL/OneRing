@@ -5,10 +5,10 @@
 package ash.nazg.commons.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.StreamType;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
-import ash.nazg.config.OperationConfig;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVWriter;
@@ -19,60 +19,52 @@ import org.apache.spark.api.java.JavaRDDLike;
 import scala.Tuple2;
 
 import java.io.StringWriter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 @SuppressWarnings("unused")
 public class CollapsePairOperation extends Operation {
-    private static final String VERB = "collapsePair";
-
     private String inputName;
+    private char inputDelimiter;
+
     private String outputName;
     private char outputDelimiter;
     private int[] outputColumns;
-    private char inputDelimiter;
 
     @Override
-    @Description("Collapse Pair RDD into a CSV RDD")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("collapsePair", "Collapse Pair RDD into a CSV RDD",
+                new PositionalStreamsMetaBuilder()
+                        .ds("Pair RDD to transform into CSV RDD",
+                                new StreamType[]{StreamType.KeyValue}, true
+                        )
+                        .build(),
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
                 null,
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.KeyValue},
-                                true
+                new PositionalStreamsMetaBuilder()
+                        .ds("Collapsed CSV RDD",
+                                new StreamType[]{StreamType.CSV}, true
                         )
-                ),
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
-                                true
-                        )
-                )
+                        .build()
         );
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        inputDelimiter = dsResolver.inputDelimiter(inputName);
 
-        inputName = describedProps.inputs.get(0);
-        inputDelimiter = dataStreamsProps.inputDelimiter(inputName);
+        outputName = opResolver.positionalOutput(0);
+        outputDelimiter = dsResolver.outputDelimiter(outputName);
 
-        outputName = describedProps.outputs.get(0);
-        outputDelimiter = dataStreamsProps.outputDelimiter(outputName);
-
-        Map<String, Integer> inputColumns = dataStreamsProps.inputColumns.get(inputName);
+        Map<String, Integer> inputColumns = dsResolver.inputColumns(inputName);
 
         List<Integer> out = new ArrayList<>();
-        String[] outColumns = dataStreamsProps.outputColumns.get(outputName);
-        if (outColumns.length > 0) {
+        String[] outColumns = dsResolver.outputColumns(outputName);
+        if (outColumns != null) {
             for (String outCol : outColumns) {
                 out.add(inputColumns.get(outCol));
             }
@@ -81,6 +73,7 @@ public class CollapsePairOperation extends Operation {
         }
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         final int[] _outputColumns = outputColumns;

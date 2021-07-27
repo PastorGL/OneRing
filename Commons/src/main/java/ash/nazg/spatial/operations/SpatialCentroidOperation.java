@@ -5,8 +5,11 @@
 package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.StreamType;
+import ash.nazg.config.tdl.metadata.DefinitionEnum;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import ash.nazg.spatial.SegmentedTrack;
 import org.apache.hadoop.io.DoubleWritable;
@@ -18,65 +21,57 @@ import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 import static ash.nazg.spatial.config.ConfigurationParameters.GEN_CENTER_LAT;
 import static ash.nazg.spatial.config.ConfigurationParameters.GEN_CENTER_LON;
 
 @SuppressWarnings("unused")
 public class SpatialCentroidOperation extends Operation {
-    @Description("What to output for SegmentedTrack RDDs")
     public static final String OP_OUTPUT_MODE = "tracks.mode";
-    @Description("By default, output both SegmentedTrack's and TrackSegment's data")
-    public static final OutputMode DEF_OUTPUT_MODE = OutputMode.BOTH;
-
-    public static final String VERB = "spatialCentroid";
 
     private String inputName;
+
     private String outputName;
 
     private OutputMode outputMode;
 
     @Override
-    @Description("Take a SegmentedTrack or Polygon RDD and extract a Point RDD of centroids while keeping" +
-            " all other properties")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("spatialCentroid", "Take a SegmentedTrack or Polygon RDD and extract a Point RDD of centroids while keeping" +
+                " all other properties",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(OP_OUTPUT_MODE, OutputMode.class, DEF_OUTPUT_MODE)
-                },
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Polygon, TaskDescriptionLanguage.StreamType.Track},
-                                false
+                new PositionalStreamsMetaBuilder()
+                        .ds("SegmentedTrack or Polygon RDD",
+                                new StreamType[]{StreamType.Polygon, StreamType.Track}
                         )
-                ),
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Point},
-                                true
+                new DefinitionMetaBuilder()
+                        .def(OP_OUTPUT_MODE, "What to output for SegmentedTrack RDDs", OutputMode.class,
+                                OutputMode.BOTH.name(), "By default, output both SegmentedTrack's and TrackSegment's data")
+                        .build(),
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("Point RDD with centroids",
+                                new StreamType[]{StreamType.Point}, true
                         )
-                )
+                        .build()
         );
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        outputName = opResolver.positionalOutput(0);
 
-        inputName = describedProps.inputs.get(0);
-        outputName = describedProps.outputs.get(0);
-
-        outputMode = describedProps.defs.getTyped(OP_OUTPUT_MODE);
+        outputMode = opResolver.definition(OP_OUTPUT_MODE);
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         final OutputMode _outputMode = outputMode;
@@ -136,12 +131,20 @@ public class SpatialCentroidOperation extends Operation {
         return Collections.singletonMap(outputName, output);
     }
 
-    public enum OutputMode {
-        @Description("Output only TrackSegments' centroids")
-        SEGMENTS,
-        @Description("Output only SegmentedTracks' centroids")
-        TRACKS,
-        @Description("Output both SegmentedTracks' and then each of their TrackSegments' centroids")
-        BOTH
+    public enum OutputMode implements DefinitionEnum {
+        SEGMENTS("Output only TrackSegments' centroids"),
+        TRACKS("Output only SegmentedTracks' centroids"),
+        BOTH("Output both SegmentedTracks' and then each of their TrackSegments' centroids");
+
+        private final String descr;
+
+        OutputMode(String descr) {
+            this.descr = descr;
+        }
+
+        @Override
+        public String descr() {
+            return descr;
+        }
     }
 }

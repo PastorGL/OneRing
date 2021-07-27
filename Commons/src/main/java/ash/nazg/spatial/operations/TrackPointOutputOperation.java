@@ -5,8 +5,9 @@
 package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.StreamType;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import ash.nazg.spatial.SegmentedTrack;
 import ash.nazg.spatial.TrackSegment;
@@ -16,50 +17,44 @@ import org.apache.spark.api.java.JavaRDDLike;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.Point;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 @SuppressWarnings("unused")
 public class TrackPointOutputOperation extends Operation {
-    private static final String VERB = "trackPointOutput";
-
     private String inputName;
+
     private String outputName;
 
     @Override
-    @Description("Take a Track RDD and produce a Point RDD while retaining all properties")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("trackPointOutput", "Take a Track RDD and produce a Point RDD while retaining all properties",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
+                new PositionalStreamsMetaBuilder()
+                        .ds("SegmentedTrack RDD",
+                                new StreamType[]{StreamType.Track}
+                        )
+                        .build(),
+
                 null,
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Track},
-                                false
+                new PositionalStreamsMetaBuilder()
+                        .ds("Point RDD",
+                                new StreamType[]{StreamType.Point}
                         )
-                ),
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Point},
-                                false
-                        )
-                )
+                        .build()
         );
     }
 
     @Override
-    public void configure(Properties config, Properties variables) throws InvalidConfigValueException {
-        super.configure(config, variables);
-
-        inputName = describedProps.inputs.get(0);
-        outputName = describedProps.outputs.get(0);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        outputName = opResolver.positionalOutput(0);
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         JavaRDD<Point> output = ((JavaRDD<SegmentedTrack>) input.get(inputName))

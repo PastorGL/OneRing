@@ -5,8 +5,10 @@
 package ash.nazg.spatial.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.StreamType;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
@@ -26,85 +28,73 @@ import static ash.nazg.spatial.config.ConfigurationParameters.*;
 
 @SuppressWarnings("unused")
 public class PointCSVSourceOperation extends Operation {
-    @Description("By default, don't set Point _radius attribute")
-    public static final Double DEF_DEFAULT_RADIUS = null;
-    @Description("By default, don't set Point _radius attribute")
-    public static final String DEF_CSV_RADIUS_COLUMN = null;
-
-    public static final String VERB = "pointCsvSource";
-
     private String inputName;
     private char inputDelimiter;
     private int latColumn;
     private int lonColumn;
-
     private Integer radiusColumn;
-    private Double defaultRadius;
 
     private String outputName;
     private Map<String, Integer> outputColumns;
 
-    @Override
-    @Description("Take a CSV file and produce a Polygon RDD")
-    public String verb() {
-        return VERB;
-    }
+    private Double defaultRadius;
 
     @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(OP_DEFAULT_RADIUS, Double.class, DEF_DEFAULT_RADIUS),
-                        new TaskDescriptionLanguage.Definition(DS_CSV_RADIUS_COLUMN, DEF_CSV_RADIUS_COLUMN),
-                        new TaskDescriptionLanguage.Definition(DS_CSV_LAT_COLUMN),
-                        new TaskDescriptionLanguage.Definition(DS_CSV_LON_COLUMN),
-                },
+    public OperationMeta meta() {
+        return new OperationMeta("pointCsvSource", "Take a CSV file and produce a Polygon RDD",
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
-                                true
+                new PositionalStreamsMetaBuilder()
+                        .ds("CSV RDD with Point attributes",
+                                new StreamType[]{StreamType.CSV}, true
                         )
-                ),
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.Point},
-                                true
+                new DefinitionMetaBuilder()
+                        .def(OP_DEFAULT_RADIUS, "If set, generated Points will have this value in the _radius parameter",
+                                Double.class, null, "By default, don't set Point _radius attribute")
+                        .def(DS_CSV_RADIUS_COLUMN, "If set, generated Points will take their _radius parameter from the specified column instead",
+                                null, "By default, don't set Point _radius attribute")
+                        .def(DS_CSV_LAT_COLUMN, "Point latitude column")
+                        .def(DS_CSV_LON_COLUMN, "Point longitude column")
+                        .build(),
+
+                new PositionalStreamsMetaBuilder()
+                        .ds("Point RDD generated from CSV input",
+                                new StreamType[]{StreamType.Point}, true
                         )
-                )
+                        .build()
         );
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        outputName = opResolver.positionalOutput(0);
 
-        inputName = describedProps.inputs.get(0);
-        outputName = describedProps.outputs.get(0);
+        inputDelimiter = dsResolver.inputDelimiter(inputName);
 
-        inputDelimiter = dataStreamsProps.inputDelimiter(inputName);
+        defaultRadius = opResolver.definition(OP_DEFAULT_RADIUS);
 
-        defaultRadius = describedProps.defs.getTyped(OP_DEFAULT_RADIUS);
-
-        Map<String, Integer> inputColumns = dataStreamsProps.inputColumns.get(inputName);
-        final List<String> outColumns = Arrays.asList(dataStreamsProps.outputColumns.get(outputName));
+        Map<String, Integer> inputColumns = dsResolver.inputColumns(inputName);
+        String[] outputCols = dsResolver.outputColumns(outputName);
+        final List<String> outColumns = (outputCols == null) ? Collections.emptyList() : Arrays.asList(outputCols);
         outputColumns = inputColumns.entrySet().stream()
-                .filter(c -> (outColumns.size() == 0) || outColumns.contains(c.getKey()))
+                .filter(c -> outColumns.isEmpty() || outColumns.contains(c.getKey()))
                 .collect(Collectors.toMap(c -> c.getKey().replaceFirst("^[^.]+\\.", ""), Map.Entry::getValue));
 
         String prop;
 
-        prop = describedProps.defs.getTyped(DS_CSV_RADIUS_COLUMN);
+        prop = opResolver.definition(DS_CSV_RADIUS_COLUMN);
         radiusColumn = inputColumns.get(prop);
 
-        prop = describedProps.defs.getTyped(DS_CSV_LAT_COLUMN);
+        prop = opResolver.definition(DS_CSV_LAT_COLUMN);
         latColumn = inputColumns.get(prop);
 
-        prop = describedProps.defs.getTyped(DS_CSV_LON_COLUMN);
+        prop = opResolver.definition(DS_CSV_LON_COLUMN);
         lonColumn = inputColumns.get(prop);
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         final int _latColumn = latColumn;

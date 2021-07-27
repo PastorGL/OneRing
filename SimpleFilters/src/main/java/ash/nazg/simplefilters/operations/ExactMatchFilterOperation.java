@@ -5,8 +5,10 @@
 package ash.nazg.simplefilters.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.StreamType;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.NamedStreamsMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
@@ -17,57 +19,42 @@ import static ash.nazg.simplefilters.config.ConfigurationParameters.*;
 
 @SuppressWarnings("unused")
 public class ExactMatchFilterOperation extends MatchFilterOperation {
-    @Description("Values to match any of them")
     public static final String OP_MATCH_VALUES = "match.values";
-
-    public static final String VERB = "exactMatch";
 
     private String[] matchSet;
 
     @Override
-    @Description("This operation is a filter that only passes the rows that have an exact match" +
-            " with a specific set of allowed values in a given column")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("exactMatch", "This operation is a filter that only passes the rows that have an exact match" +
+                " with a specific set of allowed values in a given column",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(DS_SOURCE_MATCH_COLUMN),
-                        new TaskDescriptionLanguage.Definition(OP_MATCH_VALUES, String[].class),
-                },
+                new NamedStreamsMetaBuilder()
+                        .ds(RDD_INPUT_SOURCE, "CSV RDD with to be filtered",
+                                new StreamType[]{StreamType.CSV}, true
+                        )
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.NamedStream[]{
-                                new TaskDescriptionLanguage.NamedStream(RDD_INPUT_SOURCE,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
-                                        true
-                                )
-                        }
-                ),
+                new DefinitionMetaBuilder()
+                        .def(DS_SOURCE_MATCH_COLUMN, "Column to match a value")
+                        .def(OP_MATCH_VALUES, "Values to match any of them", String[].class)
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.NamedStream[]{
-                                new TaskDescriptionLanguage.NamedStream(RDD_OUTPUT_MATCHED,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
-                                        true
-                                ),
-                                new TaskDescriptionLanguage.NamedStream(RDD_OUTPUT_EVICTED,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
-                                        false
-                                ),
-                        }
-                )
+                new NamedStreamsMetaBuilder()
+                        .ds(RDD_OUTPUT_MATCHED, "CSV RDD with matching values",
+                                new StreamType[]{StreamType.CSV}, true
+                        )
+                        .ds(RDD_OUTPUT_EVICTED, "CSV RDD with non-matching values",
+                                new StreamType[]{StreamType.CSV}
+                        )
+                        .build()
         );
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        super.configure();
 
-        matchSet = describedProps.defs.getTyped(OP_MATCH_VALUES);
+        matchSet = opResolver.definition(OP_MATCH_VALUES);
     }
 
     @Override

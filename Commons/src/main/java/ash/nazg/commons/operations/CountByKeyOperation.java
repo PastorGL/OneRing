@@ -5,56 +5,49 @@
 package ash.nazg.commons.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.Description;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.StreamType;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
-import ash.nazg.config.OperationConfig;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 import scala.Tuple2;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 @SuppressWarnings("unused")
 public class CountByKeyOperation extends Operation {
-    public static final String VERB = "countByKey";
-
     private String inputName;
+
     private String outputName;
 
     @Override
-    @Description("Count values under the same key in a given PairRDD. Output is key to Long count PairRDD.")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("countByKey", "Count values under the same key in a given PairRDD. Output is key to Long count PairRDD.",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
+                new PositionalStreamsMetaBuilder()
+                        .ds("Pair RDD to count values under each unique key",
+                                new StreamType[]{StreamType.KeyValue}
+                        )
+                        .build(),
+
                 null,
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.KeyValue},
-                                false
+                new PositionalStreamsMetaBuilder()
+                        .ds("Pair RDD with unique keys and count of values of input RDD under each",
+                                new StreamType[]{StreamType.KeyValue}
                         )
-                ),
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(
-                                new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.KeyValue},
-                                false
-                        )
-                )
+                        .build()
         );
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
-
-        inputName = describedProps.inputs.get(0);
-        outputName = describedProps.outputs.get(0);
+    public void configure() throws InvalidConfigValueException {
+        inputName = opResolver.positionalInput(0);
+        outputName = opResolver.positionalOutput(0);
     }
 
     @Override

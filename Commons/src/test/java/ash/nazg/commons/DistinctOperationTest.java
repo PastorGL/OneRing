@@ -28,7 +28,6 @@ public class DistinctOperationTest {
                     60,
                     resultRDD.count()
             );
-
         }
     }
 }

@@ -5,10 +5,10 @@
 package ash.nazg.populations.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.OperationConfig;
-import ash.nazg.config.tdl.Description;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
-import ash.nazg.populations.config.ConfigurationParameters;
+import ash.nazg.config.tdl.StreamType;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.NamedStreamsMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
@@ -22,135 +22,116 @@ import scala.Tuple3;
 
 import java.io.StringWriter;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @SuppressWarnings("unused")
 public class ParametricScoreOperation extends Operation {
-    @Description("Value score multipliers")
+    public static final String RDD_OUTPUT_SCORES = "scores";
+    public static final String RDD_INPUT_VALUES = "values";
     public static final String RDD_INPUT_SCORE_MULTIPLIERS = "multipliers";
-    @Description("Column with value multiplier")
+    public static final String DS_VALUES_COUNT_COLUMN = "values.count.column";
+    public static final String DS_VALUES_VALUE_COLUMN = "values.value.column";
+    public static final String DS_VALUES_GROUP_COLUMN = "values.group.column";
     public static final String DS_MULTIPLIER_VALUE_COLUMN = "multipliers.value.column";
-    @Description("Column to match multiplier value with count value")
     public static final String DS_MULTIPLIER_COUNT_COLUMN = "multipliers.count.column";
-    @Description("Generated column with user ID")
     public final static String GEN_GROUP = "_group";
-    @Description("Generated column with postcode score")
     public final static String GEN_SCORE_PREFIX = "_score_*";
-    @Description("Generated column with User ID")
     public final static String GEN_VALUE_PREFIX = "_value_*";
-    @Description("How long is the top scores list")
     public static final String OP_TOP_SCORES = "top.scores";
-    @Description("By default, generate only the topmost score")
-    public static final Integer DEF_TOP_SCORES = 1;
-
-    public static final String VERB = "parametricScore";
 
     private String inputValuesName;
     private char inputValuesDelimiter;
+    private Integer valueColumn;
+    private Integer groupColumn;
+    private Integer countColumn;
+
     private String inputMultipliersName;
     private char inputMultipliersDelimiter;
+    private Integer multiplierValueColumn;
+    private Integer multiplierCountColumn;
 
     private String outputName;
     private char outputDelimiter;
     private List<Integer> outputCols;
 
     private Integer top;
-    private Integer valueColumn;
-    private Integer groupColumn;
-    private Integer countColumn;
-    private Integer multiplierValueColumn;
-    private Integer multiplierCountColumn;
 
     @Override
-    @Description("Calculate a top of parametric scores for a value by its count and multiplier")
-    public String verb() {
-        return VERB;
-    }
+    public OperationMeta meta() {
+        return new OperationMeta("parametricScore", "Calculate a top of parametric scores for a value by its count and multiplier",
 
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(verb(),
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.Definition(ConfigurationParameters.DS_VALUES_GROUP_COLUMN),
-                        new TaskDescriptionLanguage.Definition(ConfigurationParameters.DS_VALUES_VALUE_COLUMN),
-                        new TaskDescriptionLanguage.Definition(ConfigurationParameters.DS_VALUES_COUNT_COLUMN),
-                        new TaskDescriptionLanguage.Definition(DS_MULTIPLIER_VALUE_COLUMN),
-                        new TaskDescriptionLanguage.Definition(DS_MULTIPLIER_COUNT_COLUMN),
-                        new TaskDescriptionLanguage.Definition(OP_TOP_SCORES, Integer.class, DEF_TOP_SCORES),
-                },
+                new NamedStreamsMetaBuilder()
+                        .ds(RDD_INPUT_VALUES, "Values to group and count",
+                                new StreamType[]{StreamType.CSV}, true
+                        )
+                        .ds(RDD_INPUT_SCORE_MULTIPLIERS, "Value score multipliers",
+                                new StreamType[]{StreamType.CSV}, true
+                        )
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.NamedStream[]{
-                                new TaskDescriptionLanguage.NamedStream(
-                                        ConfigurationParameters.RDD_INPUT_VALUES,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
-                                        true
-                                ),
-                                new TaskDescriptionLanguage.NamedStream(
-                                        RDD_INPUT_SCORE_MULTIPLIERS,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
-                                        true
-                                ),
-                        }
-                ),
+                new DefinitionMetaBuilder()
+                        .def(DS_VALUES_GROUP_COLUMN, "Column for grouping count columns per value column values")
+                        .def(DS_VALUES_VALUE_COLUMN, "Column for counting unique values per other column")
+                        .def(DS_VALUES_COUNT_COLUMN, "Column to count unique values of other column")
+                        .def(DS_MULTIPLIER_VALUE_COLUMN, "Column with value multiplier")
+                        .def(DS_MULTIPLIER_COUNT_COLUMN, "Column to match multiplier value with count value")
+                        .def(OP_TOP_SCORES, "How long is the top scores list", Integer.class,
+                                "1", "By default, generate only the topmost score")
+                        .build(),
 
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.NamedStream[]{
-                                new TaskDescriptionLanguage.NamedStream(
-                                        ConfigurationParameters.RDD_OUTPUT_SCORES,
-                                        new TaskDescriptionLanguage.StreamType[]{TaskDescriptionLanguage.StreamType.CSV},
-                                        new String[]{GEN_GROUP, GEN_SCORE_PREFIX, GEN_VALUE_PREFIX}
-                                ),
-                        }
-                )
+                new NamedStreamsMetaBuilder()
+                        .ds(RDD_OUTPUT_SCORES, "Parametric scores output",
+                                new StreamType[]{StreamType.CSV}, true
+                        )
+                        .genCol(RDD_OUTPUT_SCORES, GEN_GROUP, "Generated column with user ID")
+                        .genCol(RDD_OUTPUT_SCORES, GEN_SCORE_PREFIX, "Generated column with postcode score")
+                        .genCol(RDD_OUTPUT_SCORES, GEN_VALUE_PREFIX, "Generated column with User ID")
+                        .build()
         );
     }
 
     @Override
-    public void configure(Properties properties, Properties variables) throws InvalidConfigValueException {
-        super.configure(properties, variables);
+    public void configure() throws InvalidConfigValueException {
+        inputValuesName = opResolver.namedInput(RDD_INPUT_VALUES);
+        inputValuesDelimiter = dsResolver.inputDelimiter(inputValuesName);
+        inputMultipliersName = opResolver.namedInput(RDD_INPUT_SCORE_MULTIPLIERS);
+        inputMultipliersDelimiter = dsResolver.inputDelimiter(inputMultipliersName);
+        outputName = opResolver.namedOutput(RDD_OUTPUT_SCORES);
+        outputDelimiter = dsResolver.outputDelimiter(outputName);
 
-        inputValuesName = describedProps.namedInputs.get(ConfigurationParameters.RDD_INPUT_VALUES);
-        inputValuesDelimiter = dataStreamsProps.inputDelimiter(inputValuesName);
-        inputMultipliersName = describedProps.namedInputs.get(RDD_INPUT_SCORE_MULTIPLIERS);
-        inputMultipliersDelimiter = dataStreamsProps.inputDelimiter(inputMultipliersName);
-        outputName = describedProps.namedOutputs.get(ConfigurationParameters.RDD_OUTPUT_SCORES);
-        outputDelimiter = dataStreamsProps.outputDelimiter(outputName);
+        top = opResolver.definition(OP_TOP_SCORES);
 
-        top = describedProps.defs.getTyped(OP_TOP_SCORES);
-
-        Map<String, Integer> inputColumns = dataStreamsProps.inputColumns.get(inputValuesName);
+        Map<String, Integer> inputColumns = dsResolver.inputColumns(inputValuesName);
         String prop;
 
-        prop = describedProps.defs.getTyped(ConfigurationParameters.DS_VALUES_GROUP_COLUMN);
+        prop = opResolver.definition(DS_VALUES_GROUP_COLUMN);
         groupColumn = inputColumns.get(prop);
 
-        prop = describedProps.defs.getTyped(ConfigurationParameters.DS_VALUES_VALUE_COLUMN);
+        prop = opResolver.definition(DS_VALUES_VALUE_COLUMN);
         valueColumn = inputColumns.get(prop);
 
-        prop = describedProps.defs.getTyped(ConfigurationParameters.DS_VALUES_COUNT_COLUMN);
+        prop = opResolver.definition(DS_VALUES_COUNT_COLUMN);
         countColumn = inputColumns.get(prop);
 
-        inputColumns = dataStreamsProps.inputColumns.get(inputMultipliersName);
+        inputColumns = dsResolver.inputColumns(inputMultipliersName);
 
-        prop = describedProps.defs.getTyped(DS_MULTIPLIER_VALUE_COLUMN);
+        prop = opResolver.definition(DS_MULTIPLIER_VALUE_COLUMN);
         multiplierValueColumn = inputColumns.get(prop);
 
-        prop = describedProps.defs.getTyped(DS_MULTIPLIER_COUNT_COLUMN);
+        prop = opResolver.definition(DS_MULTIPLIER_COUNT_COLUMN);
         multiplierCountColumn = inputColumns.get(prop);
 
         Map<String, Integer> outputColumns = new LinkedHashMap<>();
-        String[] output = dataStreamsProps.outputColumns.get(outputName);
+        String[] output = dsResolver.outputColumns(outputName);
         for (String c : output) {
             outputColumns.put(c, null);
         }
 
-        for (Integer i = 1; i <= top; i++) {
-            String prefRepl = GEN_SCORE_PREFIX.replace("*", i.toString());
+        for (int i = 1; i <= top; i++) {
+            String prefRepl = GEN_SCORE_PREFIX.replace("*", Integer.toString(i));
             if (outputColumns.containsKey(prefRepl)) {
                 outputColumns.replace(prefRepl, -i);
             }
-            prefRepl = GEN_VALUE_PREFIX.replace("*", i.toString());
+            prefRepl = GEN_VALUE_PREFIX.replace("*", Integer.toString(i));
             if (outputColumns.containsKey(prefRepl)) {
                 outputColumns.replace(prefRepl, +i);
             }
@@ -167,6 +148,7 @@ public class ParametricScoreOperation extends Operation {
         outputCols = new ArrayList<>(outputColumns.values());
     }
 
+    @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
         final char _inputValuesDelimiter = inputValuesDelimiter;
