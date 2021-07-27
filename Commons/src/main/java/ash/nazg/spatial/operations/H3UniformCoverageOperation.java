@@ -163,7 +163,7 @@ public class H3UniformCoverageOperation extends Operation {
                     int i = 0;
                     for (String column : _outputColumns) {
                         if ("_hash".equals(column)) {
-                            out[i++] = hash.toString();
+                            out[i++] = Long.toHexString(hash);
                         } else {
                             out[i++] = props.get(new Text(column)).toString();
                         }
