@@ -7,7 +7,9 @@ package ash.nazg.spark;
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Constants;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDescriptionLanguage;
+import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
+import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVWriter;
@@ -30,25 +32,20 @@ public abstract class RDDMetricsPseudoOperation extends Operation {
     private char outputDelimiter;
 
     @Override
-    public String verb() {
-        return null;
-    }
-
-    @Override
-    public TaskDescriptionLanguage.Operation description() {
-        return new TaskDescriptionLanguage.Operation(null,
-                new TaskDescriptionLanguage.DefBase[]{
-                        new TaskDescriptionLanguage.DynamicDef("count.column.", String.class)
-                },
-
-                new TaskDescriptionLanguage.OpStreams(
-                        new TaskDescriptionLanguage.DataStream(new StreamType[]{
+    public OperationMeta meta() {
+        return new OperationMeta(null, null,
+                new PositionalStreamsMetaBuilder()
+                        .ds(null, new StreamType[]{
                                 StreamType.CSV, StreamType.Fixed, // per column
                                 StreamType.KeyValue, // per key
                                 StreamType.Point, StreamType.Track, StreamType.Polygon, // per property
                                 StreamType.Plain // per record
                         }, true)
-                ),
+                        .build(),
+
+                new DefinitionMetaBuilder()
+                        .def("count.column.", null)
+                        .build(),
 
                 null
         );
