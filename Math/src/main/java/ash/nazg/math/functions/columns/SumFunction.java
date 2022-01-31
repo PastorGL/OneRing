@@ -19,7 +19,7 @@ public class SumFunction extends ColumnsMathFunction {
             } else {
                 double result = (_const != null) ? _const : 0.D;
                 for (int column : columnsForCalculation) {
-                    result += new Double(row[column]);
+                    result += Double.parseDouble(row[column]);
                 }
                 out[i] = Double.toString(result);
             }

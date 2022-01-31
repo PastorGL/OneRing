@@ -19,7 +19,7 @@ public class AverageFunction extends ColumnsMathFunction {
             } else {
                 double result = (_const == null) ? 0.D : _const;
                 for (int column : columnsForCalculation) {
-                    result += new Double(row[column]);
+                    result += Double.parseDouble(row[column]);
                 }
                 out[i] = Double.toString(result / columnsForCalculation.length);
             }

@@ -61,7 +61,7 @@ public class UnionOperationTest {
 
             resultRDD = (JavaRDD<Text>) ret.get("union_and");
             assertEquals(
-                    257,
+                    1,
                     resultRDD.count()
             );
         }

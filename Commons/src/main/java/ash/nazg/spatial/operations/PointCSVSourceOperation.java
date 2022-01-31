@@ -121,8 +121,8 @@ public class PointCSVSourceOperation extends Operation {
 
                         String[] row = parser.parseLine(l);
 
-                        double lat = new Double(row[_latColumn]);
-                        double lon = new Double(row[_lonColumn]);
+                        double lat = Double.parseDouble(row[_latColumn]);
+                        double lon = Double.parseDouble(row[_lonColumn]);
 
                         MapWritable properties = new MapWritable();
 
@@ -132,7 +132,7 @@ public class PointCSVSourceOperation extends Operation {
 
                         Double radius = _defaultRadius;
                         if (_radiusColumn != null) {
-                            radius = new Double(row[_radiusColumn]);
+                            radius = Double.parseDouble(row[_radiusColumn]);
                         }
 
                         Point point = geometryFactory.createPoint(new Coordinate(lon, lat));

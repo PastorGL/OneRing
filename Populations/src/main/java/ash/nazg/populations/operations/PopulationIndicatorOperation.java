@@ -18,7 +18,7 @@ public abstract class PopulationIndicatorOperation extends Operation {
     protected char outputDelimiter;
 
     @Override
-    public void configure() throws InvalidConfigValueException {
+    protected void configure() throws InvalidConfigValueException {
         outputName = opResolver.positionalOutput(0);
         outputDelimiter = dsResolver.outputDelimiter(outputName);
     }

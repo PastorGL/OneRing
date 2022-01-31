@@ -50,6 +50,14 @@ public class KeyedMathOperationTest {
             res = ((JavaPairRDD)ret.get("mul")).collectAsMap();
             assertEquals(20196938.49, res.get(cd27220b), 1E-2D);
             assertNotEquals(0.D, res.get(c7e5a6f9), 0.D);
+
+            res = ((JavaPairRDD)ret.get("mul")).collectAsMap();
+            assertEquals(20196938.49, res.get(cd27220b), 1E-2D);
+            assertNotEquals(0.D, res.get(c7e5a6f9), 0.D);
+
+            res = ((JavaPairRDD)ret.get("median")).collectAsMap();
+            assertEquals(280.D, res.get(cd27220b), 0.D);
+            assertEquals(280.D, res.get(c7e5a6f9), 0.D);
         }
     }
 

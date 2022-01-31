@@ -106,6 +106,11 @@ public class ColumnsMathOperation extends Operation {
                 mathFunc = new SumFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, _const);
                 break;
             }
+            case SUBTRACT: {
+                Double _const = opResolver.definition(OP_CALC_CONST);
+                mathFunc = new SubtractFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, _const);
+                break;
+            }
             case POWERMEAN: {
                 Double pow = opResolver.definition(OP_CALC_CONST);
                 if (pow == null) {
@@ -146,6 +151,10 @@ public class ColumnsMathOperation extends Operation {
             case EQUALITY: {
                 Double _const = opResolver.definition(OP_CALC_CONST);
                 mathFunc = new EqualityFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, _const);
+                break;
+            }
+            case MEDIAN: {
+                mathFunc = new MedianFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation);
                 break;
             }
         }

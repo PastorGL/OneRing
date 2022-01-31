@@ -105,8 +105,8 @@ public abstract class GeohashingOperation extends Operation {
                         String l = v instanceof String ? (String) v : String.valueOf(v);
 
                         String[] ll = parser.parseLine(l);
-                        Double lat = new Double(ll[_latColumn]);
-                        Double lon = new Double(ll[_lonColumn]);
+                        Double lat = Double.parseDouble(ll[_latColumn]);
+                        Double lon = Double.parseDouble(ll[_lonColumn]);
 
                         ret.add(new Tuple3<>(lat, lon, new Text(l)));
                     }

@@ -17,10 +17,13 @@ public class DivFunction extends ColumnsMathFunction {
             if (outputColumns[i] >= 0) {
                 out[i] = row[outputColumns[i]];
             } else {
-                double result = new Double(row[columnsForCalculation[0]]);
+                double result = Double.parseDouble(row[columnsForCalculation[0]]);
                 for (int j = 1; j < columnsForCalculation.length; j++) {
                     int column = columnsForCalculation[j];
-                    result /= new Double(row[column]);
+                    result /= Double.parseDouble(row[column]);
+                }
+                if ((_const != null) && (_const != 0.D)) {
+                    result /= _const;
                 }
                 out[i] = Double.toString(result);
             }

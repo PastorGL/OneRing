@@ -20,7 +20,7 @@ public class FilterByDateDefinition implements Serializable, Cloneable {
 
     public Date start;
     public Date end;
-    
+
     public Integer[] years;
     public Integer[] months;
     public Integer[] dates;
@@ -63,7 +63,7 @@ public class FilterByDateDefinition implements Serializable, Cloneable {
     public static Date parseDate(String timestampText) {
         try {
             // timestamp is in milliseconds
-            long timestamp = new Double(timestampText).longValue();
+            long timestamp = new Double(Double.parseDouble(timestampText)).longValue();
 
             // timestamp is in seconds
             if (timestamp < 100_000_000_000L) {

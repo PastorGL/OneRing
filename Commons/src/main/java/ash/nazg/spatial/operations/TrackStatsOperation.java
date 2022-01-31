@@ -14,6 +14,7 @@ import ash.nazg.spark.Operation;
 import ash.nazg.spatial.SegmentedTrack;
 import ash.nazg.spatial.TrackSegment;
 import net.sf.geographiclib.Geodesic;
+import net.sf.geographiclib.GeodesicData;
 import net.sf.geographiclib.GeodesicMask;
 import org.apache.hadoop.io.DoubleWritable;
 import org.apache.hadoop.io.MapWritable;
@@ -72,6 +73,10 @@ public class TrackStatsOperation extends Operation {
                         .genCol(RDD_OUTPUT_TRACKS, GEN_DURATION, "Track or Segment duration, seconds")
                         .genCol(RDD_OUTPUT_TRACKS, GEN_RADIUS, "Track or Segment max distance from its pinning point, meters")
                         .genCol(RDD_OUTPUT_TRACKS, GEN_DISTANCE, "Track or Segment length, meters")
+                        .genCol(RDD_OUTPUT_TRACKS, GEN_AZI_FROM_PREV, "Point azimuth from the previous point")
+                        .genCol(RDD_OUTPUT_TRACKS, GEN_AZI_TO_PREV, "Point azimuth to the previous point")
+                        .genCol(RDD_OUTPUT_TRACKS, GEN_AZI_TO_NEXT, "Point azimuth to the next point")
+                        .genCol(RDD_OUTPUT_TRACKS, GEN_AZI_FROM_NEXT, "Point azimuth from the next point")
                         .build()
         );
     }
@@ -142,6 +147,10 @@ public class TrackStatsOperation extends Operation {
                     Text distanceAttr = new Text(GEN_DISTANCE);
                     Text pointsAttr = new Text(GEN_POINTS);
                     Text radiusAttr = new Text(GEN_RADIUS);
+                    Text aziToPrev = new Text(GEN_AZI_TO_PREV);
+                    Text aziFromPrev = new Text(GEN_AZI_FROM_PREV);
+                    Text aziToNext = new Text(GEN_AZI_TO_NEXT);
+                    Text aziFromNext = new Text(GEN_AZI_FROM_NEXT);
 
                     while (it.hasNext()) {
                         Tuple2<Point, SegmentedTrack> o = it.next();
@@ -214,8 +223,16 @@ public class TrackStatsOperation extends Operation {
                                 MapWritable prevProps = (MapWritable) prev.getUserData();
 
                                 segDuration += ((DoubleWritable) props.get(tsAttr)).get() - ((DoubleWritable) prevProps.get(tsAttr)).get();
-                                segDistance += Geodesic.WGS84.Inverse(prev.getY(), prev.getX(),
-                                        point.getY(), point.getX(), GeodesicMask.DISTANCE).s12;
+                                GeodesicData inverse = Geodesic.WGS84.Inverse(prev.getY(), prev.getX(),
+                                        point.getY(), point.getX(), GeodesicMask.DISTANCE | GeodesicMask.AZIMUTH);
+                                segDistance += inverse.s12;
+
+                                if (i != 0) {
+                                    props.put(aziFromPrev, new Text(String.valueOf(inverse.azi2)));
+                                    props.put(aziToPrev, new Text(String.valueOf(inverse.azi1)));
+                                    prevProps.put(aziFromNext, new Text(String.valueOf(inverse.azi1)));
+                                    prevProps.put(aziToNext, new Text(String.valueOf(inverse.azi2)));
+                                }
 
                                 pntRadius = Geodesic.WGS84.Inverse(segPin.getY(), segPin.getX(),
                                         point.getY(), point.getX(), GeodesicMask.DISTANCE).s12;

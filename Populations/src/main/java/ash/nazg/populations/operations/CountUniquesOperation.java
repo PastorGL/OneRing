@@ -52,7 +52,7 @@ public class CountUniquesOperation extends PopulationIndicatorOperation {
     }
 
     @Override
-    public void configure() throws InvalidConfigValueException {
+    protected void configure() throws InvalidConfigValueException {
         super.configure();
 
         inputValuesName = opResolver.positionalInput(0);

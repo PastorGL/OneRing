@@ -32,7 +32,7 @@ public class SeriesMathOperationTest {
 
             Map<String, Double> resultMap = resultRDD.mapToPair(t -> {
                 String[] row = t.toString().split(",");
-                return new Tuple2<>(row[0] + "," + row[1], new Double(row[3]));
+                return new Tuple2<>(row[0] + "," + row[1], Double.parseDouble(row[3]));
             }).collectAsMap();
 
             assertEquals(
@@ -75,7 +75,7 @@ public class SeriesMathOperationTest {
 
             resultMap = resultRDD.mapToPair(t -> {
                 String[] row = t.toString().split(",");
-                return new Tuple2<>(row[0] + "," + row[1], new Double(row[3]));
+                return new Tuple2<>(row[0] + "," + row[1], Double.parseDouble(row[3]));
             }).collectAsMap();
 
             assertEquals(

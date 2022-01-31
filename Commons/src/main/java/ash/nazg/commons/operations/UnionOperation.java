@@ -6,7 +6,6 @@ package ash.nazg.commons.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.metadata.DefinitionEnum;
 import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
 import ash.nazg.config.tdl.metadata.OperationMeta;
 import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
@@ -81,14 +80,14 @@ public class UnionOperation extends Operation {
                         .groupByKey()
                         .mapValues(it -> {
                             final Set<Integer> inpSet = new HashSet<>();
-                            final int[] count = new int[1];
+                            final long[] count = new long[1];
                             it.forEach(i -> {
                                 inpSet.add(i);
                                 count[0]++;
                             });
 
                             if (inpSet.size() > 1) {
-                                return 0;
+                                return 0L;
                             } else {
                                 return count[0];
                             }
@@ -102,15 +101,21 @@ public class UnionOperation extends Operation {
                         .mapValues(it -> {
                             Iterator<Integer> iter = it.iterator();
                             Set<Integer> inpSet = new HashSet<>();
-                            int count = 0;
+                            Map<Integer, Long> counts = new HashMap<>();
                             while (iter.hasNext()) {
-                                inpSet.add(iter.next());
-                                count++;
+                                Integer ii = iter.next();
+                                inpSet.add(ii);
+                                counts.compute(ii, (i, v) -> {
+                                    if (v == null) {
+                                        return 1L;
+                                    }
+                                    return v + 1L;
+                                });
                             }
                             if (inpSet.size() < inpNumber) {
-                                return 0;
+                                return 0L;
                             } else {
-                                return count;
+                                return counts.values().stream().mapToLong(Long::longValue).reduce(Math::min).getAsLong();
                             }
                         })
                         .flatMap(t -> Stream.generate(() -> t._1).limit(t._2).iterator());
@@ -126,20 +131,4 @@ public class UnionOperation extends Operation {
         return Collections.singletonMap(outputName, output);
     }
 
-    public enum UnionSpec implements DefinitionEnum {
-        CONCAT("Just concatenate inputs, don't look into records"),
-        XOR("Only emit records that occur strictly in one input RDD"),
-        AND("Only emit records that occur in all input RDDs");
-
-        private final String descr;
-
-        UnionSpec(String descr) {
-            this.descr = descr;
-        }
-
-        @Override
-        public String descr() {
-            return descr;
-        }
-    }
 }

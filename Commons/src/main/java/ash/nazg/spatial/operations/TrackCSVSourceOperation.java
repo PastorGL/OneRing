@@ -134,9 +134,9 @@ public class TrackCSVSourceOperation extends Operation {
                         String[] row = parser.parseLine(l);
 
                         Text userId = new Text(row[_useridColumn]);
-                        Double lat = new Double(row[_latColumn]);
-                        Double lon = new Double(row[_lonColumn]);
-                        Double timestamp = new Double(row[_tsColumn]);
+                        Double lat = Double.parseDouble(row[_latColumn]);
+                        Double lon = Double.parseDouble(row[_lonColumn]);
+                        Double timestamp = Double.parseDouble(row[_tsColumn]);
 
                         Text track = (_trackColumn != null) ? new Text(row[_trackColumn]) : null;
 

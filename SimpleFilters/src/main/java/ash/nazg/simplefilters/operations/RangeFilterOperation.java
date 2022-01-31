@@ -79,8 +79,8 @@ public class RangeFilterOperation extends Operation {
                 .replaceAll("[\\[\\]()]", "")
                 .split("[;\\s]+", 2);
         range = new Tuple2<>(
-                bounds[0].isEmpty() ? null : new Double(bounds[0]),
-                bounds[1].isEmpty() ? null : new Double(bounds[1])
+                bounds[0].isEmpty() ? null : Double.parseDouble(bounds[0]),
+                bounds[1].isEmpty() ? null : Double.parseDouble(bounds[1])
         );
 
         if ((range._1 == null) && (range._2 == null)) {
@@ -116,7 +116,7 @@ public class RangeFilterOperation extends Operation {
                         boolean include = true;
                         if ((strValue != null) && !strValue.isEmpty()) {
                             try {
-                                Double value = new Double(strValue);
+                                Double value = Double.parseDouble(strValue);
 
                                 if (_range._1 != null) {
                                     include &= _inclusive._1 ? _range._1 <= value : _range._1 < value;

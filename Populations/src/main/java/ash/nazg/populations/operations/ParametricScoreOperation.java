@@ -176,7 +176,7 @@ public class ParametricScoreOperation extends Operation {
                         String[] row = parser.parseLine(l);
 
                         Text value = new Text(row[_multiplierCountColumn]);
-                        Double multiplier = new Double(row[_multiplierValueColumn]);
+                        Double multiplier = Double.parseDouble(row[_multiplierValueColumn]);
 
                         ret.add(new Tuple2<>(value, multiplier));
                     }

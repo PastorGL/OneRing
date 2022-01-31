@@ -215,7 +215,7 @@ public class WeightedSumOperation extends Operation {
                                 String[] row = parser.parseLine(l);
 
                                 Long count = new Long(row[countColumn]);
-                                Double value = new Double(row[valueColumn]);
+                                Double value = Double.parseDouble(row[valueColumn]);
 
                                 Text[] payload = new Text[payloads.length];
                                 int j = 0;

@@ -149,9 +149,7 @@ public class AreaCoversOperation extends Operation {
 
                         double signalLat = signal.getY();
                         double signalLon = signal.getX();
-                        long signalHash = spatialUtils.getHash(signalLat, signalLon);
-
-                        List<Long> neighood = spatialUtils.getNeighbours(signalHash);
+                        List<Long> neighood = spatialUtils.getNeighbours(signalLat, signalLon);
 
                         once:
                         for (Long hash : neighood) {

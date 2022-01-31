@@ -6,7 +6,6 @@ package ash.nazg.commons.operations;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.metadata.DefinitionEnum;
 import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
 import ash.nazg.config.tdl.metadata.OperationMeta;
 import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
@@ -38,7 +37,7 @@ public class JoinByKeyOperation extends Operation {
     private char outputDelimiter;
     private Tuple2<Integer, Integer>[] outputColumns;
 
-    private Join joinType;
+    private JoinSpec joinType;
     private String inputDefaultL;
     private String inputDefaultR;
     private String[] outputTemplate;
@@ -56,7 +55,7 @@ public class JoinByKeyOperation extends Operation {
                         .build(),
 
                 new DefinitionMetaBuilder()
-                        .def(OP_JOIN, "Type of the join", Join.class, Join.INNER.name(), "Type of the join")
+                        .def(OP_JOIN, "Type of the join", JoinSpec.class, JoinSpec.INNER.name(), "Type of the join")
                         .def(OP_DEFAULT, "Template for resulting rows", String[].class, null,
                                 "By default, there is no join result template, defaults for left and right are used")
                         .def(OP_DEFAULT_LEFT, "Default value for the missing left rows' values", null,
@@ -105,13 +104,13 @@ public class JoinByKeyOperation extends Operation {
                 throw new InvalidConfigValueException("Operation '" + name + "' output template and output columns specifications doesn't match");
             }
         } else {
-            if (joinType == Join.RIGHT || joinType == Join.OUTER) {
+            if (joinType == JoinSpec.RIGHT || joinType == JoinSpec.OUTER) {
                 inputDefaultL = opResolver.definition(OP_DEFAULT_LEFT);
                 if (inputDefaultL == null) {
                     throw new InvalidConfigValueException("Operation '" + name + "' has no output template neither default for left side of the join");
                 }
             }
-            if (joinType == Join.LEFT || joinType == Join.OUTER) {
+            if (joinType == JoinSpec.LEFT || joinType == JoinSpec.OUTER) {
                 inputDefaultR = opResolver.definition(OP_DEFAULT_RIGHT);
                 if (inputDefaultR == null) {
                     throw new InvalidConfigValueException("Operation '" + name + "' has no output template neither default for right side of the join");
@@ -212,7 +211,7 @@ public class JoinByKeyOperation extends Operation {
                     }
                     String[] right = (line != null) ? parseRight.parseLine(line) : null;
 
-                    String[] acc = (left != null) ? left : accTemplate.clone();
+                    String[] acc = (left != null) ? left.clone() : accTemplate.clone();
                     int i = 0;
                     for (Tuple2<Integer, Integer> col : _outputColumns) {
                         if (col._1 == _r) {
@@ -259,21 +258,4 @@ public class JoinByKeyOperation extends Operation {
         return Collections.singletonMap(outputName, output);
     }
 
-    public enum Join implements DefinitionEnum {
-        INNER("Inner join"),
-        LEFT("Left outer join"),
-        RIGHT("Right outer join"),
-        OUTER("Full outer join");
-
-        private final String descr;
-
-        Join(String descr) {
-            this.descr = descr;
-        }
-
-        @Override
-        public String descr() {
-            return descr;
-        }
-    }
 }

@@ -88,6 +88,11 @@ public class KeyedMathOperation extends Operation {
                 keyedFunc = new SumFunction(_const);
                 break;
             }
+            case SUBTRACT: {
+                Double _const = opResolver.definition(OP_CALC_CONST);
+                keyedFunc = new SubtractFunction(_const);
+                break;
+            }
             case POWERMEAN: {
                 Double pow = opResolver.definition(OP_CALC_CONST);
                 if (pow == null) {
@@ -130,6 +135,10 @@ public class KeyedMathOperation extends Operation {
                 keyedFunc = new EqualityFunction(_const);
                 break;
             }
+            case MEDIAN: {
+                keyedFunc = new MedianFunction();
+                break;
+            }
         }
 
         if ((calcColumn != null) && ((calcFunction == CalcFunction.MIN) || (calcFunction == CalcFunction.MAX))) {
@@ -159,13 +168,13 @@ public class KeyedMathOperation extends Operation {
                         String l = o instanceof String ? (String) o : String.valueOf(o);
                         String[] row = parser.parseLine(l);
 
-                        ret.add(new Tuple2<>(t._1, new Double(row[_calcColumn])));
+                        ret.add(new Tuple2<>(t._1, Double.parseDouble(row[_calcColumn])));
                     }
 
                     return ret.iterator();
                 });
             } else {
-                doubleRDD = inputRDD.mapToPair(t -> new Tuple2<>(t._1, new Double(String.valueOf(t._2))));
+                doubleRDD = inputRDD.mapToPair(t -> new Tuple2<>(t._1, Double.parseDouble(String.valueOf(t._2))));
             }
 
             JavaPairRDD<Object, Double> output = doubleRDD
@@ -203,7 +212,7 @@ public class KeyedMathOperation extends Operation {
                 String l = o instanceof String ? (String) o : String.valueOf(o);
                 String[] row = parser.parseLine(l);
 
-                ret.add(new Tuple2<>(t._1, new Tuple2<>(o, new Double(row[_calcColumn]))));
+                ret.add(new Tuple2<>(t._1, new Tuple2<>(o, Double.parseDouble(row[_calcColumn]))));
             }
 
             return ret.iterator();

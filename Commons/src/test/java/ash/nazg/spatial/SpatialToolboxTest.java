@@ -11,6 +11,7 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 import org.junit.Test;
 import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.Point;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -119,7 +120,7 @@ public class SpatialToolboxTest {
             datas = points.stream()
                     .map(t -> (MapWritable) t.getUserData())
                     .collect(Collectors.toList());
-            assertEquals(31, datas.size());
+            assertEquals(22, datas.size());
             for (MapWritable data : datas) {
                 String pt = data.get(new Text("pt")).toString();
                 String trackid = data.get(new Text("trackid")).toString();
@@ -132,8 +133,30 @@ public class SpatialToolboxTest {
 
             rddS = (JavaRDD<SegmentedTrack>) ret.get("ret10");
 
-            st = rddS.first();
-            assertEquals(13, st.getNumGeometries());
+            assertEquals(0, rddS.count());
+        }
+    }
+
+    @Test
+    public void selectByPropertyTest() throws Exception {
+        try (TestRunner underTest = new TestRunner("/test.spatialToolbox2.properties")) {
+            Map<String, JavaRDDLike> ret = underTest.go();
+
+            JavaRDD<Point> rddS = (JavaRDD<Point>) ret.get("ret11");
+
+            assertEquals(9, rddS.count());
+
+            rddS = (JavaRDD<Point>) ret.get("ret12");
+
+            assertEquals(28, rddS.count());
+
+            rddS = (JavaRDD<Point>) ret.get("ret13");
+
+            assertEquals(35, rddS.count());
+
+            rddS = (JavaRDD<Point>) ret.get("ret14");
+
+            assertEquals(0, rddS.count());
         }
     }
 }

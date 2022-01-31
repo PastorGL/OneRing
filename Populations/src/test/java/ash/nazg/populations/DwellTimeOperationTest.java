@@ -27,7 +27,7 @@ public class DwellTimeOperationTest {
             Map<String, Double> resMap = dataset.mapToPair(t -> {
                 String[] s = t.toString().split("\t", 2);
 
-                return new Tuple2<>(s[0], new Double(s[1]));
+                return new Tuple2<>(s[0], Double.parseDouble(s[1]));
             }).collectAsMap();
 
 

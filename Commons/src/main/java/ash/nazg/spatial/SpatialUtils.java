@@ -51,6 +51,12 @@ public class SpatialUtils implements Serializable {
         return h3.kRing(h3index, recursion);
     }
 
+    public List<Long> getNeighbours(double lat, double lon) {
+        setupH3();
+
+        return h3.kRing(h3.geoToH3(lat, lon, resolution), recursion);
+    }
+
     public long getHash(double lat, double lon) {
         setupH3();
 
