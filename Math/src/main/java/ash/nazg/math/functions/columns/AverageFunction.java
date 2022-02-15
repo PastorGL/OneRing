@@ -4,7 +4,7 @@
  */
 package ash.nazg.math.functions.columns;
 
-public class AverageFunction extends ColumnsMathFunction {
+public class AverageFunction extends ColumnsFunction {
     public AverageFunction(char inputDelimiter, char outputDelimiter, int[] outputColumns, int[] columnsForCalculation, Double shift) {
         super(inputDelimiter, outputDelimiter, outputColumns, columnsForCalculation, shift);
     }

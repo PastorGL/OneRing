@@ -9,7 +9,7 @@ import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
 import ash.nazg.config.tdl.metadata.OperationMeta;
 import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
-import ash.nazg.math.config.CalcFunction;
+import ash.nazg.math.config.KeyedMath;
 import ash.nazg.math.functions.keyed.*;
 import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
@@ -32,12 +32,12 @@ public class KeyedMathOperation extends Operation {
     private String inputName;
     private char inputDelimiter;
     private Integer calcColumn;
-    private CalcFunction calcFunction;
+    private KeyedMath keyedFunction;
     private Boolean minimaxFull = false;
 
     private String outputName;
 
-    private KeyedFunction keyedFunc;
+    private ash.nazg.math.functions.keyed.KeyedFunction keyedFunc;
 
     @Override
     public OperationMeta meta() {
@@ -56,7 +56,7 @@ public class KeyedMathOperation extends Operation {
                         .def(OP_MINIMAX_FULL, "If set to true, output full source value for MIN and" +
                                 " MAX. Constant will be ignored", Boolean.class, Boolean.FALSE.toString(),
                                 "By default, output only subject column")
-                        .def(OP_CALC_FUNCTION, "The mathematical function to perform", CalcFunction.class)
+                        .def(OP_CALC_FUNCTION, "The mathematical function to perform", KeyedMath.class)
                         .def(OP_CALC_CONST, "An optional constant value for the selected function", Double.class,
                                 null, "By default the constant isn't set")
                         .build(),
@@ -81,8 +81,8 @@ public class KeyedMathOperation extends Operation {
         prop = opResolver.definition(DS_CALC_COLUMN);
         calcColumn = inputColumns.get(prop);
 
-        calcFunction = opResolver.definition(OP_CALC_FUNCTION);
-        switch (calcFunction) {
+        keyedFunction = opResolver.definition(OP_CALC_FUNCTION);
+        switch (keyedFunction) {
             case SUM: {
                 Double _const = opResolver.definition(OP_CALC_CONST);
                 keyedFunc = new SumFunction(_const);
@@ -141,7 +141,7 @@ public class KeyedMathOperation extends Operation {
             }
         }
 
-        if ((calcColumn != null) && ((calcFunction == CalcFunction.MIN) || (calcFunction == CalcFunction.MAX))) {
+        if ((calcColumn != null) && ((keyedFunction == KeyedMath.MIN) || (keyedFunction == KeyedMath.MAX))) {
             minimaxFull = opResolver.definition(OP_MINIMAX_FULL);
         }
     }
@@ -200,7 +200,7 @@ public class KeyedMathOperation extends Operation {
 
         final char _inputDelimiter = inputDelimiter;
         final int _calcColumn = calcColumn;
-        final CalcFunction _calcFunction = calcFunction;
+        final KeyedMath _keyedFunction = keyedFunction;
         JavaPairRDD<Object, Object> output = inputRDD.mapPartitionsToPair(it -> {
             CSVParser parser = new CSVParserBuilder().withSeparator(_inputDelimiter).build();
             List<Tuple2<Object, Tuple2<Object, Double>>> ret = new ArrayList<>();
@@ -219,7 +219,7 @@ public class KeyedMathOperation extends Operation {
         })
         .reduceByKey(
                 (t1, t2) -> {
-                    if (_calcFunction == CalcFunction.MIN) {
+                    if (_keyedFunction == KeyedMath.MIN) {
                         if (t1._2 < t2._2) {
                             return t1;
                         } else {

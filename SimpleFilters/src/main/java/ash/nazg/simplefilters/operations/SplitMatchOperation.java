@@ -9,6 +9,7 @@ import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
 import ash.nazg.config.tdl.metadata.NamedStreamsMetaBuilder;
 import ash.nazg.config.tdl.metadata.OperationMeta;
+import ash.nazg.spark.Operation;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVWriter;
@@ -25,8 +26,14 @@ import java.util.*;
 import static ash.nazg.simplefilters.config.ConfigurationParameters.*;
 
 @SuppressWarnings("unused")
-public class SplitMatchOperation extends MatchFilterOperation {
+public class SplitMatchOperation extends Operation {
     public static final String VERB = "splitMatch";
+
+    private char inputSourceDelimiter;
+    private String inputSourceName;
+    private int matchColumn;
+    private String outputMatchedName;
+    private String outputEvictedName;
 
     private String inputValuesName;
     private char inputValuesDelimiter;
@@ -67,15 +74,23 @@ public class SplitMatchOperation extends MatchFilterOperation {
 
     @Override
     public void configure() throws InvalidConfigValueException {
-        super.configure();
+        inputSourceName = opResolver.namedInput(RDD_INPUT_SOURCE);
+        inputSourceDelimiter = dsResolver.inputDelimiter(inputSourceName);
+
+        outputMatchedName = opResolver.namedOutput(RDD_OUTPUT_MATCHED);
+        outputEvictedName = opResolver.namedOutput(RDD_OUTPUT_EVICTED);
+
+        Map<String, Integer> inputSourceColumns = dsResolver.inputColumns(inputSourceName);
+
+        String prop;
+
+        prop = opResolver.definition(DS_SOURCE_MATCH_COLUMN);
+        matchColumn = inputSourceColumns.get(prop);
 
         inputValuesName = opResolver.namedInput(RDD_INPUT_VALUES);
         inputValuesDelimiter = dsResolver.inputDelimiter(inputValuesName);
 
-        Map<String, Integer> inputSourceColumns = dsResolver.inputColumns(inputSourceName);
         Map<String, Integer> inputValuesColumns = dsResolver.inputColumns(inputValuesName);
-
-        String prop;
 
         prop = opResolver.definition(DS_VALUES_MATCH_COLUMN);
         valuesColumn = inputValuesColumns.get(prop);

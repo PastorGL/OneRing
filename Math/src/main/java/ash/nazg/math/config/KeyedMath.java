@@ -6,7 +6,7 @@ package ash.nazg.math.config;
 
 import ash.nazg.config.tdl.metadata.DefinitionEnum;
 
-public enum CalcFunction implements DefinitionEnum {
+public enum KeyedMath implements DefinitionEnum {
     SUM("Calculate the sum of columns, optionally add a constant"),
     SUBTRACT("Subtract all subsequent columns from the first, optionally also a constant"),
     POWERMEAN("Calculate the power mean of columns with a set power"),
@@ -21,7 +21,7 @@ public enum CalcFunction implements DefinitionEnum {
 
     private final String descr;
 
-    CalcFunction(String descr) {
+    KeyedMath(String descr) {
         this.descr = descr;
     }
 

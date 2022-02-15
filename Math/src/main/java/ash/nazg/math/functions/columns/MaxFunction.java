@@ -4,7 +4,7 @@
  */
 package ash.nazg.math.functions.columns;
 
-public class MaxFunction extends ColumnsMathFunction {
+public class MaxFunction extends ColumnsFunction {
     public MaxFunction(char inputDelimiter, char outputDelimiter, int[] outputColumns, int[] columnsForCalculation, Double ceil) {
         super(inputDelimiter, outputDelimiter, outputColumns, columnsForCalculation, ceil);
     }

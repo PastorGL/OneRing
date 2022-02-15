@@ -2,7 +2,7 @@ package ash.nazg.math.functions.columns;
 
 import java.util.Arrays;
 
-public class MedianFunction extends ColumnsMathFunction {
+public class MedianFunction extends ColumnsFunction {
     public MedianFunction(char inputDelimiter, char outputDelimiter, int[] outputColumns, int[] columnsForCalculation) {
         super(inputDelimiter, outputDelimiter, outputColumns, columnsForCalculation, null);
     }

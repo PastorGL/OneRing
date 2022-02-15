@@ -25,16 +25,6 @@ public class ColumnsMathOperationTest {
 
             Map<String, JavaRDDLike> ret = underTest.go();
 
-            ret.get("sum").foreach(t -> {
-                String[] row = t.toString().split(",");
-                assertEquals(Double.parseDouble(row[0]), Double.parseDouble(row[1]) + 15, 1.E-6);
-            });
-
-            ret.get("star").foreach(t -> {
-                String[] row = t.toString().split(",");
-                assertEquals(Double.parseDouble(row[0]), Double.parseDouble(row[1]), 1.E-6);
-            });
-
             ret.get("mean").foreach(t -> {
                 String[] row = t.toString().split(",");
                 double mean = (Double.parseDouble(row[0]) + Double.parseDouble(row[1]) + Double.parseDouble(row[2])) / 3;
@@ -60,18 +50,6 @@ public class ColumnsMathOperationTest {
                 String[] row = t.toString().split(",");
                 double max = Doubles.max(Double.parseDouble(row[0]), Double.parseDouble(row[1]), Double.parseDouble(row[2]));
                 assertEquals(max, Double.parseDouble(row[3]), 1.E-6);
-            });
-
-            ret.get("mul").foreach(t -> {
-                String[] row = t.toString().split(",");
-                double mul = 3.5 * Double.parseDouble(row[0]) * Double.parseDouble(row[1]) * Double.parseDouble(row[2]);
-                assertEquals(mul, Double.parseDouble(row[3]), 1.E-6);
-            });
-
-            ret.get("eq").foreach(t -> {
-                String[] row = t.toString().split(",");
-                boolean eq = (Double.parseDouble(row[0]) - Double.parseDouble(row[1]) - Double.parseDouble(row[2])) == 0.D;
-                assertEquals(eq, Double.parseDouble(row[3]) == 1.D);
             });
 
             ret.get("median").foreach(t -> {
