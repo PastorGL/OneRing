@@ -25,5 +25,9 @@ public final class ConfigurationParameters {
     public static final String GEN_DISTANCE = "_distance";
     public static final String GEN_POINTS = "_points";
     public static final String GEN_USERID = "_userid";
+    public static final String GEN_AZI_TO_PREV = "_azi_to_prev";
+    public static final String GEN_AZI_FROM_PREV = "_azi_from_prev";
+    public static final String GEN_AZI_TO_NEXT = "_azi_to_next";
+    public static final String GEN_AZI_FROM_NEXT = "_azi_from_next";
     public static final String GEN_TRACK_ID = "_track_id";
 }

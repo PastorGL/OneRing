@@ -4,6 +4,7 @@
  */
 package ash.nazg.spatial.operations;
 
+import ash.nazg.commons.functions.*;
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
@@ -12,21 +13,18 @@ import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.spark.Operation;
 import ash.nazg.spatial.SegmentedTrack;
 import ash.nazg.spatial.TrackSegment;
-import ash.nazg.spatial.functions.Expressions;
-import ash.nazg.spatial.functions.QueryLexer;
-import ash.nazg.spatial.functions.QueryListenerImpl;
-import ash.nazg.spatial.functions.QueryParser;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.apache.hadoop.io.MapWritable;
+import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 
-import java.io.Serializable;
 import java.util.*;
+import java.util.function.BiFunction;
 
 import static ash.nazg.config.tdl.StreamType.*;
 
@@ -38,7 +36,7 @@ public class SpatialToolboxOperation extends Operation {
 
     private String outputName;
 
-    private List<Expressions.QueryExpr> query;
+    private List<Expressions.ExprItem<?>> query;
     private String what;
     private Long limitRecords;
     private Double limitPercent;
@@ -74,14 +72,19 @@ public class SpatialToolboxOperation extends Operation {
         String queryString = opResolver.definition(OP_QUERY);
         CharStream cs = CharStreams.fromString(queryString);
 
-        QueryLexer lexer = new QueryLexer(cs);
+        QueryLexicon lexer = new QueryLexicon(cs);
         QueryParser parser = new QueryParser(new CommonTokenStream(lexer));
         QueryListenerImpl listener = new QueryListenerImpl();
         parser.addParseListener(listener);
         parser.parse();
 
         query = listener.getQuery();
-        what = listener.getWhat().get(0);
+        Expressions.ExprItem<?> exprItem = listener.getItems().get(0).get(0);
+        if (!(exprItem instanceof Expressions.SpatialItem) || listener.getItems().size() != 1) {
+            throw new InvalidConfigValueException("Operation '" + name + "' supports only spatial type queries");
+        }
+
+        what = ((Expressions.SpatialItem) exprItem).get();
         if (!Arrays.asList("Point", "Polygon", "TrackSegment", "SegmentedTrack").contains(what)) {
             throw new InvalidConfigValueException("Unknown spatial object type '" + what + "' to SELECT in operation '" + name + "'");
         }
@@ -93,7 +96,7 @@ public class SpatialToolboxOperation extends Operation {
     @SuppressWarnings("rawtypes")
     @Override
     public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
-        final List<Expressions.QueryExpr> _query = query;
+        final List<Expressions.ExprItem<?>> _query = query;
         final String _what = what;
 
         final GeometryFactory geometryFactory = new GeometryFactory();
@@ -102,8 +105,9 @@ public class SpatialToolboxOperation extends Operation {
                 .mapPartitions(it -> {
                     List<Object> ret = new ArrayList<>();
 
-                    QueryMatcher qm = new QueryMatcher(_query);
                     boolean selectTrackSegment = _what.equalsIgnoreCase("TrackSegment");
+
+                    BiFunction<Object, String, Object> propGetter = (Object props, String prop) -> String.valueOf(((MapWritable) props).get(new Text(prop)));
 
                     while (it.hasNext()) {
                         Geometry g = (Geometry) it.next();
@@ -112,7 +116,7 @@ public class SpatialToolboxOperation extends Operation {
                         MapWritable props = (MapWritable) g.getUserData();
 
                         if (thisType.equalsIgnoreCase(_what)) { // direct SELECT of Point or Polygon or SegmentedTrack
-                            if (qm.matches(props)) {
+                            if (Operator.bool(propGetter, props, null, _query)) {
                                 ret.add(g);
                             }
                         } else { // otherwise SELECTing objects inside SegmentedTrack
@@ -127,7 +131,7 @@ public class SpatialToolboxOperation extends Operation {
                                 props2.putAll(segProps);
 
                                 if (selectTrackSegment) { // SELECTing TrackSegments
-                                    if (qm.matches(props2)) {
+                                    if (Operator.bool(propGetter, props2, null, _query)) {
                                         segments.add(seg);
                                     }
                                 } else { // SELECTing Points
@@ -141,7 +145,7 @@ public class SpatialToolboxOperation extends Operation {
                                         MapWritable props3 = new MapWritable(props2);
                                         props3.putAll(pointProps);
 
-                                        if (qm.matches(props3)) {
+                                        if (Operator.bool(propGetter, props3, null, _query)) {
                                             points.add(point);
                                         }
                                     }
@@ -175,54 +179,5 @@ public class SpatialToolboxOperation extends Operation {
         }
 
         return Collections.singletonMap(outputName, output);
-    }
-
-    private static class QueryMatcher implements Serializable {
-        private final List<Expressions.QueryExpr> query;
-
-        public QueryMatcher(List<Expressions.QueryExpr> query) {
-            this.query = query;
-        }
-
-        public boolean matches(MapWritable props) {
-            if (query.isEmpty()) {
-                return true;
-            }
-
-            Deque<Boolean> stack = new LinkedList<>();
-            Deque<Boolean> top = null;
-            Object prop = null;
-            for (Expressions.QueryExpr qe : query) {
-                if (qe instanceof Expressions.PropGetter) {
-                    prop = ((Expressions.PropGetter) qe).get(props);
-                    continue;
-                }
-                if (qe instanceof Expressions.StackGetter) {
-                    top = ((Expressions.StackGetter) qe).eval(stack);
-                    continue;
-                }
-                if (qe instanceof Expressions.StringExpr) {
-                    stack.push(((Expressions.StringExpr) qe).eval((String) prop));
-                    continue;
-                }
-                if (qe instanceof Expressions.NumericExpr) {
-                    stack.push(((Expressions.NumericExpr) qe).eval((Double) prop));
-                    continue;
-                }
-                if (qe instanceof Expressions.LogicBinaryExpr) {
-                    stack.push(((Expressions.LogicBinaryExpr) qe).eval(top.pop(), top.pop()));
-                    continue;
-                }
-                if (qe instanceof Expressions.LogicUnaryExpr) {
-                    stack.push(((Expressions.LogicUnaryExpr) qe).eval(top.pop()));
-                    continue;
-                }
-                if (qe instanceof Expressions.NullExpr) {
-                    stack.push(((Expressions.NullExpr) qe).eval(prop));
-                }
-            }
-
-            return stack.pop();
-        }
     }
 }

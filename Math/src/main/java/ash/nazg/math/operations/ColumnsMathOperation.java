@@ -9,7 +9,7 @@ import ash.nazg.config.tdl.StreamType;
 import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
 import ash.nazg.config.tdl.metadata.OperationMeta;
 import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
-import ash.nazg.math.config.CalcFunction;
+import ash.nazg.math.config.ColumnsMath;
 import ash.nazg.math.functions.columns.*;
 import ash.nazg.spark.Operation;
 import org.apache.spark.api.java.JavaRDD;
@@ -31,7 +31,7 @@ public class ColumnsMathOperation extends Operation {
 
     private String outputName;
 
-    private ColumnsMathFunction mathFunc;
+    private ColumnsFunction mathFunc;
 
     @Override
     public OperationMeta meta() {
@@ -46,7 +46,7 @@ public class ColumnsMathOperation extends Operation {
 
                 new DefinitionMetaBuilder()
                         .def(OP_CALC_COLUMNS, "Columns with source values", String[].class)
-                        .def(OP_CALC_FUNCTION, "The mathematical function to perform", CalcFunction.class)
+                        .def(OP_CALC_FUNCTION, "The mathematical function to perform", ColumnsMath.class)
                         .def(OP_CALC_CONST, "An optional constant value for the selected function", Double.class,
                                 null, "By default the constant isn't set")
                         .build(),
@@ -99,13 +99,8 @@ public class ColumnsMathOperation extends Operation {
             }
         }
 
-        CalcFunction cf = opResolver.definition(OP_CALC_FUNCTION);
+        ColumnsMath cf = opResolver.definition(OP_CALC_FUNCTION);
         switch (cf) {
-            case SUM: {
-                Double _const = opResolver.definition(OP_CALC_CONST);
-                mathFunc = new SumFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, _const);
-                break;
-            }
             case POWERMEAN: {
                 Double pow = opResolver.definition(OP_CALC_CONST);
                 if (pow == null) {
@@ -133,19 +128,8 @@ public class ColumnsMathOperation extends Operation {
                 mathFunc = new MaxFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, ceil);
                 break;
             }
-            case MUL: {
-                Double _const = opResolver.definition(OP_CALC_CONST);
-                mathFunc = new MulFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, _const);
-                break;
-            }
-            case DIV: {
-                Double _const = opResolver.definition(OP_CALC_CONST);
-                mathFunc = new DivFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, _const);
-                break;
-            }
-            case EQUALITY: {
-                Double _const = opResolver.definition(OP_CALC_CONST);
-                mathFunc = new EqualityFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation, _const);
+            case MEDIAN: {
+                mathFunc = new MedianFunction(inputDelimiter, outputDelimiter, outputCols, columnsForCalculation);
                 break;
             }
         }

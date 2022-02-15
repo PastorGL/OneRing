@@ -32,7 +32,7 @@ public class StdDevFunction extends SeriesFunction {
             if (outputColumns[i] >= 0) {
                 out[i] = row[outputColumns[i]];
             } else {
-                double result = (new Double(row[columnForCalculation]) - mean) / stdDev;
+                double result = (Double.parseDouble(row[columnForCalculation]) - mean) / stdDev;
                 out[i] = Double.toString(result);
             }
         }

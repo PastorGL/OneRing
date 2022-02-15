@@ -9,7 +9,10 @@ import com.google.common.primitives.Doubles;
 import org.apache.spark.api.java.JavaRDDLike;
 import org.junit.Test;
 
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.junit.Assert.assertEquals;
 
@@ -22,53 +25,39 @@ public class ColumnsMathOperationTest {
 
             Map<String, JavaRDDLike> ret = underTest.go();
 
-            ret.get("sum").foreach(t -> {
-                String[] row = t.toString().split(",");
-                assertEquals(new Double(row[0]), new Double(row[1]) + 15, 1.E-6);
-            });
-
-            ret.get("star").foreach(t -> {
-                String[] row = t.toString().split(",");
-                assertEquals(new Double(row[0]), new Double(row[1]), 1.E-6);
-            });
-
             ret.get("mean").foreach(t -> {
                 String[] row = t.toString().split(",");
-                double mean = (new Double(row[0]) + new Double(row[1]) + new Double(row[2])) / 3;
-                assertEquals(mean, new Double(row[3]), 1.E-6);
+                double mean = (Double.parseDouble(row[0]) + Double.parseDouble(row[1]) + Double.parseDouble(row[2])) / 3;
+                assertEquals(mean, Double.parseDouble(row[3]), 1.E-6);
             });
 
             ret.get("root_mean").foreach(t -> {
                 String[] row = t.toString().split(",");
-                final Double first = new Double(row[0]);
-                final Double second = new Double(row[1]);
-                final Double third = new Double(row[2]);
+                final Double first = Double.parseDouble(row[0]);
+                final Double second = Double.parseDouble(row[1]);
+                final Double third = Double.parseDouble(row[2]);
                 double mean = Math.pow(((first * first) + (second * second) + (third * third)) / 3, 0.5);
-                assertEquals(mean, new Double(row[3]), 1.E-6);
+                assertEquals(mean, Double.parseDouble(row[3]), 1.E-6);
             });
 
             ret.get("min").foreach(t -> {
                 String[] row = t.toString().split(",");
-                double min = Doubles.min(new Double(row[0]), new Double(row[1]), new Double(row[2]));
-                assertEquals(min, new Double(row[3]), 1.E-6);
+                double min = Doubles.min(Double.parseDouble(row[0]), Double.parseDouble(row[1]), Double.parseDouble(row[2]));
+                assertEquals(min, Double.parseDouble(row[3]), 1.E-6);
             });
 
             ret.get("max").foreach(t -> {
                 String[] row = t.toString().split(",");
-                double max = Doubles.max(new Double(row[0]), new Double(row[1]), new Double(row[2]));
-                assertEquals(max, new Double(row[3]), 1.E-6);
+                double max = Doubles.max(Double.parseDouble(row[0]), Double.parseDouble(row[1]), Double.parseDouble(row[2]));
+                assertEquals(max, Double.parseDouble(row[3]), 1.E-6);
             });
 
-            ret.get("mul").foreach(t -> {
+            ret.get("median").foreach(t -> {
                 String[] row = t.toString().split(",");
-                double mul = 3.5 * new Double(row[0]) * new Double(row[1]) * new Double(row[2]);
-                assertEquals(mul, new Double(row[3]), 1.E-6);
-            });
+                List<Double> dd = Stream.of(Double.parseDouble(row[0]), Double.parseDouble(row[1]), Double.parseDouble(row[2]), Double.parseDouble(row[3]))
+                        .sorted().collect(Collectors.toList());
 
-            ret.get("eq").foreach(t -> {
-                String[] row = t.toString().split(",");
-                boolean eq = (new Double(row[0]) - new Double(row[1]) - new Double(row[2])) == 0.D;
-                assertEquals(eq, new Double(row[3]) == 1.D);
+                assertEquals((dd.get(1) + dd.get(2)) / 2, Double.parseDouble(row[4]), 1.E-6);
             });
         }
     }

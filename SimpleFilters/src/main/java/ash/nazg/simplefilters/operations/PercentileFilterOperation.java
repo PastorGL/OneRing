@@ -108,7 +108,7 @@ public class PercentileFilterOperation extends Operation {
                     CSVParser parser = new CSVParserBuilder().withSeparator(_inputDelimiter).build();
                     String[] row = parser.parseLine(l);
 
-                    return new Tuple2<>(new Double(row[_filteringColumn]), l);
+                    return new Tuple2<>(Double.parseDouble(row[_filteringColumn]), l);
                 });
 
         JavaPairRDD<Long, Tuple2<Double, String>> percentiles = series

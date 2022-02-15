@@ -4,7 +4,7 @@
  */
 package ash.nazg.math.functions.columns;
 
-public class MaxFunction extends ColumnsMathFunction {
+public class MaxFunction extends ColumnsFunction {
     public MaxFunction(char inputDelimiter, char outputDelimiter, int[] outputColumns, int[] columnsForCalculation, Double ceil) {
         super(inputDelimiter, outputDelimiter, outputColumns, columnsForCalculation, ceil);
     }
@@ -19,7 +19,7 @@ public class MaxFunction extends ColumnsMathFunction {
             } else {
                 double result = Double.NEGATIVE_INFINITY;
                 for (int value : columnsForCalculation) {
-                    result = Math.max(result, new Double(row[value]));
+                    result = Math.max(result, Double.parseDouble(row[value]));
                 }
                 if ((_const != null) && (_const < result)) {
                     result = _const;

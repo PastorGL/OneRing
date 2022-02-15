@@ -28,7 +28,7 @@ public class NormalizeFunction extends SeriesFunction {
             if (outputColumns[i] >= 0) {
                 out[i] = row[outputColumns[i]];
             } else {
-                double result = new Double(row[columnForCalculation]) / maxValue * upper;
+                double result = Double.parseDouble(row[columnForCalculation]) / maxValue * upper;
                 out[i] = Double.toString(result);
             }
         }

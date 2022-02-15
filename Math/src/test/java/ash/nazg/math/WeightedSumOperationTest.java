@@ -31,7 +31,7 @@ public class WeightedSumOperationTest {
 
             Map<String, Double> resultMap = resultRDD.mapToPair(t -> {
                 String[] row = t.toString().split(",");
-                return new Tuple2<>(row[0] + "," + row[1], new Double(row[2]));
+                return new Tuple2<>(row[0] + "," + row[1], Double.parseDouble(row[2]));
             }).collectAsMap();
 
             assertEquals(
@@ -70,7 +70,7 @@ public class WeightedSumOperationTest {
 
             Map<String, Double> resultMap = resultRDD.mapToPair(t -> {
                 String[] row = t.toString().split(",");
-                return new Tuple2<>(row[0] + "," + row[1], new Double(row[2]));
+                return new Tuple2<>(row[0] + "," + row[1], Double.parseDouble(row[2]));
             }).collectAsMap();
 
             assertEquals(

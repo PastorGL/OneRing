@@ -4,7 +4,7 @@
  */
 package ash.nazg.math.functions.columns;
 
-public class PowerMeanFunction extends ColumnsMathFunction {
+public class PowerMeanFunction extends ColumnsFunction {
     public PowerMeanFunction(char inputDelimiter, char outputDelimiter, int[] outputColumns, int[] columnsForCalculation, double pow) {
         super(inputDelimiter, outputDelimiter, outputColumns, columnsForCalculation, pow);
     }
@@ -19,7 +19,7 @@ public class PowerMeanFunction extends ColumnsMathFunction {
             } else {
                 double result = 0.D;
                 for (int column : columnsForCalculation) {
-                    result += Math.pow(new Double(row[column]), _const);
+                    result += Math.pow(Double.parseDouble(row[column]), _const);
                 }
                 out[i] = Double.toString(Math.pow(result / columnsForCalculation.length, 1.D / _const));
             }

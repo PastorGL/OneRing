@@ -125,7 +125,7 @@ public class SeriesMathOperation extends Operation {
                         String l = o instanceof String ? (String) o : String.valueOf(o);
                         String[] row = parser.parseLine(l);
 
-                        ret.add(new Double(row[_calcColumn]));
+                        ret.add(Double.parseDouble(row[_calcColumn]));
                     }
                     return ret.iterator();
                 });

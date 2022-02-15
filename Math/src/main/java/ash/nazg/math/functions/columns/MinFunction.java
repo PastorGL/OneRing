@@ -4,7 +4,7 @@
  */
 package ash.nazg.math.functions.columns;
 
-public class MinFunction extends ColumnsMathFunction {
+public class MinFunction extends ColumnsFunction {
     public MinFunction(char inputDelimiter, char outputDelimiter, int[] outputColumns, int[] columnsForCalculation, Double floor) {
         super(inputDelimiter, outputDelimiter, outputColumns, columnsForCalculation, floor);
     }
@@ -19,7 +19,7 @@ public class MinFunction extends ColumnsMathFunction {
             } else {
                 double result = Double.POSITIVE_INFINITY;
                 for (int value : columnsForCalculation) {
-                    result = Math.min(result, new Double(row[value]));
+                    result = Math.min(result, Double.parseDouble(row[value]));
                 }
                 if ((_const != null) && (_const > result)) {
                     result = _const;

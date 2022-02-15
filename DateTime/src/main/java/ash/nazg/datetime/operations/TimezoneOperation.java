@@ -189,7 +189,7 @@ public class TimezoneOperation extends Operation {
                             timestamp = Date.from(Instant.from(dtfInput.withZone(inputTimezone).parse(timestampText))).getTime();
                         } else try {
                             // timestamp is in milliseconds
-                            timestamp = new Double(timestampText).longValue();
+                            timestamp = new Double(Double.parseDouble(timestampText)).longValue();
 
                             // timestamp is in seconds
                             if (timestamp < 100_000_000_000L) {

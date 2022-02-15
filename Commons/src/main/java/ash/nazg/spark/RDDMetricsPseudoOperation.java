@@ -156,8 +156,8 @@ public abstract class RDDMetricsPseudoOperation extends Operation {
                 double average = (counters == 0) ? 0.D : ((double) total / counters);
                 double median = 0.D;
                 if (counters != 0) {
-                    int m = (counters <= 2) ? 0 : (counters >> 1);
-                    median = ((counters % 2) == 0) ? (counts.get(m) + counts.get(m + 1)) / 2.D : counts.get(m).doubleValue();
+                    int m = counters >> 1;
+                    median = ((counters % 2) == 0) ? (counts.get(m) + counts.get(m - 1)) / 2.D : counts.get(m).doubleValue();
                 }
 
                 StringWriter buffer = new StringWriter();
