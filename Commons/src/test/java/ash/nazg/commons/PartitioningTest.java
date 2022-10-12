@@ -2,9 +2,9 @@
  * Copyright (C) 2020 Locomizer team and Contributors
  * This project uses New BSD license with do no evil clause. For full text, check the LICENSE file in the root directory.
  */
-package ash.nazg.storage;
+package ash.nazg.commons;
 
-import ash.nazg.spark.TestRunner;
+import ash.nazg.scripting.TestRunner;
 import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
@@ -14,44 +14,35 @@ import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 
-public class RecursiveSourceTest {
-
+public class PartitioningTest {
     @Test
-    public void recursiveTest() throws Exception {
-        try (TestRunner underTest = new TestRunner("/test.recursive.properties")) {
-
+    public void partitionTest() {
+        try (TestRunner underTest = new TestRunner("/test.partition.tdl")) {
             Map<String, JavaRDDLike> ret = underTest.go();
 
-            JavaRDD<Text> rddS = (JavaRDD<Text>) ret.get("source");
+            JavaRDD rddS = (JavaRDD) ret.get("signals");
             assertEquals(
-                    4,
-                    rddS.count()
-            );
-            assertEquals(
-                    2,
+                    8,
                     rddS.getNumPartitions()
             );
 
-            rddS = (JavaRDD<Text>) ret.get("source2");
-            assertEquals(
-                    2,
-                    rddS.count()
-            );
+            rddS = (JavaRDD) ret.get("signals1");
             assertEquals(
                     1,
                     rddS.getNumPartitions()
             );
 
-            rddS = (JavaRDD<Text>) ret.get("source1");
+            rddS = (JavaRDD) ret.get("signals10");
             assertEquals(
-                    2,
-                    rddS.count()
-            );
-            assertEquals(
-                    1,
+                    10,
                     rddS.getNumPartitions()
             );
 
+            rddS = (JavaRDD) ret.get("signals8_2");
+            assertEquals(
+                    2,
+                    rddS.getNumPartitions()
+            );
         }
     }
 }
