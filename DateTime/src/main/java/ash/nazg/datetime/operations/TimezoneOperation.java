@@ -4,21 +4,18 @@
  */
 package ash.nazg.datetime.operations;
 
-import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
-import ash.nazg.config.tdl.metadata.OperationMeta;
-import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
-import ash.nazg.datetime.config.ConfigurationParameters;
-import ash.nazg.spark.Operation;
-import com.opencsv.CSVParser;
-import com.opencsv.CSVParserBuilder;
-import com.opencsv.CSVWriter;
-import org.apache.hadoop.io.Text;
+import ash.nazg.config.InvalidConfigurationException;
+import ash.nazg.metadata.DefinitionMetaBuilder;
+import ash.nazg.metadata.OperationMeta;
+import ash.nazg.metadata.Origin;
+import ash.nazg.metadata.PositionalStreamsMetaBuilder;
+import ash.nazg.data.Columnar;
+import ash.nazg.data.DataStream;
+import ash.nazg.data.DateTime;
+import ash.nazg.data.StreamType;
+import ash.nazg.scripting.Operation;
 import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.JavaRDDLike;
 
-import java.io.StringWriter;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
@@ -26,6 +23,16 @@ import java.util.*;
 
 @SuppressWarnings("unused")
 public class TimezoneOperation extends Operation {
+    public static final String SOURCE_TS_COLUMN = "source.ts.column";
+
+    public static final String SOURCE_TS_FORMAT = "source.ts.format";
+    public static final String SOURCE_TZ_DEFAULT = "source.tz.default";
+    public static final String SOURCE_TZ_COLUMN = "source.tz.column";
+
+    public static final String DEST_TS_FORMAT = "dest.ts.format";
+    public static final String DEST_TZ_DEFAULT = "dest.tz.default";
+    public static final String DEST_TZ_COLUMN = "dest.tz.column";
+
     public static final String GEN_INPUT_DATE = "_input_date";
     public static final String GEN_INPUT_DOW_INT = "_input_dow_int";
     public static final String GEN_INPUT_DAY_INT = "_input_day_int";
@@ -42,16 +49,9 @@ public class TimezoneOperation extends Operation {
     public static final String GEN_OUTPUT_MINUTE_INT = "_output_minute_int";
     public static final String GEN_EPOCH_TIME = "_epoch_time";
 
-    private String inputName, outputName;
-
     private String timestampColumn;
     private String timezoneColumn;
     private String outputTimezoneColumn;
-
-    private Map<String, Integer> inputColumns;
-    private char inputDelimiter;
-    private String[] outputColumns;
-    private char outputDelimiter;
 
     private String timestampFormat;
     private String outputTimestampFormat;
@@ -60,99 +60,99 @@ public class TimezoneOperation extends Operation {
 
     @Override
     public OperationMeta meta() {
-        return new OperationMeta("timezone", "Take a CSV RDD with a timestamp column (Epoch seconds or" +
-                " milliseconds, ISO of custom format) and explode its components into individual columns." +
+        return new OperationMeta("timezone", "Take a Columnar DataStream with a timestamp column (Epoch seconds or" +
+                " milliseconds, ISO of custom format) and explode its components into individual attributes." +
                 " Perform timezone conversion, using source and destination timezones from the parameters or" +
-                " another source columns",
+                " another source attributes",
 
                 new PositionalStreamsMetaBuilder()
-                        .ds("CSV RDD with timestamp and optional timezone columns",
-                                new StreamType[]{StreamType.CSV}, true
+                        .input("Columnar RDD with timestamp and optional timezone attributes",
+                                new StreamType[]{StreamType.Columnar}
                         )
                         .build(),
 
                 new DefinitionMetaBuilder()
-                        .def(ConfigurationParameters.DS_SRC_TIMESTAMP_COLUMN, "Source column with a timestamp")
-                        .def(ConfigurationParameters.OP_SRC_TIMESTAMP_FORMAT, "If set, use this format to parse source timestamp", null, "By default, use ISO formatting for the full source date")
-                        .def(ConfigurationParameters.OP_SRC_TIMEZONE_COL, "Source timezone default", null, "By default, do not read source time zone from input column")
-                        .def(ConfigurationParameters.OP_SRC_TIMEZONE_DEFAULT, "If set, use source timezone from this column instead of the default", "GMT", "By default, source time zone is GMT")
-                        .def(ConfigurationParameters.OP_DST_TIMESTAMP_FORMAT, "If set, use this format to output full date", null, "By default, use ISO formatting for the full destination date")
-                        .def(ConfigurationParameters.OP_DST_TIMEZONE_COL, "Destination timezone default", null, "By default, do not read destination time zone from input column")
-                        .def(ConfigurationParameters.OP_DST_TIMEZONE_DEFAULT, "If set, use destination timezone from this column instead of the default", "GMT", "By default, destination time zone is GMT")
+                        .def(SOURCE_TS_COLUMN, "Source column with a timestamp")
+                        .def(SOURCE_TS_FORMAT, "If set, use this format to parse source timestamp", null, "By default, use ISO formatting for the full source date")
+                        .def(SOURCE_TZ_COLUMN, "If set, use source timezone from this column instead of the default", null, "By default, do not read source time zone from input column")
+                        .def(SOURCE_TZ_DEFAULT, "Source timezone default", "GMT", "By default, source time zone is GMT")
+                        .def(DEST_TS_FORMAT, "If set, use this format to output full date", null, "By default, use ISO formatting for the full destination date")
+                        .def(DEST_TZ_COLUMN, "If set, use destination timezone from this column instead of the default", null, "By default, do not read destination time zone from input column")
+                        .def(DEST_TZ_DEFAULT, "Destination timezone default", "GMT", "By default, destination time zone is GMT")
                         .build(),
 
                 new PositionalStreamsMetaBuilder()
-                        .ds("CSV RDD with exploded timestamp component columns",
-                                new StreamType[]{StreamType.CSV}, true
+                        .output("Columnar RDD with exploded timestamp component attributes",
+                                new StreamType[]{StreamType.Columnar}, Origin.AUGMENTED, null
                         )
-                        .genCol(GEN_INPUT_DATE, "Generated full input date column")
-                        .genCol(GEN_INPUT_DOW_INT, "Generated input day of week column")
-                        .genCol(GEN_INPUT_DAY_INT, "Generated input date of month column")
-                        .genCol(GEN_INPUT_MONTH_INT, "Generated input month column")
-                        .genCol(GEN_INPUT_YEAR_INT, "Generated input year column")
-                        .genCol(GEN_INPUT_HOUR_INT, "Generated input hour column")
-                        .genCol(GEN_INPUT_MINUTE_INT, "Generated input minute column")
-                        .genCol(GEN_OUTPUT_DATE, "Generated full output date column")
-                        .genCol(GEN_OUTPUT_DOW_INT, "Generated output day of week column")
-                        .genCol(GEN_OUTPUT_DAY_INT, "Generated output date of month column")
-                        .genCol(GEN_OUTPUT_MONTH_INT, "Generated output month column")
-                        .genCol(GEN_OUTPUT_YEAR_INT, "Generated output year column")
-                        .genCol(GEN_OUTPUT_HOUR_INT, "Generated output hour column")
-                        .genCol(GEN_OUTPUT_MINUTE_INT, "Generated output minute column")
-                        .genCol(GEN_EPOCH_TIME, "Generated Epoch time of the timestamp")
+                        .generated(GEN_INPUT_DATE, "Generated full input date column")
+                        .generated(GEN_INPUT_DOW_INT, "Generated input day of week column")
+                        .generated(GEN_INPUT_DAY_INT, "Generated input date of month column")
+                        .generated(GEN_INPUT_MONTH_INT, "Generated input month column")
+                        .generated(GEN_INPUT_YEAR_INT, "Generated input year column")
+                        .generated(GEN_INPUT_HOUR_INT, "Generated input hour column")
+                        .generated(GEN_INPUT_MINUTE_INT, "Generated input minute column")
+                        .generated(GEN_OUTPUT_DATE, "Generated full output date column")
+                        .generated(GEN_OUTPUT_DOW_INT, "Generated output day of week column")
+                        .generated(GEN_OUTPUT_DAY_INT, "Generated output date of month column")
+                        .generated(GEN_OUTPUT_MONTH_INT, "Generated output month column")
+                        .generated(GEN_OUTPUT_YEAR_INT, "Generated output year column")
+                        .generated(GEN_OUTPUT_HOUR_INT, "Generated output hour column")
+                        .generated(GEN_OUTPUT_MINUTE_INT, "Generated output minute column")
+                        .generated(GEN_EPOCH_TIME, "Generated Epoch time of the timestamp")
                         .build()
         );
     }
 
     @Override
-    public void configure() throws InvalidConfigValueException {
-        inputName = opResolver.positionalInput(0);
-        inputColumns = dsResolver.inputColumns(inputName);
-        inputDelimiter = dsResolver.inputDelimiter(inputName);
-
-        timestampColumn = opResolver.definition(ConfigurationParameters.DS_SRC_TIMESTAMP_COLUMN);
-        timezoneColumn = opResolver.definition(ConfigurationParameters.OP_SRC_TIMEZONE_COL);
+    public void configure() throws InvalidConfigurationException {
+        timestampColumn = params.get(SOURCE_TS_COLUMN);
+        timezoneColumn = params.get(SOURCE_TZ_COLUMN);
         if (timezoneColumn == null) {
-            String timezoneDefault = opResolver.definition(ConfigurationParameters.OP_SRC_TIMEZONE_DEFAULT);
+            String timezoneDefault = params.get(SOURCE_TZ_DEFAULT);
             sourceTimezoneDefault = TimeZone.getTimeZone(timezoneDefault);
         }
-        timestampFormat = opResolver.definition(ConfigurationParameters.OP_SRC_TIMESTAMP_FORMAT);
+        timestampFormat = params.get(SOURCE_TS_FORMAT);
 
-        outputName = opResolver.positionalOutput(0);
-        outputColumns = dsResolver.outputColumns(outputName);
-        outputDelimiter = dsResolver.outputDelimiter(outputName);
-
-        outputTimezoneColumn = opResolver.definition(ConfigurationParameters.OP_DST_TIMEZONE_COL);
+        outputTimezoneColumn = params.get(DEST_TZ_COLUMN);
         if (outputTimezoneColumn == null) {
-            String outputTimezoneDefault = opResolver.definition(ConfigurationParameters.OP_DST_TIMEZONE_DEFAULT);
+            String outputTimezoneDefault = params.get(DEST_TZ_DEFAULT);
             destinationTimezoneDefault = TimeZone.getTimeZone(outputTimezoneDefault);
         }
-        outputTimestampFormat = opResolver.definition(ConfigurationParameters.OP_DST_TIMESTAMP_FORMAT);
+        outputTimestampFormat = params.get(DEST_TS_FORMAT);
     }
 
     @SuppressWarnings("rawtypes")
     @Override
-    public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
-        final Map<String, Integer> _inputColumns = inputColumns;
-        final char _inputDelimiter = inputDelimiter;
-        final String[] _outputColumns = outputColumns;
-        final char _outputDelimiter = outputDelimiter;
-
-        final int _sourceTimestampColumn = inputColumns.get(timestampColumn);
-        final Integer _sourceTimezoneColumn = inputColumns.get(timezoneColumn);
+    public Map<String, DataStream> execute() {
+        final String _sourceTimestampColumn = timestampColumn;
+        final String _sourceTimezoneColumn = timezoneColumn;
         final TimeZone _sourceTimezoneDefault = sourceTimezoneDefault;
         final String _sourceTimestampFormat = timestampFormat;
 
-        final Integer _destinationTimezoneColumn = inputColumns.get(outputTimezoneColumn);
+        final String _destinationTimezoneColumn = outputTimezoneColumn;
         final TimeZone _destinationTimezoneDefault = destinationTimezoneDefault;
         final String _destinationTimestampFormat = outputTimestampFormat;
 
-        JavaRDD<Object> signalsInput = (JavaRDD<Object>) input.get(inputName);
+        final List<String> _columns = new ArrayList<>(inputStreams.getValue(0).accessor.attributes("value"));
+        _columns.add(GEN_INPUT_DATE);
+        _columns.add(GEN_INPUT_DOW_INT);
+        _columns.add(GEN_INPUT_DAY_INT);
+        _columns.add(GEN_INPUT_MONTH_INT);
+        _columns.add(GEN_INPUT_YEAR_INT);
+        _columns.add(GEN_INPUT_HOUR_INT);
+        _columns.add(GEN_INPUT_MINUTE_INT);
+        _columns.add(GEN_OUTPUT_DATE);
+        _columns.add(GEN_OUTPUT_DOW_INT);
+        _columns.add(GEN_OUTPUT_DAY_INT);
+        _columns.add(GEN_OUTPUT_MONTH_INT);
+        _columns.add(GEN_OUTPUT_YEAR_INT);
+        _columns.add(GEN_OUTPUT_HOUR_INT);
+        _columns.add(GEN_OUTPUT_MINUTE_INT);
+        _columns.add(GEN_EPOCH_TIME);
 
-        JavaRDD<Text> signals = signalsInput
+        JavaRDD<Columnar> output = ((JavaRDD<Columnar>) inputStreams.getValue(0).get())
                 .mapPartitions(it -> {
-                    CSVParser parser = new CSVParserBuilder().withSeparator(_inputDelimiter).build();
-
                     ZoneId GMT = TimeZone.getTimeZone("GMT").toZoneId();
 
                     DateTimeFormatter dtfInput = (_sourceTimestampFormat != null)
@@ -162,43 +162,22 @@ public class TimezoneOperation extends Operation {
                             ? new DateTimeFormatterBuilder().appendPattern(_destinationTimestampFormat).toFormatter()
                             : null;
 
-                    List<Text> result = new ArrayList<>();
+                    List<Columnar> result = new ArrayList<>();
                     while (it.hasNext()) {
-                        Object line = it.next();
-
-                        Map<String, String> properties = new HashMap<>();
-
-                        String l;
-                        if (line instanceof String) {
-                            l = (String) line;
-                        } else {
-                            l = String.valueOf(line);
-                        }
-                        String[] row = parser.parseLine(l);
-
-                        _inputColumns.forEach((k, v) -> properties.put(k, row[v]));
+                        Columnar line = it.next();
 
                         long timestamp;
-                        String timestampText = row[_sourceTimestampColumn];
+                        Object tsObject = line.asIs(_sourceTimestampColumn);
 
                         ZoneId inputTimezone = (_sourceTimezoneColumn == null)
                                 ? _sourceTimezoneDefault.toZoneId()
-                                : TimeZone.getTimeZone(row[_sourceTimezoneColumn]).toZoneId();
+                                : TimeZone.getTimeZone(line.asString(_sourceTimezoneColumn)).toZoneId();
 
                         if (dtfInput != null) {
-                            timestamp = Date.from(Instant.from(dtfInput.withZone(inputTimezone).parse(timestampText))).getTime();
-                        } else try {
-                            // timestamp is in milliseconds
-                            timestamp = new Double(Double.parseDouble(timestampText)).longValue();
-
-                            // timestamp is in seconds
-                            if (timestamp < 100_000_000_000L) {
-                                timestamp *= 1000L;
-                            }
-                        } catch (NumberFormatException e) {
-                            // timestamp is ISO
-                            timestamp = Date.from(Instant.parse(timestampText)).getTime();
-                        } // fail otherwise
+                            timestamp = Date.from(Instant.from(dtfInput.withZone(inputTimezone).parse(String.valueOf(tsObject)))).getTime();
+                        } else {
+                            timestamp = DateTime.parseTimestamp(tsObject).getTime();
+                        }
 
                         LocalDateTime localGMTDate = LocalDateTime.ofInstant(new Date(timestamp).toInstant(), GMT);
 
@@ -215,44 +194,34 @@ public class TimezoneOperation extends Operation {
 
                         ZoneId outputTimezone = (_destinationTimezoneColumn == null)
                                 ? _destinationTimezoneDefault.toZoneId()
-                                : TimeZone.getTimeZone(row[_destinationTimezoneColumn]).toZoneId();
+                                : TimeZone.getTimeZone(line.asString(_destinationTimezoneColumn)).toZoneId();
 
                         ZonedDateTime outputDate = inputDate.toInstant().atZone(outputTimezone);
 
-                        properties.put(GEN_INPUT_DATE, (dtfOutput != null) ? dtfOutput.withZone(inputTimezone).format(inputDate) : inputDate.toString());
-                        properties.put(GEN_INPUT_DOW_INT, String.valueOf(inputDate.getDayOfWeek().getValue()));
-                        properties.put(GEN_INPUT_DAY_INT, String.valueOf(inputDate.getDayOfMonth()));
-                        properties.put(GEN_INPUT_MONTH_INT, String.valueOf(inputDate.getMonthValue()));
-                        properties.put(GEN_INPUT_YEAR_INT, String.valueOf(inputDate.getYear()));
-                        properties.put(GEN_INPUT_HOUR_INT, String.valueOf(inputDate.getHour()));
-                        properties.put(GEN_INPUT_MINUTE_INT, String.valueOf(inputDate.getMinute()));
-                        properties.put(GEN_OUTPUT_DATE, (dtfOutput != null) ? dtfOutput.withZone(outputTimezone).format(outputDate) : outputDate.toString());
-                        properties.put(GEN_OUTPUT_DOW_INT, String.valueOf(outputDate.getDayOfWeek().getValue()));
-                        properties.put(GEN_OUTPUT_DAY_INT, String.valueOf(outputDate.getDayOfMonth()));
-                        properties.put(GEN_OUTPUT_MONTH_INT, String.valueOf(outputDate.getMonthValue()));
-                        properties.put(GEN_OUTPUT_YEAR_INT, String.valueOf(outputDate.getYear()));
-                        properties.put(GEN_OUTPUT_HOUR_INT, String.valueOf(outputDate.getHour()));
-                        properties.put(GEN_OUTPUT_MINUTE_INT, String.valueOf(outputDate.getMinute()));
-                        properties.put(GEN_EPOCH_TIME, String.valueOf(localGMTDate.toEpochSecond(ZoneOffset.UTC)));
+                        Columnar rec = new Columnar(_columns);
+                        rec.put(line.asIs());
+                        rec.put(GEN_INPUT_DATE, (dtfOutput != null) ? dtfOutput.withZone(inputTimezone).format(inputDate) : inputDate.toString());
+                        rec.put(GEN_INPUT_DOW_INT, inputDate.getDayOfWeek().getValue());
+                        rec.put(GEN_INPUT_DAY_INT, inputDate.getDayOfMonth());
+                        rec.put(GEN_INPUT_MONTH_INT, inputDate.getMonthValue());
+                        rec.put(GEN_INPUT_YEAR_INT, inputDate.getYear());
+                        rec.put(GEN_INPUT_HOUR_INT, inputDate.getHour());
+                        rec.put(GEN_INPUT_MINUTE_INT, inputDate.getMinute());
+                        rec.put(GEN_OUTPUT_DATE, (dtfOutput != null) ? dtfOutput.withZone(outputTimezone).format(outputDate) : outputDate.toString());
+                        rec.put(GEN_OUTPUT_DOW_INT, outputDate.getDayOfWeek().getValue());
+                        rec.put(GEN_OUTPUT_DAY_INT, outputDate.getDayOfMonth());
+                        rec.put(GEN_OUTPUT_MONTH_INT, outputDate.getMonthValue());
+                        rec.put(GEN_OUTPUT_YEAR_INT, outputDate.getYear());
+                        rec.put(GEN_OUTPUT_HOUR_INT, outputDate.getHour());
+                        rec.put(GEN_OUTPUT_MINUTE_INT, outputDate.getMinute());
+                        rec.put(GEN_EPOCH_TIME, localGMTDate.toEpochSecond(ZoneOffset.UTC));
 
-                        StringWriter buffer = new StringWriter();
-                        String[] acc = new String[_outputColumns.length];
-
-                        for (int i = 0; i < _outputColumns.length; i++) {
-                            acc[i] = properties.get(_outputColumns[i]);
-                        }
-
-                        CSVWriter writer = new CSVWriter(buffer, _outputDelimiter, CSVWriter.DEFAULT_QUOTE_CHARACTER,
-                                CSVWriter.DEFAULT_ESCAPE_CHARACTER, "");
-                        writer.writeNext(acc, false);
-                        writer.close();
-
-                        result.add(new Text(buffer.toString()));
+                        result.add(rec);
                     }
 
                     return result.iterator();
                 });
 
-        return Collections.singletonMap(outputName, signals);
+        return Collections.singletonMap(outputStreams.firstKey(), new DataStream(StreamType.Columnar, output, Collections.singletonMap("value", _columns)));
     }
 }

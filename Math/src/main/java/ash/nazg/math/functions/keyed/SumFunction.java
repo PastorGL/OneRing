@@ -7,16 +7,16 @@ package ash.nazg.math.functions.keyed;
 import java.util.List;
 
 public class SumFunction extends KeyedFunction {
-    public SumFunction(Double _const) {
-        super(_const);
+    public SumFunction(Double shift) {
+        super(shift);
     }
 
     @Override
-    public Double calcSeries(List<Double> series) {
+    public Double calcSeries(List<Double[]> series, int idx) {
         double result = (_const != null) ? _const : 0.D;
 
-        for (Double value : series) {
-            result += value;
+        for (Double[] value : series) {
+            result += value[idx];
         }
 
         return result;

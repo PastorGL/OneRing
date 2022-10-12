@@ -1,7 +1,7 @@
 package ash.nazg.populations;
 
-import ash.nazg.spark.TestRunner;
-import org.apache.hadoop.io.Text;
+import ash.nazg.data.Columnar;
+import ash.nazg.scripting.TestRunner;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
@@ -15,38 +15,31 @@ import static org.junit.Assert.assertEquals;
 
 public class PercentRankIncOperationTest {
     @Test
-    public void simpleRdd() throws Exception {
-        try (TestRunner underTest = new TestRunner("/configs/test1.percentRankInc.properties")) {
+    public void simpleRdd() {
+        try (TestRunner underTest = new TestRunner("/configs/test1.percentRankInc.tdl")) {
             Map<String, JavaRDDLike> ret = underTest.go();
 
-            JavaRDD<Text> dataset = (JavaRDD<Text>) ret.get("result");
+            List<Columnar> dataset = ((JavaRDD<Columnar>) ret.get("result")).collect();
 
-            List<Double> resMap = dataset.map(t -> {
-                String[] s = String.valueOf(t).split("\t", 2);
-                return Double.parseDouble(s[1]);
-            }).collect();
-
-            assertEquals(0.D, resMap.get(0), 1E-06);
-            assertEquals(0.875D, resMap.get(8), 1E-06);
+            assertEquals(0.D, dataset.get(0).asDouble("_rank"), 1E-06);
+            assertEquals(0.875D, dataset.get(8).asDouble("_rank"), 1E-06);
         }
     }
 
     @Test
-    public void pairRdd() throws Exception {
-        try (TestRunner underTest = new TestRunner("/configs/test2.percentRankInc.properties")) {
+    public void pairRdd() {
+        try (TestRunner underTest = new TestRunner("/configs/test2.percentRankInc.tdl")) {
             Map<String, JavaRDDLike> ret = underTest.go();
 
-            JavaPairRDD<Text, Text> dataset = (JavaPairRDD<Text, Text>) ret.get("result");
+            JavaPairRDD<String, Columnar> dataset = (JavaPairRDD<String, Columnar>) ret.get("result");
 
-            Map<Text, ArrayList<Double>> resMap = dataset.combineByKey(t -> {
+            Map<String, ArrayList<Double>> resMap = dataset.combineByKey(t -> {
                         ArrayList<Double> r = new ArrayList<>();
-                        String[] s = String.valueOf(t).split("\t", 2);
-                        r.add(Double.parseDouble(s[1]));
+                        r.add(t.asDouble("_rank"));
                         return r;
                     },
                     (l, t) -> {
-                        String[] s = String.valueOf(t).split("\t", 2);
-                        l.add(Double.parseDouble(s[1]));
+                        l.add(t.asDouble("_rank"));
                         return l;
                     },
                     (l1, l2) -> {
@@ -55,12 +48,12 @@ public class PercentRankIncOperationTest {
                     }
             ).collectAsMap();
 
-            assertEquals(0.571D, resMap.get(new Text("a")).get(4), 1E-03);
-            assertEquals(0.428D, resMap.get(new Text("b")).get(4), 1E-03);
-            assertEquals(0.428D, resMap.get(new Text("c")).get(4), 1E-03);
-            assertEquals(0.571D, resMap.get(new Text("d")).get(4), 1E-03);
-            assertEquals(0.D, resMap.get(new Text("e")).get(4), 1E-03);
-            assertEquals(0.D, resMap.get(new Text("f")).get(4), 1E-03);
+            assertEquals(0.571D, resMap.get("a").get(4), 1E-03);
+            assertEquals(0.428D, resMap.get("b").get(4), 1E-03);
+            assertEquals(0.428D, resMap.get("c").get(4), 1E-03);
+            assertEquals(0.571D, resMap.get("d").get(4), 1E-03);
+            assertEquals(0.D, resMap.get("e").get(4), 1E-03);
+            assertEquals(0.D, resMap.get("f").get(4), 1E-03);
         }
     }
 }

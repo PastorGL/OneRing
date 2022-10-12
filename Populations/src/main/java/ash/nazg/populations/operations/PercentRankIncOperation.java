@@ -1,17 +1,22 @@
+/**
+ * Copyright (C) 2020 Locomizer team and Contributors
+ * This project uses New BSD license with do no evil clause. For full text, check the LICENSE file in the root directory.
+ */
 package ash.nazg.populations.operations;
 
-import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
-import ash.nazg.config.tdl.metadata.OperationMeta;
-import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
-import com.opencsv.CSVParser;
-import com.opencsv.CSVParserBuilder;
-import com.opencsv.CSVWriter;
-import org.apache.hadoop.io.Text;
+import ash.nazg.config.InvalidConfigurationException;
+import ash.nazg.metadata.DefinitionMetaBuilder;
+import ash.nazg.metadata.OperationMeta;
+import ash.nazg.metadata.Origin;
+import ash.nazg.metadata.PositionalStreamsMetaBuilder;
+import ash.nazg.data.Columnar;
+import ash.nazg.data.DataStream;
+import ash.nazg.data.StreamType;
+import ash.nazg.scripting.Operation;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
+import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
 import scala.Tuple2;
 
@@ -19,72 +24,62 @@ import java.io.StringWriter;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static ash.nazg.populations.config.ConfigurationParameters.DS_VALUE_COLUMN;
-
 @SuppressWarnings("unused")
-public class PercentRankIncOperation extends PopulationIndicatorOperation {
+public class PercentRankIncOperation extends Operation {
+    static final String VALUE_COLUMN = "value.column";
+    static final String GEN_VALUE = "_value";
+    static final String GEN_RANK = "_rank";
+    protected String valueColumn;
+
     @Override
     public OperationMeta meta() {
         return new OperationMeta("percentRankInc", "Statistical indicator for 'percentile rank inclusive'" +
-                " function for a Double input value column. Output is fixed to value then rank columns. Does not work" +
+                " function for a Double input value column. Output is fixed to value then rank attributes. Does not work" +
                 " with datasets consisting of less than one element, and returns NaN for single-element dataset",
 
                 new PositionalStreamsMetaBuilder()
-                        .ds("Columnar or Pair RDD with value column to calculate the rank",
-                                new StreamType[]{StreamType.CSV, StreamType.KeyValue}, true
+                        .input("Columnar or Pair RDD with value column to calculate the rank",
+                                new StreamType[]{StreamType.Columnar, StreamType.KeyValue}
                         )
                         .build(),
 
                 new DefinitionMetaBuilder()
-                        .def(DS_VALUE_COLUMN, "Column for counting rank values, must be of type Double")
+                        .def(VALUE_COLUMN, "Column for counting rank values, must be of type Double")
                         .build(),
 
                 new PositionalStreamsMetaBuilder()
-                        .ds("In the case of input Pair RDD rank is calculated for all values under same key," +
-                                        " for Columnar for the entire RDD, and output RDD is same type as input",
-                                new StreamType[]{StreamType.Fixed, StreamType.KeyValue}
+                        .output("For KeyValue DataStream rank is calculated for all values under same key and put under that key," +
+                                        " for Columnar for the entire DataStream, and output is same type as input",
+                                new StreamType[]{StreamType.Columnar, StreamType.KeyValue}, Origin.GENERATED, null
                         )
+                        .generated(GEN_VALUE, "Ranked value")
+                        .generated(GEN_RANK, "Calculated rank")
                         .build()
         );
     }
 
     @Override
-    protected void configure() throws InvalidConfigValueException {
-        super.configure();
-
-        inputValuesName = opResolver.positionalInput(0);
-        inputValuesDelimiter = dsResolver.inputDelimiter(inputValuesName);
-
-        Map<String, Integer> inputColumns = dsResolver.inputColumns(inputValuesName);
-        String prop;
-
-        prop = opResolver.definition(DS_VALUE_COLUMN);
-        valueColumn = inputColumns.get(prop);
+    protected void configure() throws InvalidConfigurationException {
+        valueColumn = params.get(VALUE_COLUMN);
     }
 
     @Override
-    public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) throws Exception {
-        char _inputDelimiter = inputValuesDelimiter;
-        int _valueColumn = valueColumn;
-        final char _outputDelimiter = outputDelimiter;
+    public Map<String, DataStream> execute() {
+        String _valueColumn = valueColumn;
 
-        JavaRDDLike inputRdd = input.get(inputValuesName);
+        DataStream input = inputStreams.getValue(0);
         JavaRDDLike output;
 
-        if (inputRdd instanceof JavaRDD) {
-            JavaPairRDD<Double, Long> valueCounts = ((JavaRDD<Object>) inputRdd)
-                    .mapPartitionsToPair(it -> {
-                        CSVParser parser = new CSVParserBuilder()
-                                .withSeparator(_inputDelimiter).build();
+        final List<String> outputColumns = Arrays.asList(GEN_VALUE, GEN_RANK);
 
+        if (input.streamType == StreamType.Columnar) {
+            JavaPairRDD<Double, Long> valueCounts = ((JavaRDD<Columnar>) input.get())
+                    .mapPartitionsToPair(it -> {
                         List<Tuple2<Double, Long>> ret = new ArrayList<>();
                         while (it.hasNext()) {
-                            Object o = it.next();
-                            String l = (o instanceof String) ? (String) o : String.valueOf(o);
+                            Columnar row = it.next();
 
-                            String[] row = parser.parseLine(l);
-                            Double value = Double.parseDouble(row[_valueColumn]);
-
+                            Double value = row.asDouble(_valueColumn);
                             ret.add(new Tuple2<>(value, 1L));
                         }
 
@@ -108,7 +103,7 @@ public class PercentRankIncOperation extends PopulationIndicatorOperation {
                     .collect().stream()
                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-            Broadcast<HashMap<Integer, Long>> pc = ctx.broadcast(new HashMap<>(partCounts));
+            Broadcast<HashMap<Integer, Long>> pc = JavaSparkContext.fromSparkContext(valueCounts.context()).broadcast(new HashMap<>(partCounts));
             output = valueCounts
                     .mapPartitionsWithIndex((idx, it) -> {
                         Map<Integer, Long> prevCounts = pc.getValue();
@@ -118,21 +113,14 @@ public class PercentRankIncOperation extends PopulationIndicatorOperation {
                                 .map(Map.Entry::getValue)
                                 .reduce(0L, Long::sum);
 
-                        List<Text> ret = new ArrayList<>();
+                        List<Columnar> ret = new ArrayList<>();
 
                         while (it.hasNext()) {
                             Tuple2<Double, Long> value = it.next();
 
-                            String[] acc = new String[]{String.valueOf(value._1), String.valueOf(global / total)};
+                            Columnar acc = new Columnar(outputColumns, new Object[]{value._1, global / total});
                             for (int j = 0; j < value._2; j++) {
-                                StringWriter buffer = new StringWriter();
-
-                                CSVWriter writer = new CSVWriter(buffer, _outputDelimiter, CSVWriter.DEFAULT_QUOTE_CHARACTER,
-                                        CSVWriter.DEFAULT_ESCAPE_CHARACTER, "");
-                                writer.writeNext(acc, false);
-                                writer.close();
-
-                                ret.add(new Text(buffer.toString()));
+                                ret.add(acc);
                             }
 
                             global += value._2;
@@ -141,20 +129,13 @@ public class PercentRankIncOperation extends PopulationIndicatorOperation {
                         return ret.iterator();
                     }, true);
         } else {
-            output = ((JavaPairRDD<Object, Object>) inputRdd)
+            output = ((JavaPairRDD<String, Columnar>) input.get())
                     .mapPartitionsToPair(it -> {
-                        CSVParser parser = new CSVParserBuilder()
-                                .withSeparator(_inputDelimiter).build();
-
-                        List<Tuple2<Object, Double>> ret = new ArrayList<>();
+                        List<Tuple2<String, Double>> ret = new ArrayList<>();
                         while (it.hasNext()) {
-                            Tuple2<Object, Object> t = it.next();
+                            Tuple2<String, Columnar> t = it.next();
 
-                            Object o = t._2;
-                            String l = (o instanceof String) ? (String) o : String.valueOf(o);
-
-                            String[] row = parser.parseLine(l);
-                            Double value = Double.parseDouble(row[_valueColumn]);
+                            Double value = t._2.asDouble(_valueColumn);
 
                             ret.add(new Tuple2<>(t._1, value));
                         }
@@ -175,10 +156,10 @@ public class PercentRankIncOperation extends PopulationIndicatorOperation {
                             }
                     )
                     .mapPartitionsToPair(it -> {
-                        List<Tuple2<Object, Text>> ret = new ArrayList<>();
+                        List<Tuple2<String, Columnar>> ret = new ArrayList<>();
 
                         while (it.hasNext()) {
-                            Tuple2<Object, ArrayList<Double>> next = it.next();
+                            Tuple2<String, ArrayList<Double>> next = it.next();
 
                             ArrayList<Double> value = next._2;
 
@@ -190,16 +171,7 @@ public class PercentRankIncOperation extends PopulationIndicatorOperation {
                                     global = j;
                                 }
 
-                                String[] acc = new String[]{String.valueOf(value.get(j)), String.valueOf(global / total)};
-
-                                StringWriter buffer = new StringWriter();
-
-                                CSVWriter writer = new CSVWriter(buffer, _outputDelimiter, CSVWriter.DEFAULT_QUOTE_CHARACTER,
-                                        CSVWriter.DEFAULT_ESCAPE_CHARACTER, "");
-                                writer.writeNext(acc, false);
-                                writer.close();
-
-                                ret.add(new Tuple2<>(next._1, new Text(buffer.toString())));
+                                ret.add(new Tuple2<>(next._1, new Columnar(outputColumns, new Object[]{value.get(j), global / total})));
                             }
                         }
 
@@ -207,6 +179,6 @@ public class PercentRankIncOperation extends PopulationIndicatorOperation {
                     });
         }
 
-        return Collections.singletonMap(outputName, output);
+        return Collections.singletonMap(outputStreams.firstKey(), new DataStream(input.streamType, output, Collections.singletonMap("value", outputColumns)));
     }
 }

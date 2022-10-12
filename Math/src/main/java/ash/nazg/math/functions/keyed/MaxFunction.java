@@ -12,11 +12,11 @@ public class MaxFunction extends KeyedFunction {
     }
 
     @Override
-    public Double calcSeries(List<Double> series) {
+    public Double calcSeries(List<Double[]> series, int idx) {
         double result = Double.NEGATIVE_INFINITY;
 
-        for (Double value : series) {
-            result = Math.max(result, value);
+        for (Double[] value : series) {
+            result = Math.max(result, value[idx]);
         }
         if ((_const != null) && (_const < result)) {
             result = _const;

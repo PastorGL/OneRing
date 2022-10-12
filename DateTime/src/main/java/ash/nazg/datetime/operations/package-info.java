@@ -2,8 +2,7 @@
  * Copyright (C) 2020 Locomizer team and Contributors
  * This project uses New BSD license with do no evil clause. For full text, check the LICENSE file in the root directory.
  */
-@RegisteredPackage("Read timestamp columns of CSV RDDs, explode into individual fields, convert time zone" +
-        " and filter or split RDDs by timestamp field values")
+@RegisteredPackage("Date and time manipulation Operations for time stamp attributes in Columnar DataStreams")
 package ash.nazg.datetime.operations;
 
-import ash.nazg.config.tdl.RegisteredPackage;
+import ash.nazg.RegisteredPackage;

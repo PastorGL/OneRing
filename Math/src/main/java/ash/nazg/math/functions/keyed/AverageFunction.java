@@ -12,11 +12,11 @@ public class AverageFunction extends KeyedFunction {
     }
 
     @Override
-    public Double calcSeries(List<Double> series) {
+    public Double calcSeries(List<Double[]> series, int idx) {
         double result = (_const == null) ? 0.D : _const;
 
-        for (Double value : series) {
-            result += value;
+        for (Double[] value : series) {
+            result += value[idx];
         }
 
         return result / series.size();

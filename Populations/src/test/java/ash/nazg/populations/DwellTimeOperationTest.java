@@ -4,12 +4,11 @@
  */
 package ash.nazg.populations;
 
-import ash.nazg.spark.TestRunner;
-import org.apache.hadoop.io.Text;
-import org.apache.spark.api.java.JavaRDD;
+import ash.nazg.data.Columnar;
+import ash.nazg.scripting.TestRunner;
+import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 import org.junit.Test;
-import scala.Tuple2;
 
 import java.util.Map;
 
@@ -18,22 +17,15 @@ import static org.junit.Assert.assertEquals;
 
 public class DwellTimeOperationTest {
     @Test
-    public void dwellTimeTest() throws Exception {
-        try (TestRunner underTest = new TestRunner("/configs/test.dwellTime.properties")) {
+    public void dwellTimeTest() {
+        try (TestRunner underTest = new TestRunner("/configs/test.dwellTime.tdl")) {
             Map<String, JavaRDDLike> ret = underTest.go();
 
-            JavaRDD<Text> dataset = (JavaRDD<Text>) ret.get("result");
+            Map<String, Columnar> resMap = ((JavaPairRDD<String, Columnar>) ret.get("result")).collectAsMap();
 
-            Map<String, Double> resMap = dataset.mapToPair(t -> {
-                String[] s = t.toString().split("\t", 2);
-
-                return new Tuple2<>(s[0], Double.parseDouble(s[1]));
-            }).collectAsMap();
-
-
-            assertEquals(0.36666666666, resMap.get("cell1"), 1E-06);
-            assertEquals(0.3D, resMap.get("cell2"), 1E-06);
-            assertEquals(0.75D, resMap.get("cell3"), 1E-06);
+            assertEquals(0.36666666666, resMap.get("cell1").asDouble("_dwelltime"), 1E-06);
+            assertEquals(0.3D, resMap.get("cell2").asDouble("_dwelltime"), 1E-06);
+            assertEquals(0.75D, resMap.get("cell3").asDouble("_dwelltime"), 1E-06);
         }
     }
 }

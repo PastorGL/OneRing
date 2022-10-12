@@ -1,7 +1,7 @@
 package ash.nazg.rest.endpoints;
 
 import ash.nazg.config.tdl.metadata.OperationMeta;
-import ash.nazg.spark.Operations;
+import ash.nazg.scripting.Operations;
 
 import javax.validation.constraints.NotEmpty;
 import javax.ws.rs.GET;

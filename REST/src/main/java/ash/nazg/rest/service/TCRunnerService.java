@@ -4,8 +4,6 @@
  */
 package ash.nazg.rest.service;
 
-import ash.nazg.config.tdl.TDLObjectMapper;
-import ash.nazg.config.tdl.TaskDefinitionLanguage;
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;

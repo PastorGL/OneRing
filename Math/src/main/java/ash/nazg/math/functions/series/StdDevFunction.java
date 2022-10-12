@@ -4,14 +4,17 @@
  */
 package ash.nazg.math.functions.series;
 
+import ash.nazg.data.Record;
 import org.apache.spark.api.java.JavaDoubleRDD;
+
+import java.util.List;
 
 public class StdDevFunction extends SeriesFunction {
     private double stdDev;
     private double mean;
 
-    public StdDevFunction(char inputDelimiter, char outputDelimiter, int[] outputColumns, int columnForCalculation) {
-        super(inputDelimiter, outputDelimiter, outputColumns, columnForCalculation);
+    public StdDevFunction(String calcProp, Double ignore) {
+        super(calcProp, ignore);
     }
 
     @Override
@@ -25,18 +28,7 @@ public class StdDevFunction extends SeriesFunction {
     }
 
     @Override
-    public String[] calcLine(String[] row) {
-        String[] out = new String[outputColumns.length];
-
-        for (int i = 0; i < outputColumns.length; i++) {
-            if (outputColumns[i] >= 0) {
-                out[i] = row[outputColumns[i]];
-            } else {
-                double result = (Double.parseDouble(row[columnForCalculation]) - mean) / stdDev;
-                out[i] = Double.toString(result);
-            }
-        }
-
-        return out;
+    public Double calcValue(Record row) {
+        return (row.asDouble(calcProp) - mean) / stdDev;
     }
 }

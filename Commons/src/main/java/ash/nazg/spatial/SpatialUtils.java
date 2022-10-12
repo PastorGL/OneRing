@@ -4,11 +4,18 @@
  */
 package ash.nazg.spatial;
 
+import ash.nazg.data.spatial.PointEx;
 import com.uber.h3core.H3Core;
 import com.uber.h3core.LengthUnit;
+import net.sf.geographiclib.Geodesic;
+import net.sf.geographiclib.GeodesicMask;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.CoordinateXY;
+import org.locationtech.jts.geom.Point;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.List;
 
 public class SpatialUtils implements Serializable {
@@ -33,6 +40,43 @@ public class SpatialUtils implements Serializable {
                 }
             }
         }
+    }
+
+    public static PointEx getCentroid(Point centroid, Coordinate[] coordinates) {
+        if (coordinates.length == 0) {
+            return null;
+        }
+
+        Coordinate minX = new CoordinateXY(Double.POSITIVE_INFINITY, Double.NaN),
+                minY = new CoordinateXY(Double.NaN, Double.POSITIVE_INFINITY),
+                maxX = new CoordinateXY(Double.NEGATIVE_INFINITY, Double.NaN),
+                maxY = new CoordinateXY(Double.NaN, Double.NEGATIVE_INFINITY);
+        for (Coordinate c : coordinates) {
+            if (c.x < minX.x) {
+                minX = (Coordinate) c.clone();
+            }
+            if (c.x > maxX.x) {
+                maxX = (Coordinate) c.clone();
+            }
+            if (c.y < minY.y) {
+                minY = (Coordinate) c.clone();
+            }
+            if (c.y > maxY.y) {
+                maxY = (Coordinate) c.clone();
+            }
+        }
+        double radius = 0.D;
+        for (Coordinate c : Arrays.asList(minX, minY, maxX, maxY)) {
+            double r = Geodesic.WGS84.Inverse(c.y, c.x,
+                    centroid.getY(), centroid.getX(), GeodesicMask.DISTANCE
+            ).s12;
+            if (r > radius) {
+                radius = r;
+            }
+        }
+        PointEx centrePoint = new PointEx(centroid);
+        centrePoint.setRadius(radius);
+        return centrePoint;
     }
 
     private void setupH3() {

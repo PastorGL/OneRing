@@ -4,150 +4,156 @@
  */
 package ash.nazg.populations.operations;
 
-import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
-import ash.nazg.config.tdl.metadata.OperationMeta;
-import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
-import ash.nazg.populations.config.ConfigurationParameters;
+import ash.nazg.config.InvalidConfigurationException;
+import ash.nazg.data.Columnar;
+import ash.nazg.data.DataStream;
+import ash.nazg.data.Record;
+import ash.nazg.data.StreamType;
+import ash.nazg.metadata.DefinitionMetaBuilder;
+import ash.nazg.metadata.OperationMeta;
+import ash.nazg.metadata.Origin;
+import ash.nazg.metadata.PositionalStreamsMetaBuilder;
 import ash.nazg.populations.functions.MedianCalcFunction;
-import com.opencsv.CSVParser;
-import com.opencsv.CSVParserBuilder;
-import com.opencsv.CSVWriter;
-import org.apache.hadoop.io.Text;
+import ash.nazg.scripting.Operation;
+import org.apache.commons.collections4.map.SingletonMap;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.JavaRDDLike;
 import scala.Tuple2;
 
-import java.io.StringWriter;
 import java.util.*;
 
-import static ash.nazg.populations.config.ConfigurationParameters.DS_COUNT_COLUMN;
-import static ash.nazg.populations.config.ConfigurationParameters.DS_VALUE_COLUMN;
-
 @SuppressWarnings("unused")
-public class FrequencyOperation extends PopulationIndicatorOperation {
+public class FrequencyOperation extends Operation {
+    static final String FREQUENCY_COLUMN = "frequency.column";
+    static final String REFERENCE_COLUMN = "reference.column";
+    static final String DEF_KEY = "_key";
+    static final String GEN_FREQUENCY = "_frequency";
+    private String freqColumn;
+    private String refColumn;
+
     @Override
     public OperationMeta meta() {
-        return new OperationMeta("frequency", "Statistical indicator for the frequency of a value occurring per other value selected as a count value",
+        return new OperationMeta("frequency", "Statistical indicator for the median frequency of a value occurring" +
+                " in a column per reference (key or another column)",
 
                 new PositionalStreamsMetaBuilder()
-                        .ds("",
-                                new StreamType[]{StreamType.CSV}, true
+                        .input("KeyValue or Columnar DataStream",
+                                new StreamType[]{StreamType.Columnar, StreamType.KeyValue}
                         )
                         .build(),
 
                 new DefinitionMetaBuilder()
-                        .def(DS_COUNT_COLUMN, "Column to count unique values of other column")
-                        .def(DS_VALUE_COLUMN, "Column for counting unique values per other column")
+                        .def(FREQUENCY_COLUMN, "Column to count value frequencies per reference")
+                        .def(REFERENCE_COLUMN, "A reference column for Columnar DataStream",
+                                DEF_KEY, "By default, reference column is assumed by name '" + DEF_KEY + "'")
                         .build(),
 
                 new PositionalStreamsMetaBuilder()
-                        .ds("",
-                                new StreamType[]{StreamType.Fixed}
+                        .output("Output is KeyValue with key for value and its frequency in the record",
+                                new StreamType[]{StreamType.KeyValue}, Origin.GENERATED, null
                         )
+                        .generated(GEN_FREQUENCY, "Generated column containing calculated frequency")
                         .build()
         );
     }
 
     @Override
-    protected void configure() throws InvalidConfigValueException {
-        super.configure();
+    protected void configure() throws InvalidConfigurationException {
+        freqColumn = params.get(FREQUENCY_COLUMN);
 
-        inputValuesName = opResolver.positionalInput(0);
-        inputValuesDelimiter = dsResolver.inputDelimiter(inputValuesName);
-
-        Map<String, Integer> inputColumns = dsResolver.inputColumns(inputValuesName);
-        String prop;
-
-        prop = opResolver.definition(ConfigurationParameters.DS_COUNT_COLUMN);
-        countColumn = inputColumns.get(prop);
-
-        prop = opResolver.definition(ConfigurationParameters.DS_VALUE_COLUMN);
-        valueColumn = inputColumns.get(prop);
+        refColumn = params.get(REFERENCE_COLUMN);
     }
 
     @SuppressWarnings("rawtypes")
     @Override
-    public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
-        char _inputDelimiter = inputValuesDelimiter;
-        int _valueColumn = valueColumn;
-        int _countColumn = countColumn;
-        final char _outputDelimiter = outputDelimiter;
+    public Map<String, DataStream> execute() {
+        String _refColumn = refColumn;
+        String _freqColumn = freqColumn;
 
-        JavaRDD<Object> signals = (JavaRDD) input.get(inputValuesName);
+        DataStream signals = inputStreams.getValue(0);
 
-        JavaPairRDD<Text, Double> gidToScores = signals.mapPartitionsToPair(it1 -> {
-            CSVParser parser = new CSVParserBuilder()
-                    .withSeparator(_inputDelimiter).build();
+        JavaPairRDD<String, Object> refToValue;
+        if (signals.streamType == StreamType.Columnar) {
+            refToValue = ((JavaRDD<Columnar>) signals.get())
+                    .mapPartitionsToPair(it -> {
+                        List<Tuple2<String, Object>> ret = new ArrayList<>();
 
-            List<Tuple2<Text, Text>> ret = new ArrayList<>();
-            while (it1.hasNext()) {
-                Object o = it1.next();
-                String l = (o instanceof String) ? (String) o : String.valueOf(o);
+                        while (it.hasNext()) {
+                            Columnar row = it.next();
 
-                String[] row = parser.parseLine(l);
+                            String key = row.asString(_refColumn);
+                            Object value = row.asIs(_freqColumn);
 
-                Text value = new Text(row[_valueColumn]);
-                Text count = new Text(row[_countColumn]);
+                            ret.add(new Tuple2<>(key, value));
+                        }
 
-                ret.add(new Tuple2<>(value, count));
-            }
+                        return ret.iterator();
+                    });
+        } else {
+            refToValue = ((JavaPairRDD<String, Columnar>) signals.get())
+                    .mapPartitionsToPair(it -> {
+                        List<Tuple2<String, Object>> ret = new ArrayList<>();
 
-            return ret.iterator();
-        }).combineByKey(
-                t -> {
-                    Map<Text, Long> ret = Collections.singletonMap(t, 1L);
-                    return new Tuple2<>(ret, 1L);
-                },
-                (c, t) -> {
-                    HashMap<Text, Long> ret = new HashMap<>(c._1);
-                    ret.compute(t, (k, v) -> (v == null) ? 1L : v + 1L);
-                    return new Tuple2<>(ret, c._2 + 1L);
-                },
-                (c1, c2) -> {
-                    HashMap<Text, Long> ret = new HashMap<>(c1._1);
-                    c2._1.forEach((key, v2) -> ret.compute(key, (k, v1) -> (v1 == null) ? v2 : v1 + v2));
+                        while (it.hasNext()) {
+                            Tuple2<String, Columnar> row = it.next();
 
-                    return new Tuple2<>(ret, c1._2 + c2._2);
-                }
-        ).mapPartitionsToPair(it -> {
-            List<Tuple2<Text, Double>> ret = new ArrayList<>();
+                            String key = row._1;
+                            Object value = row._2.asIs(_freqColumn);
 
-            while (it.hasNext()) {
-                //userid, groupid -> count, total
-                Tuple2<Text, Tuple2<Map<Text, Long>, Long>> t = it.next();
+                            ret.add(new Tuple2<>(key, value));
+                        }
 
-                t._2._1.forEach((value, count) -> ret.add(new Tuple2<>(value, count.doubleValue() / t._2._2.doubleValue())));
-            }
+                        return ret.iterator();
+                    });
+        }
 
-            return ret.iterator();
-        });
+        JavaPairRDD<Object, Double> valueToFreq = refToValue
+                .combineByKey(
+                        t -> {
+                            Map<Object, Long> ret = Collections.singletonMap(t, 1L);
+                            return new Tuple2<>(ret, 1L);
+                        },
+                        (c, t) -> {
+                            HashMap<Object, Long> ret = new HashMap<>(c._1);
+                            ret.compute(t, (k, v) -> (v == null) ? 1L : v + 1L);
+                            return new Tuple2<>(ret, c._2 + 1L);
+                        },
+                        (c1, c2) -> {
+                            HashMap<Object, Long> ret = new HashMap<>(c1._1);
+                            c2._1.forEach((key, v2) -> ret.compute(key, (k, v1) -> (v1 == null) ? v2 : v1 + v2));
 
-        JavaRDD<Tuple2<Text, Double>> polygonMedianScore = new MedianCalcFunction(ctx).call(gidToScores);
+                            return new Tuple2<>(ret, c1._2 + c2._2);
+                        }
+                )
+                .mapPartitionsToPair(it -> {
+                    List<Tuple2<Object, Double>> ret = new ArrayList<>();
 
-        JavaRDD<Text> output = polygonMedianScore.mapPartitions(it -> {
-            List<Text> ret = new ArrayList<>();
+                    while (it.hasNext()) {
+                        // key -> (freq -> count)..., total
+                        Tuple2<String, Tuple2<Map<Object, Long>, Long>> t = it.next();
 
-            while (it.hasNext()) {
-                Tuple2<Text, Double> t = it.next();
+                        t._2._1.forEach((value, count) -> ret.add(new Tuple2<>(value, count.doubleValue() / t._2._2.doubleValue())));
+                    }
 
-                String[] acc = new String[]{t._1.toString(), Double.toString(t._2)};
+                    return ret.iterator();
+                });
 
-                StringWriter buffer = new StringWriter();
-                CSVWriter writer = new CSVWriter(buffer, _outputDelimiter, CSVWriter.DEFAULT_QUOTE_CHARACTER,
-                        CSVWriter.DEFAULT_ESCAPE_CHARACTER, "");
-                writer.writeNext(acc, false);
-                writer.close();
+        JavaRDD<Tuple2<Object, Double>> medianFreq = new MedianCalcFunction().call(valueToFreq);
 
-                ret.add(new Text(buffer.toString()));
-            }
+        final List<String> outputColumns = Collections.singletonList(GEN_FREQUENCY);
+        JavaPairRDD<String, Record> output = medianFreq
+                .mapPartitionsToPair(it -> {
+                    List<Tuple2<String, Record>> ret = new ArrayList<>();
 
-            return ret.iterator();
-        });
+                    while (it.hasNext()) {
+                        Tuple2<Object, Double> t = it.next();
 
-        return Collections.singletonMap(outputName, output);
+                        ret.add(new Tuple2<>(t._1.toString(), new Columnar(outputColumns, new Object[]{t._2})));
+                    }
+
+                    return ret.iterator();
+                });
+
+        return Collections.singletonMap(outputStreams.firstKey(), new DataStream(StreamType.KeyValue, output, new SingletonMap<>("value", outputColumns)));
     }
-
 }

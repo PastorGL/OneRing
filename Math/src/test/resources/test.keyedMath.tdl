@@ -1,0 +1,25 @@
+CREATE bar (@path='periods/bar.csv');
+
+TRANSFORM bar textToColumnar(@delimiter=',') VALUE (number,userid,_,sum,_,score1,score2,_);
+
+SELECT * INTO bar2 FROM bar;
+
+TRANSFORM bar columnarToPair VALUE (sum,score1,score2) KEY userid;
+
+CALL keyedMath(@calc.results=[sum,mean,rms,min,max,mul],
+@source.column.sum=score1,@calc.const.sum=-15.,@calc.function.sum=SUM,
+@source.column.mean=score2,@calc.function.mean=AVERAGE,
+@source.column.rms=sum,@calc.function.rms=RMS,
+@source.column.min=score1,@calc.function.min=MIN,
+@source.column.max=score2,@calc.function.max=MAX,
+@source.column.mul=sum,@calc.const.mul=3.5,@calc.function.mul=MUL
+)
+INPUT bar OUTPUT math;
+
+
+TRANSFORM bar2 columnarToPair VALUE (number) KEY userid;
+
+CALL keyedMath(@calc.results=[med],
+@source.column.med=number,@calc.function.med=MEDIAN
+)
+INPUT bar2 OUTPUT median;

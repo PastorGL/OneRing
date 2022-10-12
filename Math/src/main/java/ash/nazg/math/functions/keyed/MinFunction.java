@@ -12,11 +12,11 @@ public class MinFunction extends KeyedFunction {
     }
 
     @Override
-    public Double calcSeries(List<Double> series) {
+    public Double calcSeries(List<Double[]> series, int idx) {
         double result = Double.POSITIVE_INFINITY;
 
-        for (Double value : series) {
-            result = Math.min(result, value);
+        for (Double[] value : series) {
+            result = Math.min(result, value[idx]);
         }
         if ((_const != null) && (_const > result)) {
             result = _const;

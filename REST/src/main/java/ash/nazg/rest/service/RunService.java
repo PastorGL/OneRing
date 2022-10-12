@@ -4,8 +4,6 @@
  */
 package ash.nazg.rest.service;
 
-import ash.nazg.config.tdl.TaskDefinitionLanguage;
-
 import javax.inject.Inject;
 import javax.inject.Singleton;
 

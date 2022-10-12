@@ -5,7 +5,6 @@
 package ash.nazg.rest.service;
 
 import ash.nazg.cli.TaskRunner;
-import ash.nazg.config.tdl.TaskDefinitionLanguage;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;

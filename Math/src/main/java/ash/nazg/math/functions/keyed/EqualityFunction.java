@@ -12,11 +12,11 @@ public class EqualityFunction extends KeyedFunction {
     }
 
     @Override
-    public Double calcSeries(List<Double> series) {
-        double value0 = series.get(0);
+    public Double calcSeries(List<Double[]> series, int idx) {
+        double value0 = series.get(0)[idx];
 
         for (int i = 1; i < series.size(); i++) {
-            double value1 = series.get(i);
+            double value1 = series.get(i)[idx];
 
             if (_const == null) {
                 if (Double.compare(value0, value1) != 0) {

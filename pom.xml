@@ -4,7 +4,7 @@
 
     <groupId>ash.nazg</groupId>
     <artifactId>OneRing</artifactId>
-    <version>2.9.0</version>
+    <version>2.10.0</version>
     <name>One Ring Spark Modules root</name>
     <url>http://github.com/PastorGL/one-ring-oss</url>
     <packaging>pom</packaging>
@@ -12,6 +12,7 @@
     <modules>
         <module>Commons</module>
         <module>Columnar</module>
+        <module>Spatial</module>
         <module>DateTime</module>
         <module>Geohashing</module>
         <module>Math</module>
@@ -19,9 +20,9 @@
         <module>Proximity</module>
         <module>SimpleFilters</module>
         <module>CLI</module>
-        <module>Dist</module>
-        <module>RESTCommons</module>
-        <module>REST</module>
+<!--        <module>Dist</module>-->
+<!--        <module>RESTCommons</module>-->
+<!--        <module>REST</module>-->
     </modules>
 
     <properties>

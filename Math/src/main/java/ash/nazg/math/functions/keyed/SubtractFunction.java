@@ -7,16 +7,16 @@ package ash.nazg.math.functions.keyed;
 import java.util.List;
 
 public class SubtractFunction extends KeyedFunction {
-    public SubtractFunction(Double _const) {
-        super(_const);
+    public SubtractFunction(Double shift) {
+        super(shift);
     }
 
     @Override
-    public Double calcSeries(List<Double> series) {
-        double result = series.remove(0);
+    public Double calcSeries(List<Double[]> series, int idx) {
+        double result = series.remove(0)[idx];
 
-        for (Double value : series) {
-            result -= value;
+        for (Double[] value : series) {
+            result -= value[idx];
         }
 
         return (_const != null) ? (result - _const) : result;

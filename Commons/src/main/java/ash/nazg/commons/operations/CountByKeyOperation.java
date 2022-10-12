@@ -4,32 +4,32 @@
  */
 package ash.nazg.commons.operations;
 
-import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.metadata.OperationMeta;
-import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
-import ash.nazg.spark.Operation;
+import ash.nazg.metadata.Origin;
+import ash.nazg.metadata.OperationMeta;
+import ash.nazg.metadata.PositionalStreamsMetaBuilder;
+import ash.nazg.data.DataStream;
+import ash.nazg.data.Columnar;
+import ash.nazg.data.StreamType;
+import ash.nazg.scripting.Operation;
+import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaPairRDD;
-import org.apache.spark.api.java.JavaRDDLike;
 import scala.Tuple2;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 @SuppressWarnings("unused")
 public class CountByKeyOperation extends Operation {
-    private String inputName;
-
-    private String outputName;
+    static final String GEN_COUNT = "_count";
 
     @Override
     public OperationMeta meta() {
-        return new OperationMeta("countByKey", "Count values under the same key in a given PairRDD. Output is key to Long count PairRDD.",
+        return new OperationMeta("countByKey", "Count values under the same key in a given KeyValue DataStream." +
+                " Output is key to Long count KeyValue DataStream",
 
                 new PositionalStreamsMetaBuilder()
-                        .ds("Pair RDD to count values under each unique key",
+                        .input("KeyValue DataStream to count values under each unique key",
                                 new StreamType[]{StreamType.KeyValue}
                         )
                         .build(),
@@ -37,32 +37,24 @@ public class CountByKeyOperation extends Operation {
                 null,
 
                 new PositionalStreamsMetaBuilder()
-                        .ds("Pair RDD with unique keys and count of values of input RDD under each",
-                                new StreamType[]{StreamType.KeyValue}
+                        .output("KeyValue DataStream with unique keys and count of values of input DataStream under each",
+                                new StreamType[]{StreamType.KeyValue}, Origin.GENERATED, null
                         )
+                        .generated(GEN_COUNT, "Count of key appearances in the source DataStream")
                         .build()
         );
     }
 
     @Override
-    public void configure() throws InvalidConfigValueException {
-        inputName = opResolver.positionalInput(0);
-        outputName = opResolver.positionalOutput(0);
-    }
-
-    @Override
     @SuppressWarnings("unchecked")
-    public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
-        JavaPairRDD<Object, Long> out = ((JavaPairRDD<Object, Object>) input.get(inputName))
-                .mapPartitionsToPair(it -> {
-                    List<Tuple2<Object, Long>> ret = new ArrayList<>();
-                    while (it.hasNext()) {
-                        ret.add(new Tuple2<>(it.next()._1, 1L));
-                    }
-                    return ret.iterator();
-                })
-                .reduceByKey(Long::sum);
+    public Map<String, DataStream> execute() {
+        final List<String> indices = Collections.singletonList(GEN_COUNT);
 
-        return Collections.singletonMap(outputName, out);
+        JavaPairRDD<Text, Columnar> count = ((JavaPairRDD<Text, Object>) inputStreams.getValue(0).get())
+                .mapToPair(t -> new Tuple2<>(t._1, 1L))
+                .reduceByKey(Long::sum)
+                .mapToPair(t -> new Tuple2<>(t._1, new Columnar(indices, new Object[]{t._2})));
+
+        return Collections.singletonMap(outputStreams.firstKey(), new DataStream(StreamType.Columnar, count, Collections.singletonMap("value", indices)));
     }
 }

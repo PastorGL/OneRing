@@ -1,0 +1,5 @@
+CREATE signals (@path='datasets/signals.csv');
+
+TRANSFORM signals textToColumnar(@delimiter=',') VALUE (id,userid,timestamp,lat,lon);
+
+CALL timezone(@source.ts.column=timestamp,@"source.tz.default"='Europe/Samara',@"dest.tz.default"='GMT') INPUT signals OUTPUT signals_output;
