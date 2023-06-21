@@ -4,62 +4,36 @@
  */
 package ash.nazg.datetime;
 
-import ash.nazg.spark.TestRunner;
-import com.opencsv.CSVParser;
-import com.opencsv.CSVParserBuilder;
-import org.apache.hadoop.io.Text;
+import ash.nazg.data.Columnar;
+import ash.nazg.scripting.TestRunner;
+import org.apache.spark.api.java.JavaRDDLike;
 import org.junit.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.Assert.*;
 
 public class FilterByDateOperationTest {
     @Test
-    public void filterByDateTest() throws Exception {
-        try (TestRunner underTest = new TestRunner("/test.filterByDate.properties")) {
+    public void filterByDateTest() {
+        try (TestRunner underTest = new TestRunner("/test.filterByDate.tdl")) {
+            Map<String, JavaRDDLike> result = underTest.go();
 
-            List<Text> result = underTest.go().get("filtered").collect();
+            long tsDataCount = result.get("ts_data").count();
 
-            assertTrue(0 < result.size());
-            assertTrue(underTest.go().get("ts_data").count() > result.size());
+            List<Columnar> filtered = result.get("tod").collect();
 
-            CSVParser parser = new CSVParserBuilder().withSeparator(',').build();
+            assertTrue(0 < filtered.size());
+            assertTrue(tsDataCount > filtered.size());
 
-            List<String> months = Arrays.asList("2", "4", "6", "8", "12");
+            List<String> months = Arrays.asList("7", "8");
 
-            for (Text t : result) {
-                String[] ll = parser.parseLine(String.valueOf(t));
-
-                assertNotEquals("2017", ll[9]);
-                assertFalse(months.contains(ll[8]));
+            for (Columnar t : filtered) {
+                assertEquals(2016, t.asInt("year").intValue());
+                assertTrue(months.contains(t.asString("month")));
             }
-
-
-        }
-    }
-
-    @Test
-    public void filterByTimeOfDayTest() throws Exception {
-        try (TestRunner underTest = new TestRunner("/test.filterByDate.properties")) {
-
-            List<Text> result = underTest.go().get("tod").collect();
-
-            assertTrue(0 < result.size());
-            assertTrue(underTest.go().get("ts_data").count() > result.size());
-
-            CSVParser parser = new CSVParserBuilder().withSeparator(',').build();
-
-            List<String> hours = Arrays.asList("8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19");
-
-            for (Text t : result) {
-                String[] ll = parser.parseLine(String.valueOf(t));
-
-                assertFalse(hours.contains(ll[10]));
-            }
-
-
         }
     }
 }

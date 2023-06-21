@@ -4,7 +4,7 @@
  */
 package ash.nazg.rest.endpoints;
 
-import ash.nazg.spark.Operations;
+import ash.nazg.scripting.Operations;
 import ash.nazg.storage.Adapters;
 
 import javax.validation.constraints.NotEmpty;

@@ -4,10 +4,11 @@
  */
 package ash.nazg.geohashing.operations;
 
-import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
-import ash.nazg.config.tdl.metadata.OperationMeta;
-import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
+import ash.nazg.metadata.DefinitionMetaBuilder;
+import ash.nazg.metadata.OperationMeta;
+import ash.nazg.metadata.Origin;
+import ash.nazg.metadata.PositionalStreamsMetaBuilder;
+import ash.nazg.data.StreamType;
 import ash.nazg.geohashing.functions.H3Function;
 import ash.nazg.geohashing.functions.HasherFunction;
 
@@ -21,23 +22,25 @@ public class H3Operation extends GeohashingOperation {
                 " Uber H3 hash with a selected level",
 
                 new PositionalStreamsMetaBuilder()
-                        .ds("CSV RDD with coordinates",
-                                new StreamType[]{StreamType.CSV}, true
+                        .input("Columnar or Point DataStream with coordinates to hash",
+                                new StreamType[]{StreamType.Columnar, StreamType.Point}
                         )
                         .build(),
 
                 new DefinitionMetaBuilder()
-                        .def(DS_LAT_COLUMN, "Column with latitude, degrees")
-                        .def(DS_LON_COLUMN, "Column with longitude, degrees")
-                        .def(OP_HASH_LEVEL, "Level of the hash", Integer.class,
+                        .def(LAT_COLUMN, "For a Columnar DataStream only, column with latitude, degrees",
+                                DEF_CENTER_LAT, "By default, '" + DEF_CENTER_LAT + "'")
+                        .def(LON_COLUMN, "For a Columnar DataStream only, column with longitude, degrees",
+                                DEF_CENTER_LON, "By default, '" + DEF_CENTER_LON + "'")
+                        .def(HASH_LEVEL, "Level of the hash", Integer.class,
                                 getDefaultLevel() + "", "Default hash level")
                         .build(),
 
                 new PositionalStreamsMetaBuilder()
-                        .ds("CSV RDD with coordinates' H3 hash",
-                                new StreamType[]{StreamType.CSV}, true
+                        .output("DataStream with hashed with coordinates",
+                                new StreamType[]{StreamType.Columnar, StreamType.Point}, Origin.AUGMENTED, null
                         )
-                        .genCol(GEN_HASH, "Column with a generated H3 hash hexadecimal string")
+                        .generated(GEN_HASH, "Property with a generated H3 hash hexadecimal string")
                         .build()
         );
     }

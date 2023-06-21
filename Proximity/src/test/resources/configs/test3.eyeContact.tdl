@@ -1,0 +1,17 @@
+CREATE typed(@path='datasets/eye_signals',@part_count=4);
+TRANSFORM typed textToColumnar VALUE(lat,lon,userid,timestamp);
+
+CREATE pois (@path='datasets/poi_2_with_duplicates');
+TRANSFORM pois textToColumnar VALUE (id,azimuth,radius,viewing_angle,lat,lon);
+TRANSFORM pois columnarToPoint(@lon.column=lon,@lat.column=lat,@radius.column=radius);
+
+TRANSFORM typed columnarToTrack(
+@userid.column=userid,
+@lat.column=lat,
+@lon.column=lon,
+@ts.column=timestamp);
+
+CALL eyeContact(
+@angle.prop=viewing_angle,
+@azimuth.prop=azimuth)
+     INPUT pois FROM pois, tracks FROM typed OUTPUT result;

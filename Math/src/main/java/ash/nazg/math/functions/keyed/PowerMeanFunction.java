@@ -7,16 +7,16 @@ package ash.nazg.math.functions.keyed;
 import java.util.List;
 
 public class PowerMeanFunction extends KeyedFunction {
-    public PowerMeanFunction(double pow) {
+    public PowerMeanFunction(Double pow) {
         super(pow);
     }
 
     @Override
-    public Double calcSeries(List<Double> series) {
+    public Double calcSeries(List<Double[]> series, int idx) {
         double result = 0.D;
 
-        for (Double value: series) {
-            result += Math.pow(value, _const);
+        for (Double[] value : series) {
+            result += Math.pow(value[idx], _const);
         }
 
         return Math.pow(result / series.size(), 1.D / _const);

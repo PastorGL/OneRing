@@ -7,16 +7,16 @@ package ash.nazg.math.functions.keyed;
 import java.util.List;
 
 public class DivFunction extends KeyedFunction {
-    public DivFunction(Double _const) {
-        super(_const);
+    public DivFunction(Double scale) {
+        super(scale);
     }
 
     @Override
-    public Double calcSeries(List<Double> series) {
-        double result = series.remove(0);
+    public Double calcSeries(List<Double[]> series, int idx) {
+        double result = series.remove(0)[idx];
 
-        for (Double value : series) {
-            result /= value;
+        for (Double[] value : series) {
+            result /= value[idx];
         }
 
         return (_const != null) ? (result / _const) : result;

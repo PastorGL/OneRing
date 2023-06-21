@@ -4,36 +4,33 @@
  */
 package ash.nazg.math;
 
-import ash.nazg.spark.TestRunner;
-import org.apache.hadoop.io.Text;
+import ash.nazg.data.Columnar;
+import ash.nazg.scripting.TestRunner;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 import org.junit.Test;
-import scala.Tuple2;
 
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
 
 public class SeriesMathOperationTest {
-
     @Test
-    public void seriesTest() throws Exception {
-        try (TestRunner underTest = new TestRunner("/test.seriesMath.properties")) {
-
+    public void seriesTest() {
+        try (TestRunner underTest = new TestRunner("/test.seriesMath.tdl")) {
             Map<String, JavaRDDLike> ret = underTest.go();
 
-            JavaRDD<Text> resultRDD = (JavaRDD<Text>) ret.get("normalized");
+            List<Columnar> result = ((JavaRDD<Columnar>) ret.get("normalized")).collect();
 
             assertEquals(
                     6,
-                    resultRDD.count()
+                    result.size()
             );
 
-            Map<String, Double> resultMap = resultRDD.mapToPair(t -> {
-                String[] row = t.toString().split(",");
-                return new Tuple2<>(row[0] + "," + row[1], Double.parseDouble(row[3]));
-            }).collectAsMap();
+            Map<String, Double> resultMap = result.stream()
+                    .collect(Collectors.toMap(t -> t.asString("catid") + "," + t.asString("userid"), t -> t.asDouble("_result")));
 
             assertEquals(
                     81.38744830071273,
@@ -66,17 +63,15 @@ public class SeriesMathOperationTest {
                     1.E-6D
             );
 
-            resultRDD = (JavaRDD<Text>) ret.get("stddev");
+            result = ((JavaRDD<Columnar>) ret.get("stddev")).collect();
 
             assertEquals(
                     6,
-                    resultRDD.count()
+                    result.size()
             );
 
-            resultMap = resultRDD.mapToPair(t -> {
-                String[] row = t.toString().split(",");
-                return new Tuple2<>(row[0] + "," + row[1], Double.parseDouble(row[3]));
-            }).collectAsMap();
+            resultMap = result.stream()
+                    .collect(Collectors.toMap(t -> t.asString("catid") + "," + t.asString("userid"), t -> t.asDouble("_result")));
 
             assertEquals(
                     0.49925794982803673,
@@ -108,8 +103,6 @@ public class SeriesMathOperationTest {
                     resultMap.get("237,cd27220b-11e9-4d00-b914-eb567d4df6e7"),
                     1.E-6D
             );
-
-
         }
     }
 }

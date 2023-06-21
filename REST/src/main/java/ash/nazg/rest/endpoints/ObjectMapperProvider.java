@@ -4,7 +4,6 @@
  */
 package ash.nazg.rest.endpoints;
 
-import ash.nazg.config.tdl.TDLObjectMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import javax.ws.rs.ext.ContextResolver;

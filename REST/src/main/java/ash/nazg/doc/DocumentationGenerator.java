@@ -4,15 +4,11 @@
  */
 package ash.nazg.doc;
 
-import ash.nazg.commons.operations.MapToPairOperation;
 import ash.nazg.config.RegisteredPackages;
 import ash.nazg.config.tdl.Constants;
-import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.TaskDefinitionLanguage;
 import ash.nazg.config.tdl.metadata.*;
-import ash.nazg.spark.OperationInfo;
-import ash.nazg.spark.Operations;
-import ash.nazg.spatial.config.ConfigurationParameters;
+import ash.nazg.scripting.OperationInfo;
+import ash.nazg.scripting.Operations;
 import ash.nazg.storage.Adapters;
 import org.apache.velocity.Template;
 import org.apache.velocity.VelocityContext;
@@ -118,7 +114,7 @@ public class DocumentationGenerator {
                     if ((named != null) && !named.isEmpty()) {
                         columns.addAll(named);
                     } else {
-                        columns.add("<* A list of columns *>");
+                        columns.add("<* A list of attributes *>");
                     }
                 }
 
@@ -143,7 +139,7 @@ public class DocumentationGenerator {
                     if ((named != null) && !named.isEmpty()) {
                         columns.addAll(named);
                     } else {
-                        columns.add("<* A list of columns *>");
+                        columns.add("<* A list of attributes *>");
                     }
                 }
 
@@ -166,7 +162,7 @@ public class DocumentationGenerator {
                 if (pOutput.streams.generated.size() > 0) {
                     columns.addAll(pOutput.streams.generated.keySet());
                 } else {
-                    columns.add("<* A list of columns from input(s) goes here *>");
+                    columns.add("<* A list of attributes from input(s) goes here *>");
                 }
             }
 
@@ -187,7 +183,7 @@ public class DocumentationGenerator {
                     if (nsDesc.generated.size() > 0) {
                         columns.addAll(nsDesc.generated.keySet());
                     } else {
-                        columns.add("<* A list of columns from input(s) goes here *>");
+                        columns.add("<* A list of attributes from input(s) goes here *>");
                     }
                 }
 
@@ -232,9 +228,9 @@ public class DocumentationGenerator {
                 src.input.positional = "source_" + dsNum;
                 src.output.positional = name;
                 src.definitions = TaskDefinitionLanguage.createDefinitions(task);
-                src.definitions.put(ConfigurationParameters.DS_CSV_RADIUS_COLUMN, "source_" + dsNum + ".radius");
-                src.definitions.put(ConfigurationParameters.DS_CSV_LAT_COLUMN, "source_" + dsNum + ".lat");
-                src.definitions.put(ConfigurationParameters.DS_CSV_LON_COLUMN, "source_" + dsNum + ".lon");
+                src.definitions.put("radius.column", "source_" + dsNum + ".radius");
+                src.definitions.put("lat.column", "source_" + dsNum + ".lat");
+                src.definitions.put("lon.column", "source_" + dsNum + ".lon");
 
                 task.items.add(src);
 
@@ -335,7 +331,7 @@ public class DocumentationGenerator {
                 toPair.input.positional = name + "_0";
                 toPair.output.positional = name;
                 toPair.definitions = TaskDefinitionLanguage.createDefinitions(task);
-                toPair.definitions.put(MapToPairOperation.OP_KEY_COLUMNS, name + "_0.key");
+//                toPair.definitions.put(MapToPairOperation.OP_KEY_COLUMNS, name + "_0.key");
 
                 task.items.add(toPair);
 

@@ -4,98 +4,117 @@
  */
 package ash.nazg.populations.operations;
 
-import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
-import ash.nazg.config.tdl.metadata.OperationMeta;
-import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
-import ash.nazg.populations.functions.CountUniquesFunction;
-import com.opencsv.CSVWriter;
-import org.apache.hadoop.io.Text;
+import ash.nazg.config.InvalidConfigurationException;
+import ash.nazg.metadata.DefinitionMetaBuilder;
+import ash.nazg.metadata.OperationMeta;
+import ash.nazg.metadata.Origin;
+import ash.nazg.metadata.PositionalStreamsMetaBuilder;
+import ash.nazg.data.Columnar;
+import ash.nazg.data.DataStream;
+import ash.nazg.data.StreamType;
+import ash.nazg.scripting.Operation;
 import org.apache.spark.api.java.JavaPairRDD;
-import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.JavaRDDLike;
 import scala.Tuple2;
 
-import java.io.StringWriter;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-
-import static ash.nazg.populations.config.ConfigurationParameters.DS_COUNT_COLUMN;
-import static ash.nazg.populations.config.ConfigurationParameters.DS_VALUE_COLUMN;
+import java.util.*;
 
 @SuppressWarnings("unused")
-public class CountUniquesOperation extends PopulationIndicatorOperation {
+public class CountUniquesOperation extends Operation {
+    static final String COUNT_COLUMNS = "count.columns";
+
+    protected String[] countColumns;
+
     @Override
     public OperationMeta meta() {
-        return new OperationMeta("countUniques", "Statistical indicator for counting unique values in a column per some other column",
+        return new OperationMeta("countUniques", "Statistical indicator for counting unique values in each of selected" +
+                " columns of KeyValue DataStream per each unique key",
 
                 new PositionalStreamsMetaBuilder()
-                        .ds("",
-                                new StreamType[]{StreamType.CSV}, true
+                        .input("KeyValue DataStream to count uniques per key",
+                                new StreamType[]{StreamType.KeyValue}
                         )
                         .build(),
 
                 new DefinitionMetaBuilder()
-                        .def(DS_COUNT_COLUMN, "Column to count unique values of other column")
-                        .def(DS_VALUE_COLUMN, "Column for counting unique values per other column")
+                        .def(COUNT_COLUMNS, "Columns to count unique values under same keys", String[].class)
                         .build(),
 
                 new PositionalStreamsMetaBuilder()
-                        .ds("",
-                                new StreamType[]{StreamType.Fixed}
+                        .output("KeyValue output DataStream with unique values counts",
+                                new StreamType[]{StreamType.KeyValue}, Origin.GENERATED, null
                         )
+                        .generated("*", "Generated column names are same as source names enumerated in '" + COUNT_COLUMNS + "'")
                         .build()
         );
     }
 
     @Override
-    protected void configure() throws InvalidConfigValueException {
-        super.configure();
-
-        inputValuesName = opResolver.positionalInput(0);
-        inputValuesDelimiter = dsResolver.inputDelimiter(inputValuesName);
-
-        Map<String, Integer> inputColumns = dsResolver.inputColumns(inputValuesName);
-        String prop;
-
-        prop = opResolver.definition(DS_COUNT_COLUMN);
-        countColumn = inputColumns.get(prop);
-
-        prop = opResolver.definition(DS_VALUE_COLUMN);
-        valueColumn = inputColumns.get(prop);
+    protected void configure() throws InvalidConfigurationException {
+        countColumns = params.get(COUNT_COLUMNS);
     }
 
     @SuppressWarnings("rawtypes")
     @Override
-    public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
-        final char _outputDelimiter = outputDelimiter;
+    public Map<String, DataStream> execute() {
+        final List<String> outputColumns = Arrays.asList(countColumns);
+        final int l = countColumns.length;
 
-        JavaPairRDD<Text, Integer> userSetPerGid = new CountUniquesFunction(inputValuesDelimiter, countColumn, valueColumn)
-                .call((JavaRDD<Object>) input.get(inputValuesName));
+        JavaPairRDD<String, Columnar> output = ((JavaPairRDD<String, Columnar>) inputStreams.getValue(0).get())
+                .mapPartitionsToPair(it -> {
+                    List<Tuple2<String, Object[]>> ret = new ArrayList<>();
 
-        JavaRDD<Text> output = userSetPerGid.mapPartitions(it -> {
-            List<Text> ret = new ArrayList<>();
+                    while (it.hasNext()) {
+                        Tuple2<String, Columnar> next = it.next();
 
-            while (it.hasNext()) {
-                Tuple2<Text, Integer> t = it.next();
+                        Object[] value = new Object[l];
+                        for (int i = 0; i < l; i++) {
+                            value[i] = next._2.asIs(outputColumns.get(i));
+                        }
 
-                String[] acc = new String[]{t._1.toString(), Integer.toString(t._2)};
+                        ret.add(new Tuple2<>(next._1, value));
+                    }
 
-                StringWriter buffer = new StringWriter();
-                CSVWriter writer = new CSVWriter(buffer, _outputDelimiter, CSVWriter.DEFAULT_QUOTE_CHARACTER,
-                        CSVWriter.DEFAULT_ESCAPE_CHARACTER, "");
-                writer.writeNext(acc, false);
-                writer.close();
+                    return ret.iterator();
+                })
+                .combineByKey(
+                        t -> {
+                            HashSet[] s = new HashSet[l];
+                            for (int i = 0; i < l; i++) {
+                                s[i] = new HashSet();
+                                s[i].add(t[i]);
+                            }
+                            return s;
+                        },
+                        (c, t) -> {
+                            for (int i = 0; i < l; i++) {
+                                c[i].add(t[i]);
+                            }
+                            return c;
+                        },
+                        (c1, c2) -> {
+                            for (int i = 0; i < l; i++) {
+                                c1[i].addAll(c2[i]);
+                            }
+                            return c1;
+                        }
+                )
+                .mapPartitionsToPair(it -> {
+                    List<Tuple2<String, Columnar>> ret = new ArrayList<>();
 
-                ret.add(new Text(buffer.toString()));
-            }
+                    while (it.hasNext()) {
+                        Tuple2<String, HashSet[]> next = it.next();
 
-            return ret.iterator();
-        });
+                        Object[] r = new Object[l];
+                        for (int i = 0; i < l; i++) {
+                            r[i] = next._2[i].size();
+                        }
 
-        return Collections.singletonMap(outputName, output);
+                        ret.add(new Tuple2<>(next._1, new Columnar(outputColumns, r)));
+                    }
+
+                    return ret.iterator();
+                });
+
+        return Collections.singletonMap(outputStreams.firstKey(), new DataStream(StreamType.KeyValue, output, Collections.singletonMap("value", outputColumns)));
     }
 }

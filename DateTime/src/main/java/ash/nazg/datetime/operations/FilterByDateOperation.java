@@ -4,226 +4,115 @@
  */
 package ash.nazg.datetime.operations;
 
-import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.StreamType;
-import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
-import ash.nazg.config.tdl.metadata.OperationMeta;
-import ash.nazg.config.tdl.metadata.PositionalStreamsMetaBuilder;
-import ash.nazg.datetime.functions.FilterByDateDefinition;
-import ash.nazg.datetime.functions.FilterByDateFunction;
-import ash.nazg.spark.Operation;
+import ash.nazg.config.InvalidConfigurationException;
+import ash.nazg.metadata.DefinitionMetaBuilder;
+import ash.nazg.metadata.OperationMeta;
+import ash.nazg.metadata.Origin;
+import ash.nazg.metadata.PositionalStreamsMetaBuilder;
+import ash.nazg.data.Record;
+import ash.nazg.data.DataStream;
+import ash.nazg.data.DateTime;
+import ash.nazg.data.StreamType;
+import ash.nazg.scripting.Operation;
 import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.JavaRDDLike;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @SuppressWarnings("unused")
 public class FilterByDateOperation extends Operation {
-    public static final String DS_YEAR_COLUMN = "year.column";
-    public static final String DS_MONTH_COLUMN = "month.column";
-    public static final String DS_DATE_COLUMN = "date.column";
-    public static final String DS_DOW_COLUMN = "dow.column";
-    public static final String DS_HOUR_COLUMN = "hour.column";
-    public static final String DS_MINUTE_COLUMN = "minute.column";
-    public static final String OP_START = "start";
-    public static final String OP_END = "end";
-    public static final String OP_DATE_VALUE = "date.value";
-    public static final String OP_YEAR_VALUE = "year.value";
-    public static final String OP_DOW_VALUE = "dow.value";
-    public static final String OP_MONTH_VALUE = "month.value";
-    public static final String OP_HHMM_START = "hhmm.start";
-    public static final String OP_HHMM_END = "hhmm.end";
+    public static final String TS_ATTR = "ts.attr";
+    public static final String START = "start";
+    public static final String END = "end";
 
-    private String inputName;
-    private String outputName;
+    private String dateAttr;
 
-    private FilterByDateDefinition def;
+    private Date start;
+    private Date end;
 
     @Override
     public OperationMeta meta() {
-        return new OperationMeta("filterByDate", "Filter a CSV RDD by exploded timestamp field values (year, month, day of month, day of week)" +
-                " and optionally full date and/or time of day (hours and minutes) range. Multiple filter values are supported, and all fields are optional",
+        return new OperationMeta("filterByDate", "Filter a Columnar or Spatial DataStream by timestamp attribute" +
+                " value between selected dates",
 
                 new PositionalStreamsMetaBuilder()
-                        .ds("",
-                                new StreamType[]{StreamType.CSV}, true
+                        .input("Source Columnar or Spatial DataSteam with timestamp attribute",
+                                new StreamType[]{StreamType.Columnar, StreamType.Point, StreamType.Polygon, StreamType.Track}
                         )
                         .build(),
 
                 new DefinitionMetaBuilder()
-                        .def(DS_YEAR_COLUMN, "Column with year", null, "By default do not filter by year")
-                        .def(DS_MONTH_COLUMN, "Column with month", null, "By default do not filter by month")
-                        .def(DS_DATE_COLUMN, "Column with date of month", null, "By default do not filter by date of month")
-                        .def(DS_DOW_COLUMN, "Column with day of week", null, "By default do not filter by day of week")
-                        .def(DS_HOUR_COLUMN, "Column with hour", null, "By default do not filter by hour")
-                        .def(DS_MINUTE_COLUMN, "Column with minute", null, "By default do not filter by minute")
-                        .def(OP_START, "Start of the range filter", null, "By default do not filter by date range start")
-                        .def(OP_END, "End of the range filter", null, "By default do not filter by date range end")
-                        .def(OP_YEAR_VALUE, "List of year filter values", String[].class, null, "By default do not filter by year")
-                        .def(OP_MONTH_VALUE, "List of month filter values", String[].class, null, "By default do not filter by month")
-                        .def(OP_DATE_VALUE, "List of date filter values", String[].class, null, "By default do not filter by date of month")
-                        .def(OP_DOW_VALUE, "List of day of week filter values", String[].class, null, "By default do not filter by day of week")
-                        .def(OP_HHMM_START, "Starting time of day, exclusive, in HHMM format, in the range of 0000 to 2359", Integer.class, null, "By default do not filter by starting time of day")
-                        .def(OP_HHMM_END, "Ending time of day, inclusive, in HHMM format, in the range of 0000 to 2359", Integer.class, null, "By default do not filter by ending time of day")
+                        .def(TS_ATTR, "Attribute with timestamp in Epoch seconds, milliseconds, or as ISO string")
+                        .def(START, "Start of the date range filter (same format)",
+                                null, "By default do not filter by range start")
+                        .def(END, "End of the date range filter (same format)",
+                                null, "By default do not filter by range end")
                         .build(),
 
                 new PositionalStreamsMetaBuilder()
-                        .ds("",
-                                new StreamType[]{StreamType.Passthru}
+                        .output("Filtered Columnar RDD with exploded timestamp attributes",
+                                new StreamType[]{StreamType.Columnar, StreamType.Point, StreamType.Polygon, StreamType.Track}, Origin.FILTERED, null
                         )
                         .build()
         );
     }
 
     @Override
-    public void configure() throws InvalidConfigValueException {
-        def = new FilterByDateDefinition();
-
-        inputName = opResolver.positionalInput(0);
-        def.inputDelimiter = dsResolver.inputDelimiter(inputName);
-        outputName = opResolver.positionalOutput(0);
-        Map<String, Integer> inputColumns = dsResolver.inputColumns(inputName);
+    public void configure() throws InvalidConfigurationException {
+        dateAttr = params.get(TS_ATTR);
 
         boolean filteringNeeded = false;
 
-        String prop = opResolver.definition(DS_YEAR_COLUMN);
+        String prop = params.get(START);
         if (prop != null && !prop.isEmpty()) {
             filteringNeeded = true;
-            def.yearCol = inputColumns.get(prop);
+            start = DateTime.parseTimestamp(prop);
         }
-        prop = opResolver.definition(DS_MONTH_COLUMN);
+        prop = params.get(END);
         if (prop != null && !prop.isEmpty()) {
             filteringNeeded = true;
-            def.monthCol = inputColumns.get(prop);
-        }
-        prop = opResolver.definition(DS_DATE_COLUMN);
-        if (prop != null && !prop.isEmpty()) {
-            filteringNeeded = true;
-            def.dateCol = inputColumns.get(prop);
-        }
-        prop = opResolver.definition(DS_DOW_COLUMN);
-        if (prop != null && !prop.isEmpty()) {
-            filteringNeeded = true;
-            def.dowCol = inputColumns.get(prop);
-        }
-        prop = opResolver.definition(DS_HOUR_COLUMN);
-        if (prop != null && !prop.isEmpty()) {
-            filteringNeeded = true;
-            def.hourCol = inputColumns.get(prop);
-        }
-        prop = opResolver.definition(DS_MINUTE_COLUMN);
-        if (prop != null && !prop.isEmpty()) {
-            filteringNeeded = true;
-            def.minuteCol = inputColumns.get(prop);
-        }
-
-        prop = opResolver.definition(OP_START);
-        if (prop != null && !prop.isEmpty()) {
-            filteringNeeded = true;
-            def.start = FilterByDateDefinition.parseDate(prop);
-        }
-        prop = opResolver.definition(OP_END);
-        if (prop != null && !prop.isEmpty()) {
-            filteringNeeded = true;
-            def.end = FilterByDateDefinition.parseDate(prop);
-        }
-
-        String[] arr = opResolver.definition(OP_YEAR_VALUE);
-        if (arr != null) {
-            filteringNeeded = true;
-            Calendar c = Calendar.getInstance();
-            Integer lower = null, upper = null;
-            if (def.start != null) {
-                c.setTime(def.start);
-                lower = c.get(Calendar.YEAR);
-            }
-            if (def.end != null) {
-                c.setTime(def.end);
-                upper = c.get(Calendar.YEAR) + 1;
-            }
-
-            def.years = integers(arr, lower, upper);
-        }
-        arr = opResolver.definition(OP_MONTH_VALUE);
-        if (arr != null) {
-            filteringNeeded = true;
-            def.months = integers(arr, 1, 13);
-        }
-        arr = opResolver.definition(OP_DATE_VALUE);
-        if (arr != null) {
-            filteringNeeded = true;
-            def.dates = integers(arr, 1, 32);
-        }
-        arr = opResolver.definition(OP_DOW_VALUE);
-        if (arr != null) {
-            filteringNeeded = true;
-            def.dows = integers(arr, 1, 8);
-        }
-
-        Integer hhmm = opResolver.definition(OP_HHMM_START);
-        if (hhmm != null) {
-            if (hhmm < 0 || hhmm > 2359) {
-                throw new InvalidConfigValueException("Filter by starting time of day for the operation '" + name + "' exceeds the allowed range of 0000 to 2359");
-            }
-            filteringNeeded = true;
-            def.startHHMM = hhmm;
-        }
-        hhmm = opResolver.definition(OP_HHMM_END);
-        if (hhmm != null) {
-            if (hhmm < 0 || hhmm > 2359) {
-                throw new InvalidConfigValueException("Filter by ending time of day for the operation '" + name + "' exceeds the allowed range of 0000 to 2359");
-            }
-            filteringNeeded = true;
-            def.endHHMM = hhmm;
+            end = DateTime.parseTimestamp(prop);
         }
 
         if (!filteringNeeded) {
-            throw new InvalidConfigValueException("Filter by date was not configured for the operation '" + name + "'");
+            throw new InvalidConfigurationException("Filter by date was not configured for the operation '" + meta.verb + "'");
         }
-    }
-
-    private Integer[] integers(String[] intColl, Integer lower, Integer upper) {
-        if (intColl == null) {
-            return null;
-        }
-
-        if (intColl.length > 0) {
-            List<Integer> l = Arrays.stream(intColl).map((String y) -> {
-                try {
-                    return new Integer(String.valueOf(y).trim());
-                } catch (NumberFormatException e) {
-                    return -1;
-                }
-            }).distinct().filter(y -> {
-                boolean fit = y > 0;
-
-                if (upper != null) {
-                    fit = fit && (upper > y);
-                }
-                if (lower != null) {
-                    fit = fit && (lower <= y);
-                }
-
-                return fit;
-            }).collect(Collectors.toList());
-            if (l.size() == 0) {
-                return null;
-            }
-
-            return l.toArray(new Integer[0]);
-        }
-
-        return null;
     }
 
     @SuppressWarnings("rawtypes")
     @Override
-    public Map<String, JavaRDDLike> getResult(Map<String, JavaRDDLike> input) {
-        @SuppressWarnings("unchecked")
-        JavaRDD output = input.get(inputName)
-                .mapPartitions(new FilterByDateFunction(def));
+    public Map<String, DataStream> execute() {
+        final String _col = dateAttr;
+        final Date _start = start;
+        final Date _end = end;
 
-        return Collections.singletonMap(outputName, output);
+        DataStream input = inputStreams.getValue(0);
+        JavaRDD<Object> output = ((JavaRDD<Object>) input.get())
+                .mapPartitions(it -> {
+                    List<Object> ret = new ArrayList<>();
+
+                    Calendar cc = Calendar.getInstance();
+                    while (it.hasNext()) {
+                        Record v = (Record) it.next();
+
+                        boolean matches = true;
+
+                        cc.setTime(DateTime.parseTimestamp(v.asIs(_col)));
+
+                        if (_start != null) {
+                            matches = matches && cc.getTime().after(_start);
+                        }
+                        if (_end != null) {
+                            matches = matches && cc.getTime().before(_end);
+                        }
+
+                        if (matches) {
+                            ret.add(v);
+                        }
+                    }
+
+                    return ret.iterator();
+                });
+
+        return Collections.singletonMap(outputStreams.firstKey(), new DataStream(input.streamType, output, input.accessor.attributes()));
     }
 }

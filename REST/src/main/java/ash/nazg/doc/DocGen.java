@@ -5,11 +5,8 @@
 package ash.nazg.doc;
 
 import ash.nazg.config.RegisteredPackages;
-import ash.nazg.config.tdl.PropertiesWriter;
-import ash.nazg.config.tdl.TDLObjectMapper;
-import ash.nazg.config.tdl.TaskDefinitionLanguage;
-import ash.nazg.spark.OperationInfo;
-import ash.nazg.spark.Operations;
+import ash.nazg.scripting.OperationInfo;
+import ash.nazg.scripting.Operations;
 import ash.nazg.storage.AdapterInfo;
 import ash.nazg.storage.Adapters;
 import com.fasterxml.jackson.core.util.DefaultIndenter;

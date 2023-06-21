@@ -4,10 +4,6 @@
  */
 package ash.nazg.rest.service;
 
-import ash.nazg.config.tdl.PropertiesReader;
-import ash.nazg.config.tdl.PropertiesWriter;
-import ash.nazg.config.tdl.TaskDefinitionLanguage;
-
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.io.StringWriter;

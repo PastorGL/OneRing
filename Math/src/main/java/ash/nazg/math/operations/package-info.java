@@ -6,4 +6,4 @@
         " using row-series, column-series, or aggregating-across functions")
 package ash.nazg.math.operations;
 
-import ash.nazg.config.tdl.RegisteredPackage;
+import ash.nazg.RegisteredPackage;

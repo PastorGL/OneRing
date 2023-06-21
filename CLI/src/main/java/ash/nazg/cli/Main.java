@@ -4,122 +4,152 @@
  */
 package ash.nazg.cli;
 
-import ash.nazg.config.TaskWrapperConfigBuilder;
-import ash.nazg.config.tdl.Constants;
-import ash.nazg.config.tdl.Direction;
-import ash.nazg.config.tdl.LayerResolver;
-import ash.nazg.config.tdl.TaskDefinitionLanguage;
+import ash.nazg.config.InvalidConfigurationException;
+import ash.nazg.data.DataContext;
+import ash.nazg.scripting.*;
+import org.antlr.v4.runtime.CharStream;
+import org.antlr.v4.runtime.CharStreams;
+import org.antlr.v4.runtime.CommonTokenStream;
 import org.apache.commons.cli.ParseException;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.scheduler.SparkListener;
+import org.apache.spark.scheduler.SparkListenerStageCompleted;
+import org.apache.spark.scheduler.StageInfo;
+import org.apache.spark.storage.RDDInfo;
 
-import java.util.HashSet;
+import java.util.*;
+import java.util.stream.Collectors;
+
+import static scala.collection.JavaConverters.seqAsJavaList;
 
 public class Main {
     private static final Logger LOG = Logger.getLogger(Main.class);
+    static final String CLI_NAME = "One Ring Command Line Interface";
 
     /**
      * @param args the command line arguments
      */
     public static void main(String[] args) {
-        TaskWrapperConfigBuilder configBuilder = new TaskWrapperConfigBuilder();
-        configBuilder.addOption("D", "wrapperMetricsPath", true, "Path where to store data stream metrics, if needed");
+        Configuration config = new Configuration();
 
         JavaSparkContext context = null;
         try {
-            configBuilder.setCommandLine(args, "CLI");
+            config.setCommandLine(args, CLI_NAME);
 
             SparkConf sparkConf = new SparkConf()
-                    .setAppName("One Ring CLI")
+                    .setAppName(CLI_NAME)
                     .set("spark.serializer", org.apache.spark.serializer.KryoSerializer.class.getCanonicalName());
 
-            boolean local = configBuilder.hasOption("local");
+            boolean local = config.hasOption("local");
             if (local) {
                 String cores = "*";
-                if (configBuilder.hasOption("localCores")) {
-                    cores = configBuilder.getOptionValue("localCores");
+                if (config.hasOption("localCores")) {
+                    cores = config.getOptionValue("localCores");
                 }
 
                 sparkConf
                         .setMaster("local[" + cores + "]")
                         .set("spark.network.timeout", "10000");
 
-                if (configBuilder.hasOption("driverMemory")) {
-                    sparkConf.set("spark.driver.memory", configBuilder.getOptionValue("driverMemory"));
+                if (config.hasOption("driverMemory")) {
+                    sparkConf.set("spark.driver.memory", config.getOptionValue("driverMemory"));
                 }
-                sparkConf.set("spark.ui.enabled", String.valueOf(configBuilder.hasOption("sparkUI")));
+                sparkConf.set("spark.ui.enabled", String.valueOf(config.hasOption("sparkUI")));
             }
 
             context = new JavaSparkContext(sparkConf);
             context.hadoopConfiguration().set(FileInputFormat.INPUT_DIR_RECURSIVE, Boolean.TRUE.toString());
 
-            TaskDefinitionLanguage.Task config = configBuilder.build(context);
-            configBuilder.foreignLayerVariable(config, "metrics.store", "D");
-
-            String inputPath = null;
-            String outputPath = null;
-
-            if (!local) {
-                TaskDefinitionLanguage.Definitions props = config.foreignLayer(Constants.DIST_LAYER);
-                LayerResolver distResolver = new LayerResolver(props);
-
-                Direction distDirection = Direction.parse(distResolver.get("wrap", "nop"));
-                if (distDirection.toCluster) {
-                    TaskDefinitionLanguage.Definitions inputLayer = config.foreignLayer(Constants.INPUT_LAYER);
-                    new HashSet<>(inputLayer.keySet()).forEach(k -> inputLayer.compute(k, (key, v) -> {
-                        if (key.startsWith(Constants.PATH_PREFIX)) {
-                            return null;
-                        }
-                        return v;
-                    }));
-
-                    config.setForeignLayer(Constants.INPUT_LAYER + "." + Constants.PATH, null);
-                }
-                if (distDirection.fromCluster) {
-                    TaskDefinitionLanguage.Definitions outputLayer = config.foreignLayer(Constants.OUTPUT_LAYER);
-                    new HashSet<>(outputLayer.keySet()).forEach(k -> outputLayer.compute(k, (key, v) -> {
-                        if (key.startsWith(Constants.PATH_PREFIX)) {
-                            return null;
-                        }
-                        return v;
-                    }));
-
-                    config.setForeignLayer(Constants.OUTPUT_LAYER + "." + Constants.PATH, null);
-                }
-            } else {
-                inputPath = config.getForeignValue(Constants.INPUT_LAYER + "." + Constants.PATH);
-                outputPath = config.getForeignValue(Constants.OUTPUT_LAYER + "." + Constants.PATH);
+            ScriptHolder script = config.build(context);
+            if (config.hasOption("D")) {
+                script.setOption("metrics.store", config.getOptionValue("D"));
             }
 
-            if (configBuilder.hasOption("i")) {
-                inputPath = configBuilder.getOptionValue("i");
+            String inputPath = script.options.getString("input.path");
+            String outputPath = script.options.getString("output.path");
+
+            if (config.hasOption("i")) {
+                inputPath = config.getOptionValue("i");
             }
             if (inputPath == null) {
                 inputPath = local ? "." : "hdfs:///input";
-                config.setForeignLayer(Constants.INPUT_LAYER + "." + Constants.PATH, inputPath);
-            }
-            if (local && config.getForeignValue(Constants.INPUT_LAYER + "." + Constants.PATH_PREFIX + Constants.DEFAULT_DS) == null) {
-                config.setForeignLayer(Constants.INPUT_LAYER + "." + Constants.PATH_PREFIX + Constants.DEFAULT_DS, inputPath);
+                script.setOption("input.path", inputPath);
             }
 
-            if (configBuilder.hasOption("o")) {
-                outputPath = configBuilder.getOptionValue("o");
+            if (config.hasOption("o")) {
+                outputPath = config.getOptionValue("o");
             }
             if (outputPath == null) {
                 outputPath = local ? "." : "hdfs:///output";
-                config.setForeignLayer(Constants.OUTPUT_LAYER + "." + Constants.PATH, outputPath);
-            }
-            if (local && config.getForeignValue(Constants.OUTPUT_LAYER + "." + Constants.PATH_PREFIX + Constants.DEFAULT_DS) == null) {
-                config.setForeignLayer(Constants.OUTPUT_LAYER + "." + Constants.PATH_PREFIX + Constants.DEFAULT_DS, outputPath);
+                script.setOption("output.path", outputPath);
             }
 
-            new TaskRunner(context, config)
-                    .go(local);
+            if (config.hasOption("dry")) {
+                CharStream cs = CharStreams.fromString(script.script);
+                TDL4Lexicon lexer = new TDL4Lexicon(cs);
+                TDL4 parser = new TDL4(new CommonTokenStream(lexer));
+
+                TDL4ErrorListener errorListener = new TDL4ErrorListener();
+                parser.addErrorListener(errorListener);
+
+                parser.script();
+
+                if (errorListener.errorCount > 0) {
+                    List<String> errors = new ArrayList<>();
+                    for (int i = 0; i < errorListener.errorCount; i++) {
+                        errors.add("'" + errorListener.messages.get(i) + "' @ " + errorListener.lines.get(i) + ":" + errorListener.positions.get(i));
+                    }
+
+                    throw new InvalidConfigurationException("Invalid TDL4 script: " + errorListener.errorCount + " error(s).\n" +
+                            String.join("\n", errors));
+                } else {
+                    LOG.error("Input TDL4 script syntax check passed");
+                }
+            } else {
+                String wrapperStorePath = script.options.getString("dist.store");
+                if (!local && (wrapperStorePath == null)) {
+                    throw new InvalidConfigurationException("An invocation on the cluster must have wrapper store path set");
+                }
+
+                final Map<String, Long> recordsRead = new HashMap<>();
+                final Map<String, Long> recordsWritten = new HashMap<>();
+
+                context.sc().addSparkListener(new SparkListener() {
+                    @Override
+                    public void onStageCompleted(SparkListenerStageCompleted stageCompleted) {
+                        StageInfo stageInfo = stageCompleted.stageInfo();
+
+                        long rR = stageInfo.taskMetrics().inputMetrics().recordsRead();
+                        long rW = stageInfo.taskMetrics().outputMetrics().recordsWritten();
+                        List<RDDInfo> infos = seqAsJavaList(stageInfo.rddInfos());
+                        List<String> rddNames = infos.stream()
+                                .map(RDDInfo::name)
+                                .filter(Objects::nonNull)
+                                .filter(n -> n.startsWith("one-ring:"))
+                                .collect(Collectors.toList());
+                        if (rR > 0) {
+                            rddNames.forEach(name -> recordsRead.compute(name, (n, r) -> (r == null) ? rR : rR + r));
+                        }
+                        if (rW > 0) {
+                            rddNames.forEach(name -> recordsWritten.compute(name, (n, w) -> (w == null) ? rW : rW + w));
+                        }
+                    }
+                });
+
+                TDL4Interpreter tdl4 = new TDL4Interpreter(script);
+                tdl4.initialize(new DataContext(context));
+                tdl4.interpret();
+
+                LOG.info("One Ring raw physical record statistics");
+                recordsRead.forEach((key, value) -> LOG.info("Input '" + key + "': " + value + " record(s) read"));
+                recordsWritten.forEach((key, value) -> LOG.info("Output '" + key + "': " + value + " records(s) written"));
+            }
         } catch (Exception ex) {
             if (ex instanceof ParseException) {
-                configBuilder.printHelp("CLI");
+                config.printHelp(CLI_NAME);
             } else {
                 LOG.error(ex.getMessage(), ex);
             }

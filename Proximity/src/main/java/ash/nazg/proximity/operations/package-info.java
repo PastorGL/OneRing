@@ -5,4 +5,4 @@
 @RegisteredPackage("Geometric proximity-related filters")
 package ash.nazg.proximity.operations;
 
-import ash.nazg.config.tdl.RegisteredPackage;
+import ash.nazg.RegisteredPackage;

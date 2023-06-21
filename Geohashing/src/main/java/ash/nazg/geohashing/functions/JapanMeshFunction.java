@@ -5,7 +5,6 @@
 package ash.nazg.geohashing.functions;
 
 import org.apache.commons.math3.fraction.Fraction;
-import org.apache.hadoop.io.Text;
 import scala.Tuple2;
 import scala.Tuple3;
 
@@ -13,7 +12,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-public class JapanMeshFunction extends HasherFunction {
+public class JapanMeshFunction<T> extends HasherFunction<T> {
     private final Fraction LAT_HEIGHT_MESH1 = new Fraction(2, 3);
     private final Fraction LNG_WIDTH_MESH1 = new Fraction(1, 1);
     private final Fraction LAT_HEIGHT_MESH2 = LAT_HEIGHT_MESH1.divide(8);
@@ -34,8 +33,8 @@ public class JapanMeshFunction extends HasherFunction {
     /**
      * Calculate code.
      *
-     * @param lon   longitude(decimal)
-     * @param lat   latitude(decimal)
+     * @param lon longitude(decimal)
+     * @param lat latitude(decimal)
      */
     public String getHash(double lat, double lon) {
         String code = "";
@@ -165,12 +164,12 @@ public class JapanMeshFunction extends HasherFunction {
     }
 
     @Override
-    public Iterator<Tuple2<Text, Text>> call(Iterator<Tuple3<Double, Double, Text>> signals) {
-        List<Tuple2<Text, Text>> ret = new ArrayList<>();
+    public Iterator<Tuple2<String, T>> call(Iterator<Tuple3<Double, Double, T>> signals) {
+        List<Tuple2<String, T>> ret = new ArrayList<>();
         while (signals.hasNext()) {
-            Tuple3<Double, Double, Text> signal = signals.next();
+            Tuple3<Double, Double, T> signal = signals.next();
 
-            ret.add(new Tuple2<>(new Text(getHash(signal._1(), signal._2())), signal._3()));
+            ret.add(new Tuple2<>(getHash(signal._1(), signal._2()), signal._3()));
         }
 
         return ret.iterator();
